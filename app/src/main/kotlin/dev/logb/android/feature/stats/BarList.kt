@@ -56,12 +56,13 @@ fun BarList(items: List<Bar>, modifier: Modifier = Modifier, labelWidth: android
                             Icon(if (bar.expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null)
                         }
                     }
-                    Column(Modifier.then(if (bar.onLabel != null) Modifier.clickable { bar.onLabel.invoke() } else Modifier)) {
+                    Row(Modifier.then(if (bar.onLabel != null) Modifier.clickable { bar.onLabel.invoke() } else Modifier), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             bar.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = if (bar.onLabel != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
-                        bar.note?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+                        bar.note?.let { Text(" · $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
                     }
                 }
                 Box(Modifier.weight(1f).padding(horizontal = 8.dp).height(14.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.extraSmall)) {

@@ -71,6 +71,12 @@ private fun syncValueLabel(status: SyncStatus): String? = when (status) {
 @Composable
 fun SettingsHubScreen(onOpen: (SettingsPage) -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    SettingsHubContent(state, onOpen)
+}
+
+/** The hub without its view model. */
+@Composable
+fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit) {
     val language = currentLocale().language
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_settings))

@@ -57,6 +57,12 @@ private fun AuthColumn(content: @Composable () -> Unit) {
 @Composable
 fun ServerScreen(viewModel: ServerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    ServerContent(state, viewModel::onUrlChange, viewModel::submit)
+}
+
+/** The server screen without its view model. */
+@Composable
+fun ServerContent(state: ServerUiState, onUrlChange: (String) -> Unit, onSubmit: () -> Unit) {
     AuthColumn {
         Text(stringResource(R.string.server_title), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
@@ -64,17 +70,17 @@ fun ServerScreen(viewModel: ServerViewModel = hiltViewModel()) {
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = state.url,
-            onValueChange = viewModel::onUrlChange,
+            onValueChange = onUrlChange,
             label = { Text(stringResource(R.string.server_url)) },
             singleLine = true,
             isError = state.error != null,
             supportingText = state.error?.let { { Text(stringResource(R.string.server_unreachable)) } },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { viewModel.submit() }),
+            keyboardActions = KeyboardActions(onGo = { onSubmit() }),
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = viewModel::submit, enabled = !state.checking && state.url.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = onSubmit, enabled = !state.checking && state.url.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
             if (state.checking) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.server_continue))
         }
     }

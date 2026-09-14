@@ -70,6 +70,12 @@ class DueListViewModel @Inject constructor(accounts: ActiveAccount) : ViewModel(
 @Composable
 fun DueListScreen(onBack: () -> Unit, onOpen: (String) -> Unit, viewModel: DueListViewModel = hiltViewModel()) {
     val items by viewModel.items.collectAsStateWithLifecycle()
+    DueListContent(items, onBack, onOpen)
+}
+
+/** The screen without its view model; `items` null while loading. */
+@Composable
+fun DueListContent(items: List<DueItem>?, onBack: () -> Unit, onOpen: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.due_title), onBack = onBack)
         val list = items ?: return@Column
