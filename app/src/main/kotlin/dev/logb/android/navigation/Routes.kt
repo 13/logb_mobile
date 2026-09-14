@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ObjectDetail(val uuid: String, val tab: String = "timeline")
 @Serializable data class ObjectForm(val uuid: String? = null, val parentUuid: String? = null)
 @Serializable data class ActivityForm(val objectUuid: String, val uuid: String? = null, val category: String? = null, val doneReminderUuid: String? = null, val title: String? = null, val fromShare: Boolean = false)
-@Serializable data class ReminderForm(val objectUuid: String, val uuid: String? = null)
+@Serializable data class ReminderForm(val objectUuid: String, val uuid: String? = null, val kind: String? = null)
 @Serializable object DueList
 @Serializable object Stats
 @Serializable data class Viewer(val attachmentUuid: String)

@@ -341,4 +341,10 @@
     <string name="sort_changed">Recently changed</string>
     <string name="sort_cost">Highest cost</string>
     <string name="sort_counter">Highest counter</string>
+    <!-- Reading block and skip -->
+    <string name="reminder_last_reading">Last reading %1$s on %2$s</string>
+    <string name="reminder_no_reading">No reading yet</string>
+    <string name="reminder_new_reading">Remind me to log the reading</string>
+    <string name="reminder_skip">Skip this one</string>
+    <string name="reading_warn_implausible">Far more than usual since %1$s. Check for a typo, then save again.</string>
 </resources>

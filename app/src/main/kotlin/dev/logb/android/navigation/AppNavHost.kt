@@ -84,6 +84,8 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                     onLog = { uuid -> nav.navigate(ActivityForm(uuid)) },
                     onEditEntry = { objectUuid, uuid -> nav.navigate(ActivityForm(objectUuid, uuid)) },
                     onAddReminder = { uuid -> nav.navigate(ReminderForm(uuid)) },
+                    onAddReadingReminder = { uuid -> nav.navigate(ReminderForm(uuid, kind = "reading")) },
+                    onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
                     onEditReminder = { objectUuid, uuid -> nav.navigate(ReminderForm(objectUuid, uuid)) },
                     onLogForReminder = { objectUuid, reminderUuid, title -> nav.navigate(ActivityForm(objectUuid, doneReminderUuid = reminderUuid, title = title)) },
                     onAttachment = { uuid -> nav.navigate(Viewer(uuid)) },

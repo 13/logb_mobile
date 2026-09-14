@@ -34,6 +34,11 @@ import dev.logb.android.core.design.theme.LocalWarnColor
 import dev.logb.android.core.domain.ActivityDraft
 import dev.logb.android.core.domain.Validation
 import dev.logb.android.core.format.Parse
+import dev.logb.android.core.format.formatDate
+import dev.logb.android.core.domain.ReadingChecks
+import dev.logb.android.core.domain.ReadingWarning
+import dev.logb.android.core.domain.ReminderRules
+import dev.logb.android.feature.stats.InsightsModel
 import dev.logb.android.core.format.currentLocale
 import dev.logb.android.core.format.formatCounter
 import dev.logb.android.core.sync.Repositories
@@ -52,10 +57,18 @@ data class ReadingFormState(
     val date: String = LocalDate.now().toString(),
     val counter: String = "",
     val currentCounter: Long? = null,
+    val lastReadingDate: String? = null,
+    val ratePerDayMilli: Long? = null,
     val error: String? = null,
     val saved: Boolean = false,
 ) {
-    val lower: Boolean get() = Parse.long(counter)?.let { c -> currentCounter?.let { c < it } } == true
+    val warning: ReadingWarning?
+        get() {
+            val value = Parse.long(counter) ?: return null
+            val date = runCatching { LocalDate.parse(this.date) }.getOrNull() ?: return null
+            return ReadingChecks.readingWarning(value, date, currentCounter, ReminderRules.parseDate(lastReadingDate), ratePerDayMilli)
+        }
+    val lower: Boolean get() = warning == ReadingWarning.Lower
 }
 
 /** A counter reading and nothing else: the quickest entry there is. */
@@ -69,7 +82,9 @@ class ReadingFormViewModel @Inject constructor(accounts: ActiveAccount, private 
     init {
         viewModelScope.launch {
             val obj = db.objectDao().get(route.objectUuid)
-            _state.update { it.copy(unit = obj?.counterUnit, currentCounter = db.objectDao().stats(route.objectUuid).currentCounter) }
+            val stats = db.objectDao().stats(route.objectUuid)
+            val usage = InsightsModel(db).usage(route.objectUuid)
+            _state.update { it.copy(unit = obj?.counterUnit, currentCounter = stats.currentCounter, lastReadingDate = stats.lastReadingDate, ratePerDayMilli = usage?.rateMilli) }
         }
     }
 
@@ -109,6 +124,7 @@ fun ReadingFormScreen(onBack: () -> Unit, viewModel: ReadingFormViewModel = hilt
                     when {
                         err != null -> Text(err)
                         state.lower -> Text(stringResource(R.string.counter_lower_warning, formatCounter(state.currentCounter, state.unit, locale)), color = LocalWarnColor.current)
+                        state.warning == ReadingWarning.Implausible -> Text(stringResource(R.string.reading_warn_implausible, formatDate(state.lastReadingDate ?: "", locale)), color = LocalWarnColor.current)
                         state.currentCounter != null -> Text(stringResource(R.string.counter_current_hint, formatCounter(state.currentCounter, state.unit, locale)))
                     }
                 },

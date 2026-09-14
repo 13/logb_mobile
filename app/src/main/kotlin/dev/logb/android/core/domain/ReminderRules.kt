@@ -76,6 +76,9 @@ object ReminderRules {
     }
 
     /** Where a snoozed reminder lands: `days` after the later of today and its current due date. */
+    /** The web's `intervalDays`: a reminder's own rhythm in days, clamped to 1..365; a month counts 30. */
+    fun intervalDays(n: Long?, unit: String?): Long = ((n ?: 1) * (if (unit == "week") 7 else 30)).coerceIn(1, 365)
+
     fun snoozedDate(today: LocalDate, current: LocalDate?, days: Long): LocalDate {
         val base = if (current != null && current > today) current else today
         return base.plusDays(days.coerceAtLeast(0))

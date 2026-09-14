@@ -75,6 +75,12 @@ class ReminderRepository(private val db: LogbDatabase, private val writer: Local
         onWrite()
     }
 
+    /** *Skip this one*: the web's snooze by the reminder's own interval, never a done. */
+    suspend fun skip(uuid: String, today: LocalDate = LocalDate.now()) {
+        val r = db.reminderDao().get(uuid) ?: return
+        snooze(uuid, ReminderRules.intervalDays(r.everyN, r.everyUnit), today)
+    }
+
     suspend fun unsnooze(uuid: String) {
         val r = db.reminderDao().get(uuid) ?: return
         writer.set("reminder", uuid, mapOf("snoozed_until" to null)) { db.reminderDao().upsert(r.copy(snoozedUntil = null)) }

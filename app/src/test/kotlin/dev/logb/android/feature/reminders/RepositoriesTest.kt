@@ -47,6 +47,17 @@ class RepositoriesTest {
     }
 
     @Test
+    fun `skip snoozes by the reminder's own interval, a month when it has none`() = runTest {
+        db.objectDao().upsert(obj("o", "Golf"))
+        db.reminderDao().upsert(rem("weekly", "o", dueDate = "2026-09-10").copy(kind = "reading", everyN = 2, everyUnit = "week"), rem("plain", "o", dueDate = "2026-09-10"))
+        val repo = ReminderRepository(db, writer)
+        repo.skip("weekly", today)
+        assertEquals("2026-09-28", db.reminderDao().get("weekly")!!.snoozedUntil, "14 days after today")
+        repo.skip("plain", today)
+        assertEquals("2026-10-14", db.reminderDao().get("plain")!!.snoozedUntil, "30 days")
+    }
+
+    @Test
     fun `snooze lands after the later of today and the due date, unsnooze clears it`() = runTest {
         db.objectDao().upsert(obj("golf", "Golf", serverId = 4))
         db.reminderDao().upsert(rem("r1", "golf", dueDate = "2026-06-01").copy(serverId = 9))

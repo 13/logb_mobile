@@ -82,7 +82,7 @@ data class ReminderFormState(
 class ReminderFormViewModel @Inject constructor(accounts: ActiveAccount, private val repos: Repositories, savedState: SavedStateHandle) : ViewModel() {
     private val route: ReminderForm = savedState.toRoute()
     private val db = accounts.db
-    private val _state = MutableStateFlow(ReminderFormState(editing = route.uuid != null))
+    private val _state = MutableStateFlow(ReminderFormState(editing = route.uuid != null, kind = route.kind ?: ReminderRules.KIND_SERVICE))
     val state: StateFlow<ReminderFormState> = _state.asStateFlow()
 
     init {

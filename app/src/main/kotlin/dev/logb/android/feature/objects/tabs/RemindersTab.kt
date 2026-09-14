@@ -1,6 +1,7 @@
 package dev.logb.android.feature.objects.tabs
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -56,6 +57,9 @@ data class ReminderActions(
     val onSnooze: (String, Long) -> Unit,
     val onUnsnooze: (String) -> Unit,
     val onDelete: (String) -> Unit,
+    val onSkip: (String) -> Unit = {},
+    val onRecordReading: () -> Unit = {},
+    val onAddReadingReminder: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,6 +71,7 @@ fun RemindersTab(state: ObjectDetailUiState, counterUnit: String?, actions: Remi
     var deleteFor by remember { mutableStateOf<ReminderView?>(null) }
     LazyColumn(contentPadding = PaddingValues(16.dp), modifier = Modifier.fillMaxSize()) {
         if (actions != null) item { OutlinedButton(onClick = actions.onAdd, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.reminder_new)) } }
+        if (actions != null && counterUnit != null) item { ReadingBlock(state, counterUnit, actions) }
         if (state.loaded && state.openReminders.isEmpty() && state.doneReminders.isEmpty()) {
             item { EmptyState(icon = rememberVectorPainter(Icons.Outlined.Notifications), title = stringResource(R.string.reminders_empty), body = stringResource(R.string.reminders_empty_body)) }
         }
@@ -124,6 +129,26 @@ fun RemindersTab(state: ObjectDetailUiState, counterUnit: String?, actions: Remi
     }
 }
 
+/** The web's reading block: where the counter stands, a way to record it, and the reading reminder when none exists. */
+@Composable
+private fun ReadingBlock(state: ObjectDetailUiState, counterUnit: String, actions: ReminderActions) {
+    val locale = currentLocale()
+    val stats = state.stats
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Text(
+            if (stats?.currentCounter != null && stats.lastReadingDate != null) stringResource(R.string.reminder_last_reading, formatCounter(stats.currentCounter, counterUnit, locale), formatDate(stats.lastReadingDate, locale))
+            else stringResource(R.string.reminder_no_reading),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = actions.onRecordReading) { Text(stringResource(R.string.reading_new)) }
+            if (state.openReminders.none { it.reminder.kind == ReminderRules.KIND_READING }) {
+                TextButton(onClick = actions.onAddReadingReminder) { Text(stringResource(R.string.reminder_new_reading)) }
+            }
+        }
+    }
+}
+
 @Composable
 fun reminderSubtitle(v: ReminderView, counterUnit: String?, today: LocalDate = LocalDate.now()): String {
     val locale = currentLocale()
@@ -157,6 +182,7 @@ private fun ReminderRow(v: ReminderView, counterUnit: String?, actions: Reminder
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             if (r.doneAt == null && r.kind == ReminderRules.KIND_SERVICE) DropdownMenuItem(text = { Text(stringResource(R.string.reminder_done)) }, onClick = { menu = false; onDoneRequest() })
             if (r.doneAt == null && !snoozed) DropdownMenuItem(text = { Text(stringResource(R.string.reminder_snooze)) }, onClick = { menu = false; onSnoozeRequest() })
+            if (r.doneAt == null && v.due) DropdownMenuItem(text = { Text(stringResource(R.string.reminder_skip)) }, onClick = { menu = false; actions?.onSkip?.invoke(r.uuid) })
             if (r.doneAt == null && snoozed) DropdownMenuItem(text = { Text(stringResource(R.string.reminder_unsnooze)) }, onClick = { menu = false; actions?.onUnsnooze?.invoke(r.uuid) })
             if (r.doneAt == null) DropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, onClick = { menu = false; actions?.onEdit?.invoke(r.uuid) })
             DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = { menu = false; onDeleteRequest() })

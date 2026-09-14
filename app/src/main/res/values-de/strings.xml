@@ -341,4 +341,10 @@
     <string name="sort_changed">Zuletzt geändert</string>
     <string name="sort_cost">Höchste Kosten</string>
     <string name="sort_counter">Höchster Zählerstand</string>
+    <!-- Reading block and skip -->
+    <string name="reminder_last_reading">Letzter Stand %1$s am %2$s</string>
+    <string name="reminder_no_reading">Noch kein Zählerstand</string>
+    <string name="reminder_new_reading">An den Zählerstand erinnern</string>
+    <string name="reminder_skip">Diesmal überspringen</string>
+    <string name="reading_warn_implausible">Weit mehr als üblich seit %1$s. Auf Tippfehler prüfen, dann erneut speichern.</string>
 </resources>
