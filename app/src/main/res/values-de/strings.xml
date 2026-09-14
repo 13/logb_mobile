@@ -20,9 +20,33 @@
     <string name="hide_password">Passwort verbergen</string>
     <string name="sign_in">Anmelden</string>
     <string name="change_server">Ändern</string>
-    <string name="signed_in_as">Angemeldet als %1$s</string>
     <string name="sign_out">Abmelden</string>
     <string name="bootstrap_title">Dein Logbuch wird geladen…</string>
     <string name="bootstrap_failed">Dein Logbuch konnte nicht geladen werden</string>
     <string name="retry">Erneut versuchen</string>
+    <string name="nav_objects">Objekte</string>
+    <string name="nav_search">Suche</string>
+    <string name="nav_settings">Einstellungen</string>
+    <string name="filter_archived">Archiviert</string>
+    <string name="objects_empty">Noch keine Objekte</string>
+    <string name="objects_empty_archived">Nichts archiviert</string>
+    <string name="objects_empty_body">Ein Auto, ein E-Bike, ein Haus, ein Werkzeug: alles, dessen Geschichte es wert ist, festgehalten zu werden.</string>
+    <string name="last_entry">Letzter Eintrag %1$s</string>
+    <string name="no_entries_yet">Noch keine Einträge</string>
+    <plurals name="reminders_due">
+        <item quantity="one">%d Erinnerung fällig</item>
+        <item quantity="other">%d Erinnerungen fällig</item>
+    </plurals>
+    <string name="sync_synced">Synchronisiert %1$s</string>
+    <string name="sync_syncing">Synchronisiere…</string>
+    <string name="sync_offline">Offline</string>
+    <string name="sync_offline_pending">Offline · %1$s</string>
+    <string name="sync_failed">Server nicht erreichbar</string>
+    <plurals name="sync_waiting">
+        <item quantity="one">%d Änderung wartet</item>
+        <item quantity="other">%d Änderungen warten</item>
+    </plurals>
+    <string name="time_just_now">gerade eben</string>
+    <string name="time_minutes_ago">vor %1$d Min.</string>
+    <string name="time_hours_ago">vor %1$d Std.</string>
 </resources>

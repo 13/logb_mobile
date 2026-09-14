@@ -20,9 +20,33 @@
     <string name="hide_password">Hide password</string>
     <string name="sign_in">Sign in</string>
     <string name="change_server">Change</string>
-    <string name="signed_in_as">Signed in as %1$s</string>
     <string name="sign_out">Sign out</string>
     <string name="bootstrap_title">Getting your logbook…</string>
     <string name="bootstrap_failed">Could not fetch your logbook</string>
     <string name="retry">Retry</string>
+    <string name="nav_objects">Objects</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_settings">Settings</string>
+    <string name="filter_archived">Archived</string>
+    <string name="objects_empty">No objects yet</string>
+    <string name="objects_empty_archived">Nothing archived</string>
+    <string name="objects_empty_body">A car, an e-bike, a home, a tool: anything whose history is worth keeping.</string>
+    <string name="last_entry">Last entry %1$s</string>
+    <string name="no_entries_yet">No entries yet</string>
+    <plurals name="reminders_due">
+        <item quantity="one">%d reminder due</item>
+        <item quantity="other">%d reminders due</item>
+    </plurals>
+    <string name="sync_synced">Synced %1$s</string>
+    <string name="sync_syncing">Syncing…</string>
+    <string name="sync_offline">Offline</string>
+    <string name="sync_offline_pending">Offline · %1$s</string>
+    <string name="sync_failed">Could not reach the server</string>
+    <plurals name="sync_waiting">
+        <item quantity="one">%d change waiting</item>
+        <item quantity="other">%d changes waiting</item>
+    </plurals>
+    <string name="time_just_now">just now</string>
+    <string name="time_minutes_ago">%1$d min ago</string>
+    <string name="time_hours_ago">%1$d h ago</string>
 </resources>
