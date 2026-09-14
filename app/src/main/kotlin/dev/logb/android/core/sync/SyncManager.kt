@@ -37,6 +37,13 @@ class SyncManager(
     val status: StateFlow<SyncStatus> = _status.asStateFlow()
     private var debounced: Job? = null
 
+    init {
+        // A connection coming back is the moment queued writes have been waiting for.
+        scope.launch {
+            connectivity.isOnline.collect { online -> if (online && pendingCount() > 0) requestSync(SyncReason.Connectivity) }
+        }
+    }
+
     /** Fire and forget, debounced; the caller does not wait. */
     fun requestSync(reason: SyncReason) {
         val delayMs = if (reason == SyncReason.AfterWrite) debounceMs else 0

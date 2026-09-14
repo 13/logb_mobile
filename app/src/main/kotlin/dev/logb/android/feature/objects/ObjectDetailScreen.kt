@@ -43,7 +43,7 @@ private val TABS = listOf("timeline", "documents", "reminders", "info")
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, viewModel: ObjectDetailViewModel = hiltViewModel()) {
+fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, viewModel: ObjectDetailViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TABS.indexOf(viewModel.route.tab).coerceAtLeast(0)) }
     val locale = currentLocale()
@@ -83,7 +83,7 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, viewModel: 
             "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, thumbUrl = { viewModel.fileUrl(it, thumb = true) })
             "documents" -> DocumentsTab(state, thumbUrl = { viewModel.fileUrl(it, thumb = true) })
             "reminders" -> RemindersTab(state, obj.counterUnit)
-            "info" -> InfoTab(state, onOpen = onOpen)
+            "info" -> InfoTab(state, onOpen = onOpen, onEdit = { onEdit(obj.uuid) }, onAddChild = { onAddChild(obj.uuid) }, onArchive = { viewModel.setArchived(it) }, onDelete = { viewModel.delete(onBack) })
         }
     }
 }

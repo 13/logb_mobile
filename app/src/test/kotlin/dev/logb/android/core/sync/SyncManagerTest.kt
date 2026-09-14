@@ -69,6 +69,16 @@ class SyncManagerTest {
         assertIs<SyncStatus.Offline>(m2.status.value)
     }
 
+    @Test fun `a connection coming back with writes waiting triggers a run`() = runTest {
+        sessions.restore()
+        val connectivity = FakeConnectivity(false)
+        var runs = 0
+        val m = SyncManager(sessions, connectivity, { SyncRunner { runs++ } }, backgroundScope, pendingCount = { 2 }, debounceMs = 0)
+        connectivity.isOnline.value = true
+        kotlinx.coroutines.delay(50)
+        assertEquals(1, runs)
+    }
+
     @Test fun `a server error is failed with its message, and signed out means no runner`() = runTest {
         sessions.restore()
         val m = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw ApiException(500, "internal", "boom") } }, backgroundScope)

@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,21 +54,22 @@ import dev.logb.android.core.format.formatDate
 import dev.logb.android.core.sync.SyncStatus
 
 @Composable
-fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
+fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived)
+    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue)
 }
 
 /** The screen without its view model, so a UI test can hand it a state. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit) {
+fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}) {
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_objects))
         SyncLine(state.sync, onOpenSync)
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
-                if (state.dueCount > 0) item { DueBanner(state.dueCount) }
+                if (state.dueCount > 0) item { DueBanner(state.dueCount, onOpenDue) }
                 item {
                     FilterChip(selected = state.archived, onClick = onToggleArchived, label = { Text(stringResource(R.string.filter_archived)) })
                 }
@@ -80,15 +83,20 @@ fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: 
                     }
                 }
                 items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }) }
+                item { Spacer(Modifier.height(72.dp)) }
             }
         }
+    }
+    FloatingActionButton(onClick = onNew, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+        Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.object_new))
+    }
     }
 }
 
 @Composable
-private fun DueBanner(count: Int) {
+private fun DueBanner(count: Int, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(LocalWarnColor.current.copy(alpha = 0.12f), MaterialTheme.shapes.medium).padding(12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).background(LocalWarnColor.current.copy(alpha = 0.12f), MaterialTheme.shapes.medium).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = LocalWarnColor.current)

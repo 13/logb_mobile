@@ -14,4 +14,4 @@ sealed interface SyncStatus {
     data object SignedOut : SyncStatus
 }
 
-enum class SyncReason { Foreground, Manual, AfterWrite, Periodic }
+enum class SyncReason { Foreground, Manual, AfterWrite, Periodic, Connectivity }

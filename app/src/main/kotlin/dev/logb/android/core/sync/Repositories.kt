@@ -1,5 +1,7 @@
 package dev.logb.android.core.sync
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.feature.entries.ActivityRepository
@@ -10,7 +12,7 @@ import javax.inject.Singleton
 
 /** The write side for whoever is signed in; every write ends in a debounced sync request. */
 @Singleton
-class Repositories @Inject constructor(private val accounts: ActiveAccount, private val syncManager: SyncManager) {
+class Repositories @Inject constructor(@ApplicationContext private val context: Context, private val accounts: ActiveAccount, private val syncManager: SyncManager) {
     private var forDb: LogbDatabase? = null
     private var objects: ObjectRepository? = null
     private var activities: ActivityRepository? = null
@@ -20,7 +22,7 @@ class Repositories @Inject constructor(private val accounts: ActiveAccount, priv
         val db = accounts.db
         if (db === forDb) return
         val writer = LocalWriter(db)
-        val onWrite = { syncManager.requestSync(SyncReason.AfterWrite) }
+        val onWrite = { syncManager.requestSync(SyncReason.AfterWrite); SyncWorker.runWhenConnected(context) }
         objects = ObjectRepository(db, writer, onWrite)
         activities = ActivityRepository(db, writer, onWrite)
         reminders = ReminderRepository(db, writer, onWrite)

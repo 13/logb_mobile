@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -91,7 +92,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
 }
 
 @HiltViewModel
-class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, savedState: SavedStateHandle) : ViewModel() {
+class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, private val repos: dev.logb.android.core.sync.Repositories, savedState: SavedStateHandle) : ViewModel() {
     val route: ObjectDetail = savedState.toRoute()
     private val filter = MutableStateFlow<String?>(null)
     private val model = ObjectDetailModel(accounts.db, route.uuid)
@@ -101,6 +102,10 @@ class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, savedSt
     fun setFilter(category: String?) { filter.value = if (filter.value == category) null else category }
 
     fun fileUrl(serverId: Long?, thumb: Boolean): String? = serverId?.let { accountsRef?.fileUrl(it, thumb) }
+
+    fun setArchived(archived: Boolean) = viewModelScope.launch { repos.objectRepository.setArchived(route.uuid, archived) }
+
+    fun delete(onDone: () -> Unit) = viewModelScope.launch { repos.objectRepository.delete(route.uuid); onDone() }
 
     private val accountsRef = accounts
 }

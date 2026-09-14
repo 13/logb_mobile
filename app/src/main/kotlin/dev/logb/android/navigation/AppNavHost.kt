@@ -9,6 +9,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import dev.logb.android.feature.objects.ObjectFormScreen
 import dev.logb.android.feature.objects.ObjectDetailScreen
 import dev.logb.android.feature.objects.ObjectsScreen
 import dev.logb.android.feature.search.SearchScreen
@@ -42,8 +44,23 @@ fun AppNavHost() {
         },
     ) { padding ->
         NavHost(nav, startDestination = Objects, modifier = Modifier.padding(padding)) {
-            composable<Objects> { ObjectsScreen(onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }) }
-            composable<ObjectDetail> { ObjectDetailScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }) }
+            composable<Objects> { ObjectsScreen(onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) }) }
+            composable<ObjectDetail> {
+                ObjectDetailScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) },
+                    onEdit = { uuid -> nav.navigate(ObjectForm(uuid = uuid)) },
+                    onAddChild = { uuid -> nav.navigate(ObjectForm(parentUuid = uuid)) },
+                )
+            }
+            composable<ObjectForm> { entry ->
+                val editing = entry.toRoute<ObjectForm>().uuid != null
+                ObjectFormScreen(
+                    onBack = { nav.popBackStack() },
+                    onSaved = { uuid -> if (editing) nav.popBackStack() else nav.navigate(ObjectDetail(uuid)) { popUpTo<ObjectForm> { inclusive = true } } },
+                    onDeleted = { nav.popBackStack<Objects>(inclusive = false) },
+                )
+            }
             composable<Search> { SearchScreen(onOpenObject = { uuid -> nav.navigate(ObjectDetail(uuid)) }) }
             composable<Settings> {
                 SettingsHubScreen(onOpen = { page ->
