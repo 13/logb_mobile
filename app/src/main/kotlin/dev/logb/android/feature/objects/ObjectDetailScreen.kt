@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,11 +49,12 @@ private val TABS = listOf("timeline", "documents", "reminders", "info")
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, viewModel: ObjectDetailViewModel = hiltViewModel()) {
+fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, onLog: (String) -> Unit = {}, onEditEntry: (String, String) -> Unit = { _, _ -> }, viewModel: ObjectDetailViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TABS.indexOf(viewModel.route.tab).coerceAtLeast(0)) }
     val locale = currentLocale()
     val obj = state.obj
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = obj?.name ?: "", onBack = onBack)
         if (obj == null) return@Column
@@ -80,10 +87,14 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
             }
         }
         when (TABS[tab]) {
-            "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, thumbUrl = { viewModel.fileUrl(it, thumb = true) })
+            "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, thumbUrl = { viewModel.fileUrl(it, thumb = true) }, onEntry = { onEditEntry(obj.uuid, it) })
             "documents" -> DocumentsTab(state, thumbUrl = { viewModel.fileUrl(it, thumb = true) })
             "reminders" -> RemindersTab(state, obj.counterUnit)
             "info" -> InfoTab(state, onOpen = onOpen, onEdit = { onEdit(obj.uuid) }, onAddChild = { onAddChild(obj.uuid) }, onArchive = { viewModel.setArchived(it) }, onDelete = { viewModel.delete(onBack) })
         }
+    }
+    if (obj != null && TABS[tab] == "timeline") {
+        ExtendedFloatingActionButton(onClick = { onLog(obj.uuid) }, icon = { Icon(Icons.Outlined.Add, contentDescription = null) }, text = { Text(stringResource(R.string.entry_new)) }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
+    }
     }
 }

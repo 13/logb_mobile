@@ -59,7 +59,7 @@ fun categoryLabel(category: String): String = stringResource(
 )
 
 @Composable
-fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUrl: (Long?) -> String?) {
+fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUrl: (Long?) -> String?, onEntry: (String) -> Unit = {}) {
     val expanded = remember { mutableStateOf(setOf<String>()) }
     val unit = state.obj?.counterUnit
     Column(Modifier.fillMaxSize()) {
@@ -84,8 +84,8 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUr
                 }
                 items(group.rows, key = { row -> when (row) { is TimelineRow.Entry -> row.activity.uuid; is TimelineRow.Readings -> row.key } }) { row ->
                     when (row) {
-                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty().map { thumbUrl(it.file.serverId) to it.file.mime })
-                        is TimelineRow.Readings -> ReadingsRow(row, unit, isOpen = row.key in expanded.value, onToggle = { expanded.value = if (row.key in expanded.value) expanded.value - row.key else expanded.value + row.key }, currency = state.currency)
+                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty().map { thumbUrl(it.file.serverId) to it.file.mime }, onClick = { onEntry(row.activity.uuid) })
+                        is TimelineRow.Readings -> ReadingsRow(row, unit, isOpen = row.key in expanded.value, onToggle = { expanded.value = if (row.key in expanded.value) expanded.value - row.key else expanded.value + row.key }, currency = state.currency, onEntry = onEntry)
                     }
                 }
             }
@@ -94,9 +94,9 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUr
 }
 
 @Composable
-private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, thumbs: List<Pair<String?, String>>) {
+private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, thumbs: List<Pair<String?, String>>, onClick: () -> Unit = {}) {
     val locale = currentLocale()
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(formatDate(a.date, locale), style = MaterialTheme.typography.figureLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(96.dp))
             AssistChip(onClick = {}, label = { Text(categoryLabel(a.category), style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.height(24.dp))
@@ -117,7 +117,7 @@ private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, thumbs:
 }
 
 @Composable
-private fun ReadingsRow(row: TimelineRow.Readings, unit: String?, isOpen: Boolean, onToggle: () -> Unit, currency: String) {
+private fun ReadingsRow(row: TimelineRow.Readings, unit: String?, isOpen: Boolean, onToggle: () -> Unit, currency: String, onEntry: (String) -> Unit = {}) {
     val locale = currentLocale()
     val span = TimelineFold.readingSpan(row.readings)
     Column(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 8.dp)) {
@@ -128,7 +128,7 @@ private fun ReadingsRow(row: TimelineRow.Readings, unit: String?, isOpen: Boolea
         if (span != null) Text("${formatCounter(span.first, unit, locale)} → ${formatCounter(span.second, unit, locale)}", style = MaterialTheme.typography.figureSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (isOpen) {
             Spacer(Modifier.height(4.dp))
-            row.readings.forEach { r -> EntryRow(r, unit, currency, emptyList()) }
+            row.readings.forEach { r -> EntryRow(r, unit, currency, emptyList(), onClick = { onEntry(r.uuid) }) }
         }
     }
 }

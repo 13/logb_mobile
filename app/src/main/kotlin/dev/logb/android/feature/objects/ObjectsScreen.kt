@@ -1,6 +1,8 @@
 package dev.logb.android.feature.objects
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,7 +22,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,15 +62,15 @@ import dev.logb.android.core.format.formatDate
 import dev.logb.android.core.sync.SyncStatus
 
 @Composable
-fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
+fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue)
+    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue, onLog = onLog, onReading = onReading)
 }
 
 /** The screen without its view model, so a UI test can hand it a state. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}) {
+fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}) {
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_objects))
@@ -82,7 +90,7 @@ fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: 
                         )
                     }
                 }
-                items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }) }
+                items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }, onLog = { onLog(card.uuid) }, onReading = if (card.counterUnit != null) ({ onReading(card.uuid) }) else null) }
                 item { Spacer(Modifier.height(72.dp)) }
             }
         }
@@ -105,16 +113,17 @@ private fun DueBanner(count: Int, onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit) {
+fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog: (() -> Unit)? = null, onReading: (() -> Unit)? = null) {
     val locale = currentLocale()
+    var menu by remember { mutableStateOf(false) }
     Card(
-        onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { if (onLog != null) menu = true }),
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape), contentAlignment = Alignment.Center) {
                 ObjectTypeIcon(card.type, tint = MaterialTheme.colorScheme.primary)
             }
@@ -135,6 +144,15 @@ fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit) {
                     card.lastActivityDate?.let { stringResource(R.string.last_entry, formatDate(it, locale)) } ?: stringResource(R.string.no_entries_yet),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (onLog != null) {
+                Box {
+                    IconButton(onClick = onLog) { Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.entry_new)) }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.entry_new)) }, onClick = { menu = false; onLog() })
+                        if (onReading != null) DropdownMenuItem(text = { Text(stringResource(R.string.reading_new)) }, onClick = { menu = false; onReading() })
+                    }
+                }
             }
         }
     }

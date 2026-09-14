@@ -10,6 +10,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import dev.logb.android.feature.entries.ActivityFormScreen
+import dev.logb.android.feature.entries.ReadingFormScreen
 import dev.logb.android.feature.objects.ObjectFormScreen
 import dev.logb.android.feature.objects.ObjectDetailScreen
 import dev.logb.android.feature.objects.ObjectsScreen
@@ -44,15 +46,24 @@ fun AppNavHost() {
         },
     ) { padding ->
         NavHost(nav, startDestination = Objects, modifier = Modifier.padding(padding)) {
-            composable<Objects> { ObjectsScreen(onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) }) }
+            composable<Objects> {
+                ObjectsScreen(
+                    onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) },
+                    onLog = { uuid -> nav.navigate(ActivityForm(uuid)) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
+                )
+            }
             composable<ObjectDetail> {
                 ObjectDetailScreen(
                     onBack = { nav.popBackStack() },
                     onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) },
                     onEdit = { uuid -> nav.navigate(ObjectForm(uuid = uuid)) },
                     onAddChild = { uuid -> nav.navigate(ObjectForm(parentUuid = uuid)) },
+                    onLog = { uuid -> nav.navigate(ActivityForm(uuid)) },
+                    onEditEntry = { objectUuid, uuid -> nav.navigate(ActivityForm(objectUuid, uuid)) },
                 )
             }
+            composable<ActivityForm> { ActivityFormScreen(onBack = { nav.popBackStack() }) }
+            composable<ReadingForm> { ReadingFormScreen(onBack = { nav.popBackStack() }) }
             composable<ObjectForm> { entry ->
                 val editing = entry.toRoute<ObjectForm>().uuid != null
                 ObjectFormScreen(

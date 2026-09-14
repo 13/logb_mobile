@@ -189,4 +189,21 @@
     <string name="type_tool">Tool</string>
     <string name="type_body">Body</string>
     <string name="type_other">Other</string>
+    <string name="entry_new">Log entry</string>
+    <string name="entry_edit">Edit entry</string>
+    <string name="reading_new">Log reading</string>
+    <string name="reading_title">Reading</string>
+    <string name="reading_hint">A reading is an entry that records nothing but the counter. Fuel and service entries carry readings too.</string>
+    <string name="field_date">Date</string>
+    <string name="field_category">Category</string>
+    <string name="field_title">Title</string>
+    <string name="field_counter">Counter (%1$s)</string>
+    <string name="field_cost">Cost</string>
+    <string name="field_quantity">Quantity (%1$s)</string>
+    <string name="field_notes">Notes</string>
+    <string name="counter_current_hint">Currently %1$s</string>
+    <string name="counter_lower_warning">Lower than the current reading of %1$s</string>
+    <string name="photos_next_release">Photos and documents come with the next release.</string>
+    <string name="delete_entry_title">Delete this entry?</string>
+    <string name="delete_entry_body">Its photos go with it. This cannot be undone.</string>
 </resources>

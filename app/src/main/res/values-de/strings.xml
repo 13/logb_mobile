@@ -189,4 +189,21 @@
     <string name="type_tool">Werkzeug</string>
     <string name="type_body">Körper</string>
     <string name="type_other">Sonstiges</string>
+    <string name="entry_new">Eintrag erfassen</string>
+    <string name="entry_edit">Eintrag bearbeiten</string>
+    <string name="reading_new">Zählerstand erfassen</string>
+    <string name="reading_title">Zählerstand</string>
+    <string name="reading_hint">Ein Zählerstand ist ein Eintrag, der nur den Zähler festhält. Tank- und Wartungseinträge tragen ebenfalls Zählerstände.</string>
+    <string name="field_date">Datum</string>
+    <string name="field_category">Kategorie</string>
+    <string name="field_title">Titel</string>
+    <string name="field_counter">Zähler (%1$s)</string>
+    <string name="field_cost">Kosten</string>
+    <string name="field_quantity">Menge (%1$s)</string>
+    <string name="field_notes">Notizen</string>
+    <string name="counter_current_hint">Aktuell %1$s</string>
+    <string name="counter_lower_warning">Niedriger als der aktuelle Stand von %1$s</string>
+    <string name="photos_next_release">Fotos und Dokumente kommen mit der nächsten Version.</string>
+    <string name="delete_entry_title">Diesen Eintrag löschen?</string>
+    <string name="delete_entry_body">Seine Fotos gehen mit. Das lässt sich nicht rückgängig machen.</string>
 </resources>
