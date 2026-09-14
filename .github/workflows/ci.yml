@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Unit tests, lint, screenshots, APKs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # gradle.properties pins the JDK path of the development machine; the runner brings its own.
+      - name: Use the runner's JDK
+        run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --console=plain
+
+      # Goldens are recorded deliberately with :app:recordRoborazziDebug and looked at; CI only verifies.
+      - name: Screenshot goldens
+        run: ./gradlew :app:verifyRoborazziDebug --console=plain
+
+      - name: Assemble debug and release
+        run: ./gradlew :app:assembleDebug :app:assembleRelease --console=plain
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
+
+      - name: Upload screenshot diffs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-diffs
+          path: app/build/outputs/roborazzi
+          if-no-files-found: ignore
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: warn
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: LogB-debug
+          path: app/build/outputs/apk/debug/LogB-debug.apk
+
+  # The sync engine against the real server binary, built from the logb repo beside this one.
+  contract:
+    name: Contract test against logb
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: logb_mobile
+
+      - uses: actions/checkout@v7
+        with:
+          repository: 13/logb
+          path: logb
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: logb
+
+      - name: Build logb
+        run: cargo build --release --locked
+        working-directory: logb
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Use the runner's JDK
+        run: sed -i '/^org\.gradle\.java\.home=/d' logb_mobile/gradle.properties
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Contract test
+        run: ./gradlew :app:testDebugUnitTest -PlogbBin=$GITHUB_WORKSPACE/logb/target/release/logb --tests '*SyncContractTest' --console=plain
+        working-directory: logb_mobile
+
+      - name: Upload contract test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: contract-test-report
+          path: logb_mobile/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: warn
