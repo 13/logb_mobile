@@ -285,4 +285,17 @@
     <string name="insights_usage_by_month">Nutzung pro Monat</string>
     <string name="insights_by_fill">Verbrauch pro Tankfüllung</string>
     <string name="insights_by_fill_hint">Setzt voraus, dass jedes Mal vollgetankt wurde.</string>
+    <!-- Statistics -->
+    <string name="stats_title">Statistik</string>
+    <string name="stats_year">Jahr</string>
+    <string name="stats_all_years">Alle Jahre</string>
+    <string name="stats_purchases">Kaufpreise einrechnen</string>
+    <string name="stats_total">Gesamt</string>
+    <string name="stats_over_time">Ausgaben im Zeitverlauf</string>
+    <string name="stats_by_object">Nach Objekt</string>
+    <string name="stats_by_type">Nach Typ</string>
+    <string name="stats_by_category">Nach Kategorie</string>
+    <string name="stats_purchase_price">Kaufpreis</string>
+    <string name="stats_archived">archiviert</string>
+    <string name="stats_none">Für diesen Zeitraum sind keine Kosten erfasst.</string>
 </resources>

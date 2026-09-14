@@ -285,4 +285,17 @@
     <string name="insights_usage_by_month">Usage per month</string>
     <string name="insights_by_fill">Consumption per fill</string>
     <string name="insights_by_fill_hint">Assumes every fill tops the tank up.</string>
+    <!-- Statistics -->
+    <string name="stats_title">Statistics</string>
+    <string name="stats_year">Year</string>
+    <string name="stats_all_years">All years</string>
+    <string name="stats_purchases">Include purchase prices</string>
+    <string name="stats_total">Total</string>
+    <string name="stats_over_time">Spend over time</string>
+    <string name="stats_by_object">By object</string>
+    <string name="stats_by_type">By type</string>
+    <string name="stats_by_category">By category</string>
+    <string name="stats_purchase_price">Purchase price</string>
+    <string name="stats_archived">archived</string>
+    <string name="stats_none">No costs recorded for this period.</string>
 </resources>

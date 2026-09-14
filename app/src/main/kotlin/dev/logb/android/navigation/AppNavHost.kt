@@ -23,6 +23,7 @@ import dev.logb.android.feature.reminders.ReminderFormScreen
 import dev.logb.android.feature.objects.ObjectDetailScreen
 import dev.logb.android.feature.objects.ObjectsScreen
 import dev.logb.android.feature.search.SearchScreen
+import dev.logb.android.feature.stats.StatsScreen
 import dev.logb.android.feature.settings.AboutScreen
 import dev.logb.android.feature.settings.AccountScreen
 import dev.logb.android.feature.settings.AppearanceScreen
@@ -59,9 +60,10 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                 ObjectsScreen(
                     onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) },
                     onLog = { uuid -> nav.navigate(ActivityForm(uuid)) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
-                    onOpenDue = { nav.navigate(DueList) },
+                    onOpenDue = { nav.navigate(DueList) }, onOpenStats = { nav.navigate(Stats) },
                 )
             }
+            composable<Stats> { StatsScreen(onBack = { nav.popBackStack() }, onOpenObject = { uuid -> nav.navigate(ObjectDetail(uuid)) }) }
             composable<ObjectDetail> {
                 ObjectDetailScreen(
                     onBack = { nav.popBackStack() },

@@ -87,7 +87,7 @@ object SpendStats {
      */
     fun summarize(objects: List<ObjectRow>, spend: List<Spend>, year: Int?): Stats {
         val wellFormed = spend.filter { validMonth(it.month) }
-        val years = wellFormed.filter { it.costCents > 0 }.map { it.month.substring(0, 4) }.toSortedSet().reversed().toList()
+        val years = wellFormed.filter { it.costCents > 0 }.map { it.month.substring(0, 4) }.distinct().sortedDescending()
 
         val prefix = year?.let { "%04d-".format(it) }
         val selected = wellFormed.filter { it.costCents > 0 }.filter { prefix == null || it.month.startsWith(prefix) }

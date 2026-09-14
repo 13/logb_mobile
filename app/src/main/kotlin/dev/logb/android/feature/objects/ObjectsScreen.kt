@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -66,18 +67,20 @@ import dev.logb.android.core.format.formatDate
 import dev.logb.android.core.sync.SyncStatus
 
 @Composable
-fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
+fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue, onLog = onLog, onReading = onReading)
+    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue, onLog = onLog, onReading = onReading, onOpenStats = onOpenStats)
 }
 
 /** The screen without its view model, so a UI test can hand it a state. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}) {
+fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}) {
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
-        LogbTopBar(title = stringResource(R.string.nav_objects))
+        LogbTopBar(title = stringResource(R.string.nav_objects), actions = {
+            IconButton(onClick = onOpenStats) { Icon(Icons.Outlined.BarChart, contentDescription = stringResource(R.string.stats_title)) }
+        })
         SyncLine(state.sync, onOpenSync, failed = state.failed)
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
