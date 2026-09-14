@@ -135,19 +135,23 @@ class SyncContractTest {
         assertNotNull(done.doneAt)
         assertEquals(db.activityDao().uuidForServerId(oil), done.doneActivityUuid)
 
-        // The browser edits, deletes and creates; the phone pulls and sees all of it.
+        // The browser edits and deletes; the phone pulls both through the feed alone.
         call("PATCH", "/objects/$garage", """{"name":"Double garage","type":"home","parent_id":$house}""")
         call("DELETE", "/activities/$oil")
-        val inspection = id(call("POST", "/objects/$golf/reminders", """{"title":"Inspection","due_date":"2026-10-01"}"""))
         engine.run()
-
         val garageUuid = db.objectDao().uuidForServerId(garage)!!
         assertEquals("Double garage", db.objectDao().get(garageUuid)!!.name)
         assertNotNull(db.fieldClockDao().get("object", garageUuid, "name"))
         assertNotNull(db.activityDao().get(db.activityDao().uuidForServerId(oil)!!)!!.deletedAt)
         assertNull(db.objectDao().get(golfUuid)!!.coverAttachmentUuid, "phase 0 logs the cover clear")
         assertNull(db.reminderDao().get(done.uuid)!!.doneActivityUuid, "phase 0 logs the unlink")
+
+        // The browser creates. A REST create reaches the feed without values, so this pull ends in a
+        // bootstrap, which rebuilds the mirror and restarts the field clocks -- hence the pull above.
+        val inspection = id(call("POST", "/objects/$golf/reminders", """{"title":"Inspection","due_date":"2026-10-01"}"""))
+        engine.run()
         assertNotNull(db.reminderDao().uuidForServerId(inspection))
+        assertEquals("Double garage", db.objectDao().get(garageUuid)!!.name)
 
         // The server goes away; the mirror stays.
         process.destroy(); process.waitFor()
