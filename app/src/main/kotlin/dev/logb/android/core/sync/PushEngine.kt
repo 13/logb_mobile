@@ -13,6 +13,10 @@ import dev.logb.android.core.network.dto.PushBody
 import dev.logb.android.core.network.dto.ReminderInput
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import dev.logb.android.core.db.inTransaction
 
 /**
  * Drains the op queue in order. A `create` is the REST create carrying the row's current
@@ -21,7 +25,7 @@ import kotlinx.serialization.json.longOrNull
  * op; FIFO order means the target's own create is earlier in the queue and usually already
  * done, and a stop is retried on the next run.
  */
-class PushEngine(private val db: LogbDatabase, private val api: LogbApi) {
+class PushEngine(private val db: LogbDatabase, private val api: LogbApi, private val blobs: dev.logb.android.core.blobs.BlobStore? = null) {
     /** Thrown internally when an op refers to a row the server has not confirmed yet. */
     private class NotYet : Exception()
 
@@ -37,7 +41,6 @@ class PushEngine(private val db: LogbDatabase, private val api: LogbApi) {
             while (i < ops.size) {
                 val op = ops[i]
                 if (op.kind == "create") {
-                    if (op.entity == "attachment") { i++; continue } // phase 3
                     if (!pushCreate(op)) return
                     progressed = true
                     i++
@@ -90,6 +93,35 @@ class PushEngine(private val db: LogbDatabase, private val api: LogbApi) {
                         db.opDao().delete(op.id)
                         LocalWriter(db).set("reminder", r.uuid, followUps) { }
                         return true
+                    }
+                }
+                "attachment" -> {
+                    val t = db.attachmentDao().get(op.entityUuid) ?: return dropped(op)
+                    val file = db.fileDao().get(t.fileUuid) ?: return dropped(op)
+                    val objectId = db.objectDao().serverIdFor(t.objectUuid) ?: throw NotYet()
+                    val activityId = t.activityUuid?.let { db.activityDao().serverIdFor(it) ?: throw NotYet() }
+                    val store = blobs ?: run { db.opDao().markDead(op.id, "no blob store"); return true }
+                    val original = store.original(file.sha256)
+                    if (!original.isFile) { db.opDao().markDead(op.id, "the file is no longer on this phone"); return true }
+                    val fields = buildMap<String, okhttp3.RequestBody> {
+                        put("client_uuid", t.uuid.toRequestBody())
+                        put("client_op_id", op.id.toRequestBody())
+                        if (t.caption.isNotBlank()) put("caption", t.caption.toRequestBody())
+                        if (activityId != null) put("activity_id", activityId.toString().toRequestBody())
+                    }
+                    val part = okhttp3.MultipartBody.Part.createFormData("file", file.originalName.ifBlank { file.sha256 }, original.asRequestBody(file.mime.toMediaTypeOrNull()))
+                    val dto = api.upload(objectId, part, fields)
+                    db.inTransaction {
+                        db.attachmentDao().upsert(t.copy(serverId = dto.id))
+                        val serverFileUuid = dto.fileUuid
+                        if (serverFileUuid != null && serverFileUuid != file.uuid) {
+                            // The server already had these bytes under another file row: point at it.
+                            if (db.fileDao().get(serverFileUuid) == null) db.fileDao().upsert(file.copy(uuid = serverFileUuid, serverId = dto.fileId))
+                            db.attachmentDao().repointFile(file.uuid, serverFileUuid)
+                            db.fileDao().hardDelete(file.uuid)
+                        } else {
+                            db.fileDao().upsert(file.copy(serverId = dto.fileId))
+                        }
                     }
                 }
                 else -> return dropped(op)

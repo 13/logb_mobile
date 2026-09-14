@@ -24,11 +24,12 @@ class PushEngineTest {
     private val db = TestDatabase.inMemory()
     private lateinit var engine: PushEngine
     private lateinit var writer: LocalWriter
+    private val store = dev.logb.android.core.blobs.BlobStore(androidx.test.core.app.ApplicationProvider.getApplicationContext())
 
     @Before
     fun start() = runTest {
         server.start()
-        engine = PushEngine(db, ApiClient.create(server.url("/").toString(), { "t" }))
+        engine = PushEngine(db, ApiClient.create(server.url("/").toString(), { "t" }), store)
         writer = LocalWriter(db)
         db.syncStateDao().upsert(SyncStateEntity(deviceId = "phone-1", bootstrapNeeded = false))
     }
@@ -123,5 +124,46 @@ class PushEngineTest {
         val push = server.takeRequest()
         assertEquals("/api/sync/push", push.url.encodedPath)
         assertTrue(push.body!!.utf8().contains("\"field\":\"done_at\""), push.body!!.utf8())
+    }
+
+    private suspend fun importPng(objectUuid: String, activityUuid: String?): String {
+        val bytes = javaClass.getResource("/fixtures/small.png")!!.readBytes()
+        return dev.logb.android.feature.entries.AttachmentRepository(db, store, writer).import(bytes.inputStream(), "a.png", "image/png", objectUuid, activityUuid, caption = "Receipt")
+    }
+
+    @Test
+    fun `an attachment create uploads multipart with its ids and adopts the servers file uuid on dedup`() = runTest {
+        db.objectDao().upsert(obj("u1", "Golf", serverId = 4))
+        db.activityDao().upsert(act("a1", "u1", "2026-01-01").copy(serverId = 7))
+        val attachment = importPng("u1", "a1")
+        val localFile = db.attachmentDao().get(attachment)!!.fileUuid
+        server.enqueue(json("""{"id":33,"object_id":4,"activity_id":7,"file_id":12,"kind":"photo","caption":"Receipt","original_name":"a.png","mime":"image/png","size":91,"created_at":"t","client_uuid":"$attachment","file_uuid":"server-file-uuid"}""", 201))
+        engine.run()
+        val r = server.takeRequest()
+        assertEquals("/api/objects/4/attachments", r.url.encodedPath)
+        val body = r.body!!.utf8()
+        assertTrue(body.contains("name=\"client_uuid\""), body); assertTrue(body.contains(attachment), body)
+        assertTrue(body.contains("name=\"activity_id\"") && body.contains("\r\n\r\n7\r\n"), body)
+        assertTrue(body.contains("name=\"caption\"") && body.contains("Receipt"), body)
+        assertTrue(body.contains("filename=\"a.png\"") && body.contains("Content-Type: image/png"), body)
+        val t = db.attachmentDao().get(attachment)!!
+        assertEquals(33, t.serverId); assertEquals("server-file-uuid", t.fileUuid)
+        assertEquals(12, db.fileDao().get("server-file-uuid")!!.serverId)
+        assertEquals(null, db.fileDao().get(localFile), "the local-only file row is gone")
+        assertTrue(db.opDao().pending().isEmpty())
+    }
+
+    @Test
+    fun `an attachment whose entry has no server id waits, and a missing blob marks the op dead`() = runTest {
+        db.objectDao().upsert(obj("u1", "Golf", serverId = 4))
+        db.activityDao().upsert(act("a1", "u1", "2026-01-01"))
+        val attachment = importPng("u1", "a1")
+        engine.run()
+        assertEquals(0, server.requestCount); assertEquals(1, db.opDao().pending().size)
+        db.activityDao().upsert(db.activityDao().get("a1")!!.copy(serverId = 7))
+        store.deleteAll(db.fileDao().get(db.attachmentDao().get(attachment)!!.fileUuid)!!.sha256)
+        engine.run()
+        assertEquals(0, server.requestCount)
+        assertEquals("the file is no longer on this phone", db.opDao().dead().first().single().lastError)
     }
 }

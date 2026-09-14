@@ -1,6 +1,7 @@
 package dev.logb.android.core.network
 
 import dev.logb.android.core.network.dto.ActivityDto
+import dev.logb.android.core.network.dto.AttachmentDto
 import dev.logb.android.core.network.dto.ActivityInput
 import dev.logb.android.core.network.dto.BootstrapResult
 import dev.logb.android.core.network.dto.Credentials
@@ -18,7 +19,12 @@ import dev.logb.android.core.network.dto.User
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.GET
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+import retrofit2.http.PartMap
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -53,4 +59,9 @@ interface LogbApi {
     @POST("api/objects/{id}/activities") suspend fun createActivity(@Path("id") objectId: Long, @Body body: ActivityInput): ActivityDto
 
     @POST("api/objects/{id}/reminders") suspend fun createReminder(@Path("id") objectId: Long, @Body body: ReminderInput): ReminderDto
+
+    /** The multipart upload; identical bytes are stored once server-side and answer with the shared `file_uuid`. */
+    @Multipart
+    @POST("api/objects/{id}/attachments")
+    suspend fun upload(@Path("id") objectId: Long, @Part file: MultipartBody.Part, @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>): AttachmentDto
 }

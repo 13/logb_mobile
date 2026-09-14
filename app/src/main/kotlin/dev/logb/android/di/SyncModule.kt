@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.auth.SessionRepository
+import dev.logb.android.core.blobs.BlobStore
 import dev.logb.android.core.sync.Connectivity
 import dev.logb.android.core.sync.ConnectivityMonitor
 import dev.logb.android.core.sync.PullEngine
@@ -31,7 +32,7 @@ object SyncModule {
 
     @Provides
     @Singleton
-    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope): SyncManager =
+    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope, blobs: BlobStore): SyncManager =
         SyncManager(
             sessions = sessions,
             connectivity = connectivity,
@@ -40,7 +41,7 @@ object SyncModule {
                     SyncRunner {
                         val db = accounts.db
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
-                        PushEngine(db, accounts.api).run()
+                        PushEngine(db, accounts.api, blobs).run()
                         PullEngine(db, accounts.api, deviceId).run()
                     }
                 }

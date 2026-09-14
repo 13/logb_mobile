@@ -41,5 +41,7 @@ interface AttachmentDao {
 
     @Query("SELECT uuid FROM attachments WHERE object_uuid IN (:objectUuids) OR activity_uuid IN (:activityUuids)") suspend fun allUuidsUnder(objectUuids: List<String>, activityUuids: List<String>): List<String>
 
+    @Query("UPDATE attachments SET file_uuid = :to WHERE file_uuid = :from") suspend fun repointFile(from: String, to: String)
+
     @Query("DELETE FROM attachments WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
 }
