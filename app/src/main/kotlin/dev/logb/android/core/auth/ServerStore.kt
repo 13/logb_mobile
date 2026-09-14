@@ -19,6 +19,8 @@ data class ServerRecord(
     val username: String? = null,
     val tokenId: Long? = null,
     val currency: String = "EUR",
+    /** The last version `/api/health` reported; decides which features the app shows. */
+    val serverVersion: String? = null,
 )
 
 interface ServerStore {
@@ -36,11 +38,12 @@ class DataStoreServerStore @Inject constructor(@ApplicationContext private val c
     private val username = stringPreferencesKey("username")
     private val tokenId = longPreferencesKey("token_id")
     private val currency = stringPreferencesKey("currency")
+    private val serverVersion = stringPreferencesKey("server_version")
 
     override suspend fun read(): ServerRecord? {
         val p = context.serverDataStore.data.first()
         val server = p[url] ?: return null
-        return ServerRecord(server, p[userId], p[username], p[tokenId], p[currency] ?: "EUR")
+        return ServerRecord(server, p[userId], p[username], p[tokenId], p[currency] ?: "EUR", p[serverVersion])
     }
 
     override suspend fun write(record: ServerRecord) {
@@ -50,6 +53,7 @@ class DataStoreServerStore @Inject constructor(@ApplicationContext private val c
             record.username?.let { p[username] = it } ?: p.remove(username)
             record.tokenId?.let { p[tokenId] = it } ?: p.remove(tokenId)
             p[currency] = record.currency
+            record.serverVersion?.let { p[serverVersion] = it } ?: p.remove(serverVersion)
         }
     }
 
