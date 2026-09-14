@@ -325,4 +325,11 @@
     <string name="lock_locked">Locked</string>
     <string name="lock_locked_body">Your logbook stays private until you unlock it.</string>
     <string name="lock_unlock">Unlock</string>
+    <!-- Shortcuts -->
+    <string name="shortcut_due">Due</string>
+    <string name="shortcut_due_long">Due reminders</string>
+    <string name="shortcut_search">Search</string>
+    <string name="shortcut_search_long">Search objects and entries</string>
+    <string name="shortcut_new">New object</string>
+    <string name="shortcut_new_long">Add an object</string>
 </resources>

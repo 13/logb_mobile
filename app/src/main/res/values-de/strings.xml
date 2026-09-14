@@ -325,4 +325,11 @@
     <string name="lock_locked">Gesperrt</string>
     <string name="lock_locked_body">Dein Logbuch bleibt privat, bis du es entsperrst.</string>
     <string name="lock_unlock">Entsperren</string>
+    <!-- Shortcuts -->
+    <string name="shortcut_due">Fällig</string>
+    <string name="shortcut_due_long">Fällige Erinnerungen</string>
+    <string name="shortcut_search">Suche</string>
+    <string name="shortcut_search_long">Objekte und Einträge suchen</string>
+    <string name="shortcut_new">Neues Objekt</string>
+    <string name="shortcut_new_long">Objekt anlegen</string>
 </resources>
