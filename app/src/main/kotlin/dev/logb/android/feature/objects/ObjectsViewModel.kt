@@ -34,7 +34,7 @@ data class ObjectCard(
     val totalCostCents: Long,
     val lastActivityDate: String?,
     val dueCount: Int,
-    val coverFileServerId: Long?,
+    val coverSha: String?,
 )
 
 data class ObjectsUiState(
@@ -57,7 +57,7 @@ class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalD
         objects.map { o ->
             val stats = db.objectDao().stats(o.uuid)
             val due = dueCount(open.filter { it.objectUuid == o.uuid }, stats.currentCounter, stats.lastReadingDate)
-            val cover = o.coverAttachmentUuid?.let { db.attachmentDao().get(it) }?.let { db.fileDao().get(it.fileUuid) }?.serverId
+            val cover = o.coverAttachmentUuid?.let { db.attachmentDao().get(it) }?.takeIf { it.deletedAt == null }?.let { db.fileDao().get(it.fileUuid) }?.sha256?.takeIf { it.isNotBlank() }
             ObjectCard(o.uuid, o.name, o.type, stats.currentCounter, o.counterUnit, stats.totalCostCents, stats.lastActivityDate, due, cover)
         }
     }

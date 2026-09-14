@@ -12,6 +12,9 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import dev.logb.android.core.auth.ActiveAccount
+import dev.logb.android.core.blobs.BlobDownloader
+import dev.logb.android.core.blobs.BlobFetcher
+import dev.logb.android.core.blobs.BlobStore
 import okhttp3.OkHttpClient
 import dagger.hilt.android.HiltAndroidApp
 import dev.logb.android.core.sync.SyncManager
@@ -24,11 +27,17 @@ class LogbApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var syncManager: SyncManager
     @Inject lateinit var accounts: ActiveAccount
+    @Inject lateinit var blobStore: BlobStore
+    @Inject lateinit var downloader: () -> BlobDownloader?
 
-    /** Thumbnails come from the server with the bearer token, through the account's own client. Phase 3 adds the blob store in front. */
+    /** Every image is a `BlobImage` served from the blob store, fetched from the server first when missing; plain URLs still work through the account's client. */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { accounts.httpClient ?: OkHttpClient() })) }
+            .components {
+                add(BlobFetcher.Key)
+                add(BlobFetcher.Factory(blobStore, downloader))
+                add(OkHttpNetworkFetcherFactory(callFactory = { accounts.httpClient ?: OkHttpClient() }))
+            }
             .crossfade(true)
             .build()
 

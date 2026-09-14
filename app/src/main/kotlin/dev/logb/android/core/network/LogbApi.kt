@@ -21,6 +21,8 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
+import retrofit2.http.Streaming
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.Part
@@ -59,6 +61,10 @@ interface LogbApi {
     @POST("api/objects/{id}/activities") suspend fun createActivity(@Path("id") objectId: Long, @Body body: ActivityInput): ActivityDto
 
     @POST("api/objects/{id}/reminders") suspend fun createReminder(@Path("id") objectId: Long, @Body body: ReminderInput): ReminderDto
+
+    @Streaming @GET("api/files/{id}") suspend fun downloadOriginal(@Path("id") fileId: Long): ResponseBody
+
+    @Streaming @GET("api/files/{id}/thumb") suspend fun downloadThumb(@Path("id") fileId: Long): ResponseBody
 
     /** The multipart upload; identical bytes are stored once server-side and answer with the shared `file_uuid`. */
     @Multipart

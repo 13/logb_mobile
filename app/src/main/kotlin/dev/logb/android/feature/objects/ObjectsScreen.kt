@@ -41,6 +41,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import dev.logb.android.core.blobs.BlobImage
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -124,8 +128,12 @@ fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog
         modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { if (onLog != null) menu = true }),
     ) {
         Row(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape), contentAlignment = Alignment.Center) {
-                ObjectTypeIcon(card.type, tint = MaterialTheme.colorScheme.primary)
+            Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape).clip(CircleShape), contentAlignment = Alignment.Center) {
+                if (card.coverSha != null) {
+                    AsyncImage(model = BlobImage(card.coverSha), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                } else {
+                    ObjectTypeIcon(card.type, tint = MaterialTheme.colorScheme.primary)
+                }
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {

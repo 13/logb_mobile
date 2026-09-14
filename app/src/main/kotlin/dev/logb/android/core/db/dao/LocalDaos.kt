@@ -59,4 +59,10 @@ interface BlobDao {
     @Upsert suspend fun upsert(blob: BlobEntity)
 
     @Query("SELECT * FROM blobs WHERE sha256 = :sha256") suspend fun get(sha256: String): BlobEntity?
+
+    @Query("SELECT sha256 FROM blobs WHERE original_present = 1 ORDER BY last_access_at ASC") suspend fun originalsLeastRecentlyUsed(): List<String>
+
+    @Query("UPDATE blobs SET last_access_at = :at WHERE sha256 = :sha256") suspend fun touch(sha256: String, at: String)
+
+    @Query("UPDATE blobs SET original_present = :present WHERE sha256 = :sha256") suspend fun setOriginalPresent(sha256: String, present: Boolean)
 }

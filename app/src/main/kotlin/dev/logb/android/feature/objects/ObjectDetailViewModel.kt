@@ -101,8 +101,6 @@ class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, private
 
     fun setFilter(category: String?) { filter.value = if (filter.value == category) null else category }
 
-    fun fileUrl(serverId: Long?, thumb: Boolean): String? = serverId?.let { accountsRef?.fileUrl(it, thumb) }
-
     fun setArchived(archived: Boolean) = viewModelScope.launch { repos.objectRepository.setArchived(route.uuid, archived) }
 
     fun markDone(reminderUuid: String, activityUuid: String?) = viewModelScope.launch { repos.reminderRepository.done(reminderUuid, activityUuid) }
@@ -112,5 +110,4 @@ class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, private
 
     fun delete(onDone: () -> Unit) = viewModelScope.launch { repos.objectRepository.delete(route.uuid); onDone() }
 
-    private val accountsRef = accounts
 }

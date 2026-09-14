@@ -244,4 +244,6 @@
         <item quantity="one">%d change could not be saved</item>
         <item quantity="other">%d changes could not be saved</item>
     </plurals>
+    <string name="attachment_add">Add a photo or document</string>
+    <string name="attachment_not_uploaded">Not yet on the server</string>
 </resources>

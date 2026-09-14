@@ -29,12 +29,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import dev.logb.android.core.db.model.AttachmentWithFile
+import dev.logb.android.core.design.components.AttachmentThumb
 import dev.logb.android.R
 import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.design.components.EmptyState
@@ -59,7 +58,7 @@ fun categoryLabel(category: String): String = stringResource(
 )
 
 @Composable
-fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUrl: (Long?) -> String?, onEntry: (String) -> Unit = {}) {
+fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry: (String) -> Unit = {}, onAttachment: (String) -> Unit = {}) {
     val expanded = remember { mutableStateOf(setOf<String>()) }
     val unit = state.obj?.counterUnit
     Column(Modifier.fillMaxSize()) {
@@ -84,7 +83,7 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUr
                 }
                 items(group.rows, key = { row -> when (row) { is TimelineRow.Entry -> row.activity.uuid; is TimelineRow.Readings -> row.key } }) { row ->
                     when (row) {
-                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty().map { thumbUrl(it.file.serverId) to it.file.mime }, onClick = { onEntry(row.activity.uuid) })
+                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty(), onClick = { onEntry(row.activity.uuid) }, onAttachment = onAttachment)
                         is TimelineRow.Readings -> ReadingsRow(row, unit, isOpen = row.key in expanded.value, onToggle = { expanded.value = if (row.key in expanded.value) expanded.value - row.key else expanded.value + row.key }, currency = state.currency, onEntry = onEntry)
                     }
                 }
@@ -94,7 +93,7 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, thumbUr
 }
 
 @Composable
-private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, thumbs: List<Pair<String?, String>>, onClick: () -> Unit = {}) {
+private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, attachments: List<AttachmentWithFile>, onClick: () -> Unit = {}, onAttachment: (String) -> Unit = {}) {
     val locale = currentLocale()
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -105,12 +104,9 @@ private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, thumbs:
         val figures = listOfNotNull(a.costCents?.let { formatCents(it, currency, locale) }, a.counterValue?.let { formatCounter(it, unit, locale) })
         if (figures.isNotEmpty()) Text(figures.joinToString(" · "), style = MaterialTheme.typography.figureSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (a.notes.isNotBlank()) Text(a.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-        val photos = thumbs.filter { it.second.startsWith("image/") && it.first != null }
-        if (photos.isNotEmpty()) {
+        if (attachments.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                items(photos) { (url, _) ->
-                    AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(64.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant))
-                }
+                items(attachments, key = { it.attachment.uuid }) { att -> AttachmentThumb(att, size = 64.dp, onClick = { onAttachment(att.attachment.uuid) }) }
             }
         }
     }

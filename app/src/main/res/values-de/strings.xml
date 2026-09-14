@@ -244,4 +244,6 @@
         <item quantity="one">%d Änderung konnte nicht gespeichert werden</item>
         <item quantity="other">%d Änderungen konnten nicht gespeichert werden</item>
     </plurals>
+    <string name="attachment_add">Foto oder Dokument hinzufügen</string>
+    <string name="attachment_not_uploaded">Noch nicht auf dem Server</string>
 </resources>

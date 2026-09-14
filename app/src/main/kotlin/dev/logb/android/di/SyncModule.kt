@@ -6,6 +6,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.auth.SessionRepository
+import dev.logb.android.core.blobs.BlobDownloader
+import dev.logb.android.core.blobs.BlobPrefs
 import dev.logb.android.core.blobs.BlobStore
 import dev.logb.android.core.sync.Connectivity
 import dev.logb.android.core.sync.ConnectivityMonitor
@@ -30,9 +32,16 @@ object SyncModule {
     @Singleton
     fun connectivity(impl: Connectivity): ConnectivityMonitor = impl
 
+    /** The downloader for whoever is signed in, for on-demand fetches from the image loader. */
     @Provides
     @Singleton
-    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope, blobs: BlobStore): SyncManager =
+    fun downloaderProvider(accounts: ActiveAccount, connectivity: ConnectivityMonitor, blobs: BlobStore, blobPrefs: BlobPrefs): () -> BlobDownloader? = {
+        accounts.signedIn?.let { BlobDownloader(accounts.db, accounts.api, blobs, connectivity) { blobPrefs.current() } }
+    }
+
+    @Provides
+    @Singleton
+    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope, blobs: BlobStore, blobPrefs: BlobPrefs): SyncManager =
         SyncManager(
             sessions = sessions,
             connectivity = connectivity,
@@ -43,6 +52,7 @@ object SyncModule {
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
                         PushEngine(db, accounts.api, blobs).run()
                         PullEngine(db, accounts.api, deviceId).run()
+                        BlobDownloader(db, accounts.api, blobs, connectivity) { blobPrefs.current() }.runAfterPull()
                     }
                 }
             },
