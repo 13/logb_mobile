@@ -4,7 +4,7 @@ Native, offline-first Android client for [LogB](https://github.com/13/logb): the
 of your owned objects, on your phone, readable with the radio off, reconciled with your
 self-hosted server in the background.
 
-**Status: all five phases built.** Sign in, everything the account owns lands on the phone and
+**Status: all six phases built; feature parity with the web client for a signed-in person.** Sign in, everything the account owns lands on the phone and
 stays readable offline; objects, entries, readings and reminders can be created, edited,
 deleted, marked done and snoozed with the radio off, and reconcile with the server -- and with
 edits made in the browser -- under field-level last-write-wins when a connection returns. Photos
@@ -15,7 +15,11 @@ object's insights (cost of ownership, spend per month, cost per km, fuel consump
 consumption per fill) are computed on the phone from the mirror, and reminders with a counter
 target show when recent usage will reach it. A daily notification summarises what is due, an
 optional biometric or screen-lock gate covers the logbook, and launcher shortcuts jump to the
-due list, search and a new object.
+due list, search and a new object. The objects list searches every depth and sorts five ways,
+readings warn when they jump far beyond recent usage, a due reminder can be skipped by its own
+interval, entries born offline say so until they are sent, and an object can be exported as the
+server's zip through the share sheet. Only operator screens stay in the browser: people, API
+tokens, the database, instance settings and whole-instance import.
 
 <p>
 <img src="docs/screenshots/objects.png" width="180" alt="Objects">
@@ -80,7 +84,7 @@ the contract test against a `13/logb` checkout built beside the app.
 ## Design
 
 - `docs/superpowers/specs/2026-09-14-logb-android-design.md` — architecture, sync rules, screens, phases.
-- `docs/superpowers/plans/` — phase 0 (server additions), phases 1–5 (this app), each with a status header.
+- `docs/superpowers/plans/` — phase 0 (server additions), phases 1–6 (this app), each with a status header.
 
 Stack: Kotlin, Jetpack Compose (Material 3), Room, Retrofit + OkHttp, WorkManager, DataStore,
 Hilt, Coil.

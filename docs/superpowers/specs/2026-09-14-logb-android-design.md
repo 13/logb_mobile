@@ -1,6 +1,6 @@
 # LogB for Android: a native, offline-first client
 
-Status: phases 0–5 built (2026-09-14). Requires a server with the
+Status: phases 0–6 built (2026-09-14); phase 6 closed the gaps to the web client. Requires a server with the
 `server_time` millisecond fix (branch `server-time-millis` in logb, on top of 0.7.1). Supersedes the client half of
 `logb/docs/superpowers/specs/2026-09-08-offline-sync-design.md`, whose Capacitor shell is not
 built; its server half (phase 1, the sync protocol) is merged and is what this client talks to.

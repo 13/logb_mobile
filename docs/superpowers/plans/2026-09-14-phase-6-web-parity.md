@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> Status: executed 2026-09-14. Deviations: the Objects list now loads every live object (active and archived, every depth) once and filters in memory, as the web does, so `ObjectsModel.cards(archived)` became `allCards()`; cards refresh on `activityDao.version()` too, so a logged entry updates its card; the due list's inline action is *Snooze* (a week) for service reminders and *Log reading* for reading ones; *Skip* shows on any due reminder; the reading block sits under *Add reminder* on the Reminders tab; export is a `@Streaming` download into `cacheDir/exports` handed to `ACTION_SEND`. Verified on the phone (release build): "light" finds *Main light · in Garage*; the Golf card says "≈ 122 km pro Monat"; *Zurückstellen* on the due list snoozes a week; the reminders tab shows "Letzter Stand 86.000 km am 14.09.2026"; a reading of 200 000 warns "Weit mehr als üblich seit 14.09.2026"; Account shows *Server 0.7.1*, the password change succeeds, *Überall abmelden* is offered; export opens the share sheet with the zip.
+
 **Goal:** Close every gap between what a signed-in, non-admin person can do in the web client (`logb/frontend`) and what the phone offers, so the two are interchangeable for daily use. Admin and operator screens stay out, as the spec decided.
 
 **Architecture:** Every item reads the mirror and writes through `LocalWriter` like the rest of the app; two small pure ports (`object-list.ts`, `reading.ts`) carry the web's rules with their tests. The one network-only feature, per-object export, streams the server's zip to the cache directory and hands it to the share sheet.
@@ -71,38 +73,38 @@ object ObjectListing {
     fun visibleRows(active: List<ObjectCard>, archived: List<ObjectCard>, tab: Boolean, query: String, sort: SortKey, typeLabel: (String) -> String, locale: Locale): List<Row>
 }
 ```
-- [ ] Tests, one per web test in `frontend/tests/object-list.test.ts`: accent-folded match on name, type label and description; each sort key with nulls last and a name tiebreak; roots only without a query, every depth with one; a live child of an archived parent shows as a root.
-- [ ] Commit `feat: search and sort on the objects list`.
+- [x] Tests, one per web test in `frontend/tests/object-list.test.ts`: accent-folded match on name, type label and description; each sort key with nulls last and a name tiebreak; roots only without a query, every depth with one; a live child of an archived parent shows as a root.
+- [x] Commit `feat: search and sort on the objects list`.
 
 ### Task 2: Usage on cards; the due list as the web's dashboard block
 **Files:** modify `ObjectsViewModel.kt` (`counterPerDayMilli` per card via `InsightsModel.usage`), `ObjectsScreen.kt` (card line "≈ 120 km a month"), `DueListScreen.kt` (counter-until "in 4 000 km", "≈ date", inline *Snooze* (one week) and *Record reading* for reading reminders), strings.
-- [ ] Commit `feat: usage on object cards; snooze and record from the due list`.
+- [x] Commit `feat: usage on object cards; snooze and record from the due list`.
 
 ### Task 3: Reading reminders and Skip
 **Files:** modify `RemindersTab.kt` (reading block above the list: "Last reading 86 000 km on 5 Sep 2026" or "No reading yet", *Record reading*, "Remind me to log the reading" when the object has a counter unit and no reading reminder; *Skip this one* on a due repeating reminder), `ReminderRepository.kt` (`skip(uuid)` = snooze by `ReminderRules.intervalDays`), strings; test additions in `ReminderRepositoryTest.kt`.
-- [ ] Commit `feat: reading reminders show the last reading; skip a due repeat`.
+- [x] Commit `feat: reading reminders show the last reading; skip a due repeat`.
 
 ### Task 4: Implausible reading warning
 **Files:** create `core/domain/ReadingWarning.kt`; modify `ReadingFormViewModel.kt` (usage from `InsightsModel.usage`), `ReadingFormScreen.kt`, strings; test `core/domain/ReadingWarningTest.kt`.
 **Produces:** `enum class ReadingWarning { Lower, Implausible }`, `fun readingWarning(value: Long, date: LocalDate, lastCounter: Long?, lastDate: LocalDate?, ratePerDayMilli: Long?): ReadingWarning?` with the web's `IMPLAUSIBLE_FACTOR` and `ALWAYS_PLAUSIBLE`.
-- [ ] Tests transliterated from `frontend/tests/reading.test.ts`. Commit `feat: warn about a reading far above recent usage`.
+- [x] Tests transliterated from `frontend/tests/reading.test.ts`. Commit `feat: warn about a reading far above recent usage`.
 
 ### Task 5: Small parity items
 **Files:** `TimelineTab.kt` (*Waiting to send* chip when `OpDao.pendingCreate` holds the entry), `SearchScreen.kt` (*archived* tag), `AttachmentViewer.kt` (*Clear cover* when the photo is the cover), strings.
-- [ ] Commit `feat: waiting-to-send chip, archived tag in search, clear cover`.
+- [x] Commit `feat: waiting-to-send chip, archived tag in search, clear cover`.
 
 ### Task 6: Account parity
 **Files:** `LogbApi.kt` (`@PATCH("api/users/{id}") updateUser`, `@POST("api/auth/logout-all") logoutAll`), `SessionRepository.kt` (`signOutEverywhere()`), `SettingsViewModel.kt`, `SettingsScreens.kt` (Account: *Change password* dialog with confirmation field, *Sign out everywhere* with confirm, server version from `/api/health` cached at sign-in), strings; MockWebServer tests for both calls.
-- [ ] Commit `feat: change password and sign out everywhere`.
+- [x] Commit `feat: change password and sign out everywhere`.
 
 ### Task 7: Export this object
 **Files:** `LogbApi.kt` (`@Streaming @GET("api/export") export(@Query("object_id") id: Long): ResponseBody`), `ObjectDetailViewModel.kt` (`export()` → `cacheDir/exports/<name>.zip` → `FileProvider` URI → `ACTION_SEND`), `InfoTab.kt` (button; disabled offline with the reason), `res/xml/file_paths.xml` (cache path), strings.
-- [ ] Commit `feat: export one object through the share sheet`.
+- [x] Commit `feat: export one object through the share sheet`.
 
 ### Task 8: Device check, docs
-- [ ] Phone: search "fil" finds the light under the garage with "in Garage"; sort by cost puts the Golf first; card shows "≈ 122 km pro Monat"; due list snoozes inline; reminders tab records a reading and skips a due repeat; a reading of 200 000 km warns; a new entry offline shows *Waiting to send* until reconnect; change the password and sign back in; export the Golf and share the zip to Files.
-- [ ] `docs/smoke-checklist.md` phase 6 section, README feature list, spec status, this plan's status header, goldens re-recorded, memory.
-- [ ] Commit `docs: phase 6 status`.
+- [x] Phone: search "fil" finds the light under the garage with "in Garage"; sort by cost puts the Golf first; card shows "≈ 122 km pro Monat"; due list snoozes inline; reminders tab records a reading and skips a due repeat; a reading of 200 000 km warns; a new entry offline shows *Waiting to send* until reconnect; change the password and sign back in; export the Golf and share the zip to Files.
+- [x] `docs/smoke-checklist.md` phase 6 section, README feature list, spec status, this plan's status header, goldens re-recorded, memory.
+- [x] Commit `docs: phase 6 status`.
 
 ## Self-review
 Every row of the gap inventory maps to a task (1–7); out-of-scope rows are named with the spec decision that excludes them. Types: `ObjectCard` is extended in Task 1 and consumed by Tasks 2 and 5; `InsightsModel.usage` (phase 4) feeds Tasks 2 and 4; `intervalDays` (web `reminder-form.ts`) is added to `ReminderRules` beside `nextDue` for Task 3.

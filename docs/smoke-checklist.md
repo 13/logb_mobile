@@ -49,3 +49,14 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › About shows the version and the build commit.
 - [ ] Install the release APK over nothing (different signature from debug), sign in, open Statistics, an object's timeline with thumbnails, take a photo: R8 broke nothing.
 
+## Phase 6 (parity with the web client)
+
+- [ ] Objects: type "light" in the search field: *Main light* shows with "in Garage"; clear it; sort by *Highest cost*: the Golf leads; the Golf card says "≈ 122 km a month".
+- [ ] Due list: *Snooze* on a service reminder hides it for a week; *Log reading* on a reading reminder opens the reading form.
+- [ ] Reminders tab of a car: "Last reading X on date" and *Log reading*; without a reading reminder, *Remind me to log the reading* opens the form on the reading kind; a due repeating reminder offers *Skip this one* in its menu and lands one interval later.
+- [ ] Reading form: type ten times the current counter: "Far more than usual since …" appears; a lower value still says lower.
+- [ ] Airplane mode on, log an entry: the timeline shows *Waiting to send*; airplane mode off: the chip goes after the sync.
+- [ ] Search: an archived object carries *archived*; Documents › viewer of the cover photo offers *Clear cover*.
+- [ ] Settings › Account: *Server x.y.z* under the address; *Change password* to the same password reports success; *Sign out everywhere* signs the phone out and keeps the logbook.
+- [ ] Object › Info › *Export this object*: the share sheet offers the zip; offline it says so.
+
