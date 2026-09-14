@@ -70,7 +70,7 @@ fun SettingsHubScreen(onOpen: (SettingsPage) -> Unit, viewModel: SettingsViewMod
     val language = currentLocale().language
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_settings))
-        val rows = settingsRows(state.session, state.appearance, state.sync, language, state.version)
+        val rows = settingsRows(state.session, state.appearance, state.sync, language, state.version, failed = state.deadOps.size)
         rows.forEach { row ->
             val (title, icon) = when (row.page) {
                 SettingsPage.Appearance -> R.string.settings_appearance to Icons.Outlined.Palette
@@ -80,7 +80,7 @@ fun SettingsHubScreen(onOpen: (SettingsPage) -> Unit, viewModel: SettingsViewMod
             }
             val value = when (row.page) {
                 SettingsPage.Appearance -> "${themeLabel(state.appearance.theme)} · ${language.uppercase()}"
-                SettingsPage.Sync -> syncValueLabel(state.sync)
+                SettingsPage.Sync -> if (state.deadOps.isNotEmpty()) pluralStringResource(R.plurals.sync_could_not_save, state.deadOps.size, state.deadOps.size) else syncValueLabel(state.sync)
                 else -> row.value
             }
             HubRow(icon, stringResource(title), value) { onOpen(row.page) }
@@ -179,7 +179,8 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
 @Composable
 fun SyncScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Column(Modifier.fillMaxSize()) {
+    var discarding by remember { mutableStateOf<dev.logb.android.core.db.entity.OpEntity?>(null) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         LogbTopBar(title = stringResource(R.string.settings_sync), onBack = onBack)
         Column(Modifier.padding(16.dp)) {
             Text(syncValueLabel(state.sync) ?: stringResource(R.string.sync_never), style = MaterialTheme.typography.bodyLarge)
@@ -192,8 +193,35 @@ fun SyncScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel(
             Button(onClick = viewModel::syncNow, enabled = state.sync !is SyncStatus.Syncing, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sync_now)) }
             Spacer(Modifier.height(24.dp))
             Text(stringResource(R.string.sync_pending_title), style = MaterialTheme.typography.titleSmall)
-            Text(stringResource(R.string.sync_pending_none), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (state.pending == 0) stringResource(R.string.sync_pending_none) else pluralStringResource(R.plurals.sync_waiting, state.pending, state.pending),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (state.deadOps.isNotEmpty()) {
+                Spacer(Modifier.height(24.dp))
+                Text(stringResource(R.string.sync_failed_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.sync_failed_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.deadOps.forEach { op ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Text("${op.kind} · ${op.entity}${op.field?.let { " · $it" } ?: ""}", style = MaterialTheme.typography.bodyLarge)
+                        Text(op.lastError ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { viewModel.retry(op.id) }) { Text(stringResource(R.string.retry)) }
+                            TextButton(onClick = { discarding = op }) { Text(stringResource(R.string.discard)) }
+                        }
+                    }
+                }
+            }
         }
+    }
+    discarding?.let { op ->
+        AlertDialog(
+            onDismissRequest = { discarding = null },
+            title = { Text(stringResource(R.string.discard_title)) },
+            text = { Text(stringResource(if (op.kind == "create") R.string.discard_create_body else R.string.discard_set_body)) },
+            confirmButton = { TextButton(onClick = { discarding = null; viewModel.discard(op) }) { Text(stringResource(R.string.discard), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { discarding = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
 

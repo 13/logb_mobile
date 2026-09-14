@@ -44,6 +44,7 @@ data class ObjectsUiState(
     val sync: SyncStatus = SyncStatus.None,
     val currency: String = "EUR",
     val loaded: Boolean = false,
+    val failed: Int = 0,
 )
 
 /** Pure enough to test on an in-memory mirror: everything the screen needs, from Room flows. */
@@ -82,8 +83,8 @@ class ObjectsViewModel @Inject constructor(accounts: ActiveAccount, private val 
     private val archived = MutableStateFlow(false)
     private val currency = accounts.signedIn?.currency ?: "EUR"
 
-    val state: StateFlow<ObjectsUiState> = combine(model.cards(archived), archived, model.totalDue(), syncManager.status) { cards, arch, due, sync ->
-        ObjectsUiState(cards, arch, due, sync, currency, loaded = true)
+    val state: StateFlow<ObjectsUiState> = combine(model.cards(archived), archived, model.totalDue(), syncManager.status, accounts.db.opDao().dead()) { cards, arch, due, sync, dead ->
+        ObjectsUiState(cards, arch, due, sync, currency, loaded = true, failed = dead.size)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ObjectsUiState(currency = currency))
 
     fun toggleArchived() { archived.value = !archived.value }

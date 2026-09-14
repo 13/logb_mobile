@@ -74,7 +74,7 @@ fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: 
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_objects))
-        SyncLine(state.sync, onOpenSync)
+        SyncLine(state.sync, onOpenSync, failed = state.failed)
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.dueCount > 0) item { DueBanner(state.dueCount, onOpenDue) }

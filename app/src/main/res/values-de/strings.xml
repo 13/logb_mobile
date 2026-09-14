@@ -234,4 +234,14 @@
     <string name="due_title">Fällig</string>
     <string name="due_empty">Nichts fällig</string>
     <string name="due_empty_body">Erinnerungen, die jetzt oder in den nächsten 30 Tagen fällig sind, erscheinen hier.</string>
+    <string name="discard">Verwerfen</string>
+    <string name="sync_failed_title">Konnte nicht gespeichert werden</string>
+    <string name="sync_failed_hint">Der Server hat diese abgelehnt. Erneut versuchen, nachdem der Grund behoben ist, oder verwerfen.</string>
+    <string name="discard_title">Diese Änderung verwerfen?</string>
+    <string name="discard_create_body">Die Zeile, die sie angelegt hätte, wird von diesem Telefon entfernt. Auf dem Server ändert sich nichts.</string>
+    <string name="discard_set_body">Der Wert des Servers für dieses Feld bleibt. Auf dem Server ändert sich nichts.</string>
+    <plurals name="sync_could_not_save">
+        <item quantity="one">%d Änderung konnte nicht gespeichert werden</item>
+        <item quantity="other">%d Änderungen konnten nicht gespeichert werden</item>
+    </plurals>
 </resources>

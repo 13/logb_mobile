@@ -23,6 +23,12 @@ class SettingsRowsTest {
     }
 
     @Test
+    fun `failed changes outrank every other sync value`() {
+        val rows = settingsRows(signedIn, Appearance(), SyncStatus.Idle("t"), "en", "0.1.0", failed = 2)
+        assertEquals("failed:2", rows[2].value)
+    }
+
+    @Test
     fun `a value not yet known renders as nothing, never a placeholder`() {
         val rows = settingsRows(Session.Loading, Appearance(), SyncStatus.None, "en", "0.1.0")
         assertNull(rows[1].value)

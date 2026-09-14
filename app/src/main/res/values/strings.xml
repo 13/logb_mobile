@@ -234,4 +234,14 @@
     <string name="due_title">Due</string>
     <string name="due_empty">Nothing due</string>
     <string name="due_empty_body">Reminders due now or within the next 30 days appear here.</string>
+    <string name="discard">Discard</string>
+    <string name="sync_failed_title">Could not be saved</string>
+    <string name="sync_failed_hint">The server refused these. Retry after fixing what it objected to, or discard them.</string>
+    <string name="discard_title">Discard this change?</string>
+    <string name="discard_create_body">The row it would have created is removed from this phone. Nothing on the server changes.</string>
+    <string name="discard_set_body">The server\'s value for this field stays. Nothing on the server changes.</string>
+    <plurals name="sync_could_not_save">
+        <item quantity="one">%d change could not be saved</item>
+        <item quantity="other">%d changes could not be saved</item>
+    </plurals>
 </resources>

@@ -11,9 +11,9 @@ enum class SettingsPage { Appearance, Account, Sync, About }
 data class SettingsRow(val page: SettingsPage, val value: String?)
 
 /** Pure, as in the web app's spec: given the state, the rows and their values. */
-fun settingsRows(session: Session, appearance: Appearance, sync: SyncStatus, language: String, version: String): List<SettingsRow> {
+fun settingsRows(session: Session, appearance: Appearance, sync: SyncStatus, language: String, version: String, failed: Int = 0): List<SettingsRow> {
     val theme = when (appearance.theme) { ThemeMode.System -> "system"; ThemeMode.Light -> "light"; ThemeMode.Dark -> "dark" }
-    val syncValue = when (sync) {
+    val syncValue = if (failed > 0) "failed:$failed" else when (sync) {
         SyncStatus.None -> null
         is SyncStatus.Idle -> "synced"
         SyncStatus.Syncing -> "syncing"
