@@ -17,6 +17,7 @@ import dev.logb.android.core.design.theme.LogbTheme
 import dev.logb.android.core.domain.Insights
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.SpendStats
+import dev.logb.android.core.server.Capabilities
 import dev.logb.android.core.sync.SyncStatus
 import dev.logb.android.feature.lock.LockContent
 import dev.logb.android.feature.objects.ObjectCard
@@ -26,6 +27,8 @@ import dev.logb.android.feature.onboarding.ServerContent
 import dev.logb.android.feature.onboarding.ServerUiState
 import dev.logb.android.feature.reminders.DueItem
 import dev.logb.android.feature.reminders.DueListContent
+import dev.logb.android.feature.settings.AboutContent
+import dev.logb.android.feature.settings.AboutInfo
 import dev.logb.android.feature.settings.SettingsHubContent
 import dev.logb.android.feature.settings.SettingsUiState
 import dev.logb.android.feature.stats.FuelInsights
@@ -115,5 +118,12 @@ class ScreensScreenshotTest {
 
     @Test fun settings() = capture("settings") {
         SettingsHubContent(SettingsUiState(session = Session.SignedIn("https://logb.example.org/", User(1, "ben"), "t", "EUR"), sync = SyncStatus.Idle("2026-09-13T08:00:00.000Z"), version = "0.5.0"), onOpen = {})
+    }
+
+    @Test fun about() = capture("about") {
+        AboutContent(
+            AboutInfo("0.7.0", 700, "2026-09-14", "1dc9ad7", debug = false, releaseKey = true, serverUrl = "https://logb.example.org/", serverVersion = "0.7.1", capabilities = Capabilities.of("0.7.1")),
+            onBack = {}, onOpenUrl = {}, onCopy = {},
+        )
     }
 }

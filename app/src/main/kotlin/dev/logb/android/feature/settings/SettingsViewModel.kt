@@ -14,6 +14,7 @@ import dev.logb.android.core.blobs.BlobStore
 import dev.logb.android.core.db.entity.OpEntity
 import dev.logb.android.core.db.entity.SyncStateEntity
 import dev.logb.android.core.db.inTransaction
+import dev.logb.android.core.design.AppSignature
 import dev.logb.android.core.notify.DigestWorker
 import dev.logb.android.core.notify.NotificationPrefs
 import dev.logb.android.core.notify.NotificationSettings
@@ -79,6 +80,16 @@ class SettingsViewModel @Inject constructor(
         SettingsUiState(values[0] as Session, values[1] as dev.logb.android.core.prefs.Appearance, values[2] as SyncStatus, values[3] as SyncStateEntity?, ops.first, ops.second, blobs.first, blobs.second, notifications = (values[6] as Pair<NotificationSettings, Boolean>).first, lockEnabled = (values[6] as Pair<NotificationSettings, Boolean>).second)
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
+
+    private val releaseKey = AppSignature.isReleaseSigned(context)
+
+    val about: StateFlow<AboutInfo> = combine(state, serverCapabilities.version, serverCapabilities.current) { s, version, caps ->
+        AboutInfo(
+            versionName = BuildConfig.VERSION_NAME, versionCode = BuildConfig.VERSION_CODE, buildDate = BuildConfig.BUILD_DATE,
+            commit = BuildConfig.GIT_HASH, debug = BuildConfig.DEBUG, releaseKey = releaseKey,
+            serverUrl = (s.session as? Session.SignedIn)?.serverUrl, serverVersion = version, capabilities = caps,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AboutInfo(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_DATE, BuildConfig.GIT_HASH, BuildConfig.DEBUG, releaseKey, null, null, Capabilities.NONE))
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { prefs.setTheme(mode) }
 
