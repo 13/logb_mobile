@@ -37,5 +37,9 @@ interface AttachmentDao {
     @Query("UPDATE objects SET cover_attachment_uuid = NULL WHERE cover_attachment_uuid IN (:attachmentUuids)")
     suspend fun clearCoversPointingAt(attachmentUuids: List<String>)
 
+    @Query("DELETE FROM attachments WHERE uuid IN (:uuids)") suspend fun hardDelete(uuids: List<String>)
+
+    @Query("SELECT uuid FROM attachments WHERE object_uuid IN (:objectUuids) OR activity_uuid IN (:activityUuids)") suspend fun allUuidsUnder(objectUuids: List<String>, activityUuids: List<String>): List<String>
+
     @Query("DELETE FROM attachments WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
 }

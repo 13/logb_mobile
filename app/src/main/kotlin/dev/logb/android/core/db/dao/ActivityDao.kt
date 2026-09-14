@@ -37,5 +37,9 @@ interface ActivityDao {
     @Query("UPDATE activities SET deleted_at = :now, updated_at = :now WHERE uuid IN (:uuids) AND deleted_at IS NULL")
     suspend fun tombstone(uuids: List<String>, now: String)
 
+    @Query("DELETE FROM activities WHERE uuid IN (:uuids)") suspend fun hardDelete(uuids: List<String>)
+
+    @Query("SELECT uuid FROM activities WHERE object_uuid IN (:objectUuids)") suspend fun allUuidsForObjects(objectUuids: List<String>): List<String>
+
     @Query("DELETE FROM activities WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
 }

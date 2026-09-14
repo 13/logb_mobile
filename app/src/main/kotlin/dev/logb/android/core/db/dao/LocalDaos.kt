@@ -20,6 +20,8 @@ interface OpDao {
 
     @Query("SELECT * FROM ops WHERE dead = 1 ORDER BY seq") fun dead(): Flow<List<OpEntity>>
 
+    @Query("SELECT * FROM ops WHERE kind = 'create' AND entity_uuid = :uuid AND dead = 0 LIMIT 1") suspend fun pendingCreate(uuid: String): OpEntity?
+
     @Query("DELETE FROM ops WHERE id = :id") suspend fun delete(id: String)
 
     @Query("DELETE FROM ops WHERE entity_uuid IN (:uuids)") suspend fun deleteForEntities(uuids: List<String>)

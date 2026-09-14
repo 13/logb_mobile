@@ -68,5 +68,8 @@ interface ObjectDao {
     @Query("UPDATE objects SET deleted_at = :now, updated_at = :now WHERE uuid IN (:uuids) AND deleted_at IS NULL")
     suspend fun tombstone(uuids: List<String>, now: String)
 
+    /** A row born on this phone and never pushed: removed outright, not tombstoned. */
+    @Query("DELETE FROM objects WHERE uuid IN (:uuids)") suspend fun hardDelete(uuids: List<String>)
+
     @Query("DELETE FROM objects WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
 }

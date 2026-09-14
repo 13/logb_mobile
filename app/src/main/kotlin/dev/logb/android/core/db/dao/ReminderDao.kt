@@ -31,5 +31,9 @@ interface ReminderDao {
     @Query("UPDATE reminders SET done_activity_uuid = NULL WHERE done_activity_uuid IN (:activityUuids)")
     suspend fun unlinkDoneActivities(activityUuids: List<String>)
 
+    @Query("DELETE FROM reminders WHERE uuid IN (:uuids)") suspend fun hardDelete(uuids: List<String>)
+
+    @Query("SELECT uuid FROM reminders WHERE object_uuid IN (:objectUuids)") suspend fun allUuidsForObjects(objectUuids: List<String>): List<String>
+
     @Query("DELETE FROM reminders WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
 }
