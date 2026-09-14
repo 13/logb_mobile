@@ -84,10 +84,15 @@ class SessionRepository @Inject constructor(
         _session.value = Session.SignedOut(record?.serverUrl ?: (current as? Session.SignedIn)?.serverUrl ?: "", record?.username)
     }
 
-    /** One's own password, through the users endpoint; the server's own words on refusal. */
+    /**
+     * One's own password, through the users endpoint; the server's own words on refusal. The
+     * server revokes every session and API token of the account with it -- this phone's included
+     * -- so a fresh token is minted with the new password at once, and the mirror stays.
+     */
     suspend fun changePassword(newPassword: String): Result<Unit> = runCatching {
         val current = _session.value as? Session.SignedIn ?: error("signed out")
         apiFactory.create(current.serverUrl, { current.token }, null).updateUser(current.user.id, UserPatch(newPassword))
+        signIn(current.serverUrl, current.user.username, newPassword).getOrThrow()
         Unit
     }.recoverCatching { e -> throw if (e is ApiException) IllegalStateException(e.message, e) else e }
 

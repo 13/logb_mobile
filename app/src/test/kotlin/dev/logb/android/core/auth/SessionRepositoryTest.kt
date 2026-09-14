@@ -116,11 +116,18 @@ class SessionRepositoryTest {
     fun `change password patches the own user and reports the server's refusal`() = runTest {
         signInQuietly()
         server.enqueue(json("{}"))
+        enqueueSignIn(token = "logb_pat_fresh")
         assertTrue(repo.changePassword("correct horse battery").isSuccess)
         val patch = server.takeRequest()
         assertEquals("PATCH", patch.method)
         assertEquals("/api/users/1", patch.url.encodedPath)
         assertEquals("""{"password":"correct horse battery"}""", patch.body?.utf8())
+        // The server revoked every token with the change: the phone signs in again with the new password.
+        val login = server.takeRequest()
+        assertEquals("/api/auth/login", login.url.encodedPath)
+        assertTrue(login.body!!.utf8().contains("correct horse battery"))
+        repeat(4) { server.takeRequest() }
+        assertEquals("logb_pat_fresh", tokenStore.read())
         server.enqueue(json("""{"error":"bad_request","message":"password too short"}""", code = 400))
         assertEquals("password too short", repo.changePassword("x").exceptionOrNull()?.message)
     }
@@ -138,13 +145,17 @@ class SessionRepositoryTest {
         assertNull(tokenStore.read())
     }
 
-    /** Sign in through the same five responses the sign-in test uses, draining the requests. */
-    private suspend fun signInQuietly() {
+    private fun enqueueSignIn(token: String = "logb_pat_abcdef") {
         server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
-        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"$token"}""", code = 201))
         server.enqueue(json("{}"))
         server.enqueue(json(me))
         server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+    }
+
+    /** Sign in through the same five responses the sign-in test uses, draining the requests. */
+    private suspend fun signInQuietly() {
+        enqueueSignIn()
         assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
         repeat(5) { server.takeRequest() }
     }
