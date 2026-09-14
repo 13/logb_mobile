@@ -64,8 +64,9 @@ class SessionRepository @Inject constructor(
         val bearerApi = apiFactory.create(base, { minted.token }, null)
         val me = bearerApi.me()
         val currency = runCatching { bearerApi.settings().currency }.getOrDefault("EUR")
+        val serverVersion = runCatching { bearerApi.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() }
         tokenStore.write(minted.token)
-        serverStore.write(ServerRecord(base, me.id, me.username, minted.id, currency))
+        serverStore.write(ServerRecord(base, me.id, me.username, minted.id, currency, serverVersion))
         _session.value = Session.SignedIn(base, me, minted.token, currency)
     }.recoverCatching { e ->
         // The server's own words for a wrong password; anything else is a connection problem.

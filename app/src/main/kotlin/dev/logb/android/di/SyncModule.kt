@@ -9,6 +9,7 @@ import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.blobs.BlobDownloader
 import dev.logb.android.core.blobs.BlobPrefs
 import dev.logb.android.core.blobs.BlobStore
+import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.sync.Connectivity
 import dev.logb.android.core.sync.ConnectivityMonitor
 import dev.logb.android.core.sync.PullEngine
@@ -41,7 +42,7 @@ object SyncModule {
 
     @Provides
     @Singleton
-    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope, blobs: BlobStore, blobPrefs: BlobPrefs): SyncManager =
+    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope, blobs: BlobStore, blobPrefs: BlobPrefs, capabilities: ServerCapabilities): SyncManager =
         SyncManager(
             sessions = sessions,
             connectivity = connectivity,
@@ -49,6 +50,11 @@ object SyncModule {
                 accounts.signedIn?.let {
                     SyncRunner {
                         val db = accounts.db
+                        // Before the pull: a server that just learned tags must be bootstrapped, or the
+                        // tags its rows already carry never reach the mirror.
+                        if (capabilities.refresh { runCatching { accounts.api.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() } }) {
+                            db.syncStateDao().requestBootstrap()
+                        }
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
                         PushEngine(db, accounts.api, blobs).run()
                         PullEngine(db, accounts.api, deviceId).run()

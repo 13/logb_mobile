@@ -34,6 +34,7 @@ class SessionRepositoryTest {
         server.enqueue(json("{}"))
         server.enqueue(json(me))
         server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("""{"status":"ok","version":"0.7.1","migrations":12}"""))
 
         val result = repo.signIn(server.url("/").toString(), "ben", "correct horse")
         assertTrue(result.isSuccess, result.toString())
@@ -55,6 +56,34 @@ class SessionRepositoryTest {
         assertEquals("CHF", s.currency)
         assertEquals("logb_pat_abcdef", tokenStore.read())
         assertEquals(9, serverStore.read()!!.tokenId)
+    }
+
+    @Test
+    fun `sign in remembers the server version`() = runTest {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("""{"status":"ok","version":"0.8.0","migrations":14}"""))
+
+        assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
+
+        assertEquals("0.8.0", serverStore.read()!!.serverVersion)
+    }
+
+    @Test
+    fun `sign in succeeds when health has no version`() = runTest {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("", code = 500))
+
+        assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
+
+        assertNull(serverStore.read()!!.serverVersion)
     }
 
     @Test
@@ -126,7 +155,7 @@ class SessionRepositoryTest {
         val login = server.takeRequest()
         assertEquals("/api/auth/login", login.url.encodedPath)
         assertTrue(login.body!!.utf8().contains("correct horse battery"))
-        repeat(4) { server.takeRequest() }
+        repeat(5) { server.takeRequest() }
         assertEquals("logb_pat_fresh", tokenStore.read())
         server.enqueue(json("""{"error":"bad_request","message":"password too short"}""", code = 400))
         assertEquals("password too short", repo.changePassword("x").exceptionOrNull()?.message)
@@ -151,13 +180,14 @@ class SessionRepositoryTest {
         server.enqueue(json("{}"))
         server.enqueue(json(me))
         server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("""{"status":"ok","version":"0.7.1","migrations":12}"""))
     }
 
-    /** Sign in through the same five responses the sign-in test uses, draining the requests. */
+    /** Sign in through the same six responses the sign-in test uses, draining the requests. */
     private suspend fun signInQuietly() {
         enqueueSignIn()
         assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
-        repeat(5) { server.takeRequest() }
+        repeat(6) { server.takeRequest() }
     }
 
     @Test

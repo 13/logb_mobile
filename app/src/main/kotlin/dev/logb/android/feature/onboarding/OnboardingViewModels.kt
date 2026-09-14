@@ -43,7 +43,7 @@ data class SignInUiState(
 )
 
 @HiltViewModel
-class SignInViewModel @Inject constructor(private val sessions: SessionRepository) : ViewModel() {
+class SignInViewModel @Inject constructor(private val sessions: SessionRepository, private val capabilities: dev.logb.android.core.server.ServerCapabilities) : ViewModel() {
     private val _state = MutableStateFlow(
         (sessions.session.value as? Session.SignedOut).let { s ->
             SignInUiState(serverUrl = s?.serverUrl ?: "", username = s?.username ?: "", error = s?.reason?.let { "unauthorized" })
@@ -63,6 +63,7 @@ class SignInViewModel @Inject constructor(private val sessions: SessionRepositor
         _state.update { it.copy(busy = true, error = null) }
         viewModelScope.launch {
             val result = sessions.signIn(s.serverUrl, s.username.trim(), s.password)
+            if (result.isSuccess) capabilities.load()
             _state.update { it.copy(busy = false, password = if (result.isSuccess) "" else it.password, error = result.exceptionOrNull()?.message) }
         }
     }
