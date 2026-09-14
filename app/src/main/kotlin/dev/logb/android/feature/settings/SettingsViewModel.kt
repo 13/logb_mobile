@@ -132,6 +132,17 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** The server's version, fetched when the Account screen asks; null offline. */
+    val serverVersion: StateFlow<String?> = kotlinx.coroutines.flow.flow { emit(runCatching { accounts.api.healthInfo().version }.getOrNull()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Null on success, else the server's reason. */
+    fun changePassword(newPassword: String, onResult: (String?) -> Unit) = viewModelScope.launch {
+        onResult(sessions.changePassword(newPassword).exceptionOrNull()?.message)
+    }
+
+    fun signOutEverywhere() = viewModelScope.launch { sessions.signOutEverywhere() }
+
     fun signOut(removeLocalData: Boolean) = viewModelScope.launch {
         val s = sessions.session.value as? Session.SignedIn
         sessions.signOut()

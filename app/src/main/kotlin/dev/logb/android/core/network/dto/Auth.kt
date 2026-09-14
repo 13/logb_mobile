@@ -39,3 +39,11 @@ data class NewApiToken(
 
 @Serializable
 data class Settings(val currency: String = "EUR", val timezone: String = "UTC")
+
+/** `PATCH /api/users/{id}` for one's own account: only the password from the phone. */
+@Serializable
+data class UserPatch(val password: String)
+
+/** `GET /api/health`, for the server version shown on the Account screen. */
+@Serializable
+data class HealthInfo(val version: String = "", val status: String = "")

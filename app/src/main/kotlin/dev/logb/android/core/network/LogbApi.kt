@@ -5,6 +5,8 @@ import dev.logb.android.core.network.dto.AttachmentDto
 import dev.logb.android.core.network.dto.ActivityInput
 import dev.logb.android.core.network.dto.BootstrapResult
 import dev.logb.android.core.network.dto.Credentials
+import dev.logb.android.core.network.dto.HealthInfo
+import dev.logb.android.core.network.dto.UserPatch
 import dev.logb.android.core.network.dto.NewApiToken
 import dev.logb.android.core.network.dto.NewToken
 import dev.logb.android.core.network.dto.ObjectDto
@@ -27,6 +29,7 @@ import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.Part
 import retrofit2.http.PartMap
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -34,6 +37,13 @@ import retrofit2.http.Query
 /** The server's HTTP API, as `docs/openapi.json` in the logb repo describes it. Only what this app calls. */
 interface LogbApi {
     @GET("api/health") suspend fun health(): Response<Unit>
+
+    @GET("api/health") suspend fun healthInfo(): HealthInfo
+
+    /** Ends every browser session of the account; API tokens (this phone's included) stay. */
+    @POST("api/auth/logout-all") suspend fun logoutAll(): Response<Unit>
+
+    @PATCH("api/users/{id}") suspend fun updateUser(@Path("id") id: Long, @Body body: UserPatch): Response<Unit>
 
     @POST("api/auth/login") suspend fun login(@Body body: Credentials): User
 

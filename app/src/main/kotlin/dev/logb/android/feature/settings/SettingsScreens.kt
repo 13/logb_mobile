@@ -156,11 +156,15 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
     var confirm by remember { mutableStateOf(false) }
     var removeData by remember { mutableStateOf(false) }
     val s = state.session as? Session.SignedIn
-    Column(Modifier.fillMaxSize()) {
+    val serverVersion by viewModel.serverVersion.collectAsStateWithLifecycle()
+    var changePassword by remember { mutableStateOf(false) }
+    var confirmEverywhere by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         LogbTopBar(title = stringResource(R.string.settings_account), onBack = onBack)
         Column(Modifier.padding(16.dp)) {
             Text(stringResource(R.string.server_url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(s?.serverUrl?.removeSuffix("/") ?: "", style = MaterialTheme.typography.bodyLarge)
+            serverVersion?.let { Text(stringResource(R.string.server_version, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.username), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(s?.user?.username ?: "", style = MaterialTheme.typography.bodyLarge)
@@ -182,8 +186,23 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
                 Switch(checked = state.lockEnabled && available, onCheckedChange = null, enabled = available)
             }
             Spacer(Modifier.height(24.dp))
+            OutlinedButton(onClick = { changePassword = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.change_password)) }
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = { confirmEverywhere = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out_everywhere)) }
+            Text(stringResource(R.string.sign_out_everywhere_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+    if (changePassword) ChangePasswordDialog(onDismiss = { changePassword = false }, onSubmit = { pw, done -> viewModel.changePassword(pw, done) })
+    if (confirmEverywhere) {
+        AlertDialog(
+            onDismissRequest = { confirmEverywhere = false },
+            title = { Text(stringResource(R.string.sign_out_everywhere)) },
+            text = { Text(stringResource(R.string.sign_out_everywhere_body)) },
+            confirmButton = { Button(onClick = { confirmEverywhere = false; viewModel.signOutEverywhere() }) { Text(stringResource(R.string.sign_out_everywhere)) } },
+            dismissButton = { TextButton(onClick = { confirmEverywhere = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     if (confirm) {
         AlertDialog(
@@ -203,6 +222,47 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+/** New password twice; the server's own refusal (too short, say) shows under the field. */
+@Composable
+private fun ChangePasswordDialog(onDismiss: () -> Unit, onSubmit: (String, (String?) -> Unit) -> Unit) {
+    var first by remember { mutableStateOf("") }
+    var second by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var done by remember { mutableStateOf(false) }
+    val mismatch = stringResource(R.string.change_password_mismatch)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.change_password)) },
+        text = {
+            Column {
+                if (done) {
+                    Text(stringResource(R.string.change_password_done))
+                } else {
+                    androidx.compose.material3.OutlinedTextField(first, { first = it; error = null }, label = { Text(stringResource(R.string.change_password_new)) }, singleLine = true, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.OutlinedTextField(second, { second = it; error = null }, label = { Text(stringResource(R.string.change_password_repeat)) }, singleLine = true, isError = error != null, supportingText = error?.let { { Text(it) } }, visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                }
+            }
+        },
+        confirmButton = {
+            if (done) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) }
+            } else {
+                Button(
+                    enabled = !busy && first.isNotEmpty(),
+                    onClick = {
+                        if (first != second) { error = mismatch; return@Button }
+                        busy = true
+                        onSubmit(first) { result -> busy = false; if (result == null) done = true else error = result }
+                    },
+                ) { Text(stringResource(R.string.save)) }
+            }
+        },
+        dismissButton = { if (!done) TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable

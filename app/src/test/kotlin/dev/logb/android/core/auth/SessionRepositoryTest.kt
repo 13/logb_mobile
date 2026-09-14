@@ -113,6 +113,43 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `change password patches the own user and reports the server's refusal`() = runTest {
+        signInQuietly()
+        server.enqueue(json("{}"))
+        assertTrue(repo.changePassword("correct horse battery").isSuccess)
+        val patch = server.takeRequest()
+        assertEquals("PATCH", patch.method)
+        assertEquals("/api/users/1", patch.url.encodedPath)
+        assertEquals("""{"password":"correct horse battery"}""", patch.body?.utf8())
+        server.enqueue(json("""{"error":"bad_request","message":"password too short"}""", code = 400))
+        assertEquals("password too short", repo.changePassword("x").exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun `sign out everywhere ends browser sessions, then signs this phone out`() = runTest {
+        signInQuietly()
+        server.enqueue(json("", code = 204))
+        server.enqueue(json("", code = 204))
+        repo.signOutEverywhere()
+        val all = server.takeRequest()
+        assertEquals("POST", all.method); assertEquals("/api/auth/logout-all", all.url.encodedPath)
+        assertEquals("/api/auth/tokens/9", server.takeRequest().url.encodedPath)
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertNull(tokenStore.read())
+    }
+
+    /** Sign in through the same five responses the sign-in test uses, draining the requests. */
+    private suspend fun signInQuietly() {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
+        repeat(5) { server.takeRequest() }
+    }
+
+    @Test
     fun `checkServer hits health and remembers the address`() = runTest {
         server.enqueue(json("{}"))
         val r = repo.checkServer(server.url("/").toString().removeSuffix("/"))

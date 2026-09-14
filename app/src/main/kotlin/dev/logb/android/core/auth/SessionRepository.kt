@@ -2,6 +2,7 @@ package dev.logb.android.core.auth
 
 import android.os.Build
 import dev.logb.android.core.network.ApiClient
+import dev.logb.android.core.network.dto.UserPatch
 import dev.logb.android.core.network.ApiException
 import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.network.dto.Credentials
@@ -81,6 +82,20 @@ class SessionRepository @Inject constructor(
         tokenStore.clear()
         if (record != null) serverStore.write(record.copy(tokenId = null))
         _session.value = Session.SignedOut(record?.serverUrl ?: (current as? Session.SignedIn)?.serverUrl ?: "", record?.username)
+    }
+
+    /** One's own password, through the users endpoint; the server's own words on refusal. */
+    suspend fun changePassword(newPassword: String): Result<Unit> = runCatching {
+        val current = _session.value as? Session.SignedIn ?: error("signed out")
+        apiFactory.create(current.serverUrl, { current.token }, null).updateUser(current.user.id, UserPatch(newPassword))
+        Unit
+    }.recoverCatching { e -> throw if (e is ApiException) IllegalStateException(e.message, e) else e }
+
+    /** Ends every browser session on the server (best effort), then signs this phone out; the mirror stays. */
+    suspend fun signOutEverywhere() {
+        val current = _session.value
+        if (current is Session.SignedIn) runCatching { apiFactory.create(current.serverUrl, { current.token }, null).logoutAll() }
+        signOut()
     }
 
     /** The server answered 401: the token is gone. Keep the server and the name, drop the token. */

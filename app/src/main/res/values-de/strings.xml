@@ -349,4 +349,14 @@
     <string name="reading_warn_implausible">Weit mehr als üblich seit %1$s. Auf Tippfehler prüfen, dann erneut speichern.</string>
     <string name="timeline_pending">Wartet auf Senden</string>
     <string name="clear_cover">Titelbild entfernen</string>
+    <!-- Account parity -->
+    <string name="server_version">Server %1$s</string>
+    <string name="change_password">Passwort ändern</string>
+    <string name="change_password_new">Neues Passwort</string>
+    <string name="change_password_repeat">Neues Passwort wiederholen</string>
+    <string name="change_password_mismatch">Die beiden Passwörter sind verschieden.</string>
+    <string name="change_password_done">Passwort geändert. Bestehende Sitzungen bleiben gültig.</string>
+    <string name="sign_out_everywhere">Überall abmelden</string>
+    <string name="sign_out_everywhere_hint">Beendet jede Browser-Sitzung deines Kontos. Andere Telefone behalten ihre Zugänge.</string>
+    <string name="sign_out_everywhere_body">Jede Browser-Sitzung endet und dieses Telefon meldet sich ab; das Logbuch bleibt auf dem Telefon.</string>
 </resources>
