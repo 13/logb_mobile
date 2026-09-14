@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the FileProvider may hand out: the camera's temp file, and stored originals for "open with". -->
+<paths>
+    <cache-path name="camera" path="camera/" />
+    <files-path name="blobs" path="blobs/" />
+</paths>

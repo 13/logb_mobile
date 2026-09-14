@@ -5,7 +5,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
+import dev.logb.android.core.design.components.AttachmentThumb
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,8 +61,9 @@ import dev.logb.android.feature.objects.tabs.categoryLabel
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ActivityFormScreen(onBack: () -> Unit, viewModel: ActivityFormViewModel = hiltViewModel()) {
+fun ActivityFormScreen(onBack: () -> Unit, onAttachment: (String) -> Unit = {}, viewModel: ActivityFormViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val attachments by viewModel.attachments.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
     val locale = currentLocale()
@@ -99,7 +111,22 @@ fun ActivityFormScreen(onBack: () -> Unit, viewModel: ActivityFormViewModel = hi
                 OutlinedTextField(state.quantity, viewModel::onQuantity, label = { Text(stringResource(R.string.field_quantity, state.obj?.fuelUnit ?: "")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), isError = "quantityMilli" in state.errors, supportingText = errorText(state.errors["quantityMilli"])?.let { { Text(it) } }, modifier = Modifier.fillMaxWidth())
             }
             OutlinedTextField(state.notes, viewModel::onNotes, label = { Text(stringResource(R.string.field_notes)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
-            Text(stringResource(R.string.photos_next_release), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.field_attachments), style = MaterialTheme.typography.labelLarge)
+            if (attachments.isNotEmpty() || state.pending.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(attachments, key = { it.attachment.uuid }) { att -> AttachmentThumb(att, size = 72.dp, onClick = { onAttachment(att.attachment.uuid) }) }
+                    items(state.pending, key = { it.file.path }) { f ->
+                        Box(Modifier.size(72.dp).clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                            if (f.isImage) AsyncImage(model = f.file, contentDescription = f.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            else Text(f.name, style = MaterialTheme.typography.labelSmall, maxLines = 3, modifier = Modifier.padding(4.dp))
+                            IconButton(onClick = { viewModel.dropPending(f) }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) {
+                                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.remove), tint = MaterialTheme.colorScheme.onSurface)
+                            }
+                        }
+                    }
+                }
+            }
+            AttachmentPicker(onPicked = viewModel::attach)
             Spacer(Modifier.height(8.dp))
             Button(onClick = viewModel::save, enabled = !state.saving, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.save)) }
             Spacer(Modifier.height(48.dp))

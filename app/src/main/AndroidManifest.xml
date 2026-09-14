@@ -33,6 +33,14 @@
             </intent-filter>
         </activity>
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- WorkManager is configured by LogbApp (Hilt worker factory), not by the initializer. -->
         <provider
             android:name="androidx.startup.InitializationProvider"

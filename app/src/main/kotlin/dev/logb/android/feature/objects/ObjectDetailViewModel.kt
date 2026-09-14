@@ -92,7 +92,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
 }
 
 @HiltViewModel
-class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, private val repos: dev.logb.android.core.sync.Repositories, savedState: SavedStateHandle) : ViewModel() {
+class ObjectDetailViewModel @Inject constructor(@dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context, accounts: ActiveAccount, private val repos: dev.logb.android.core.sync.Repositories, savedState: SavedStateHandle) : ViewModel() {
     val route: ObjectDetail = savedState.toRoute()
     private val filter = MutableStateFlow<String?>(null)
     private val model = ObjectDetailModel(accounts.db, route.uuid)
@@ -102,6 +102,14 @@ class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, private
     fun setFilter(category: String?) { filter.value = if (filter.value == category) null else category }
 
     fun setArchived(archived: Boolean) = viewModelScope.launch { repos.objectRepository.setArchived(route.uuid, archived) }
+
+    /** Files picked on the Documents tab: attached to the object itself, not to an entry. */
+    fun attach(uris: List<android.net.Uri>) = viewModelScope.launch {
+        uris.mapNotNull { dev.logb.android.feature.entries.PickedFile.from(context, it) }.forEach { f ->
+            f.file.inputStream().use { repos.attachmentRepository.import(it, f.name, f.mime, route.uuid, null) }
+            f.discard()
+        }
+    }
 
     fun markDone(reminderUuid: String, activityUuid: String?) = viewModelScope.launch { repos.reminderRepository.done(reminderUuid, activityUuid) }
     fun snooze(reminderUuid: String, days: Long) = viewModelScope.launch { repos.reminderRepository.snooze(reminderUuid, days) }

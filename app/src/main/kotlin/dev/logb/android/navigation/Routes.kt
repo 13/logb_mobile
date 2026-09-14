@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ActivityForm(val objectUuid: String, val uuid: String? = null, val category: String? = null, val doneReminderUuid: String? = null, val title: String? = null)
 @Serializable data class ReminderForm(val objectUuid: String, val uuid: String? = null)
 @Serializable object DueList
+@Serializable data class Viewer(val attachmentUuid: String)
 @Serializable data class ReadingForm(val objectUuid: String)
 @Serializable object Search
 @Serializable object Settings
@@ -27,7 +28,7 @@ enum class Destination { Objects, Search, Settings }
 fun activeDestination(route: String?): Destination? {
     val name = route?.substringAfterLast('.')?.substringBefore('/')?.substringBefore('?') ?: return null
     return when (name) {
-        "Objects", "ObjectDetail", "ObjectForm", "ActivityForm", "ReadingForm", "ReminderForm", "DueList" -> Destination.Objects
+        "Objects", "ObjectDetail", "ObjectForm", "ActivityForm", "ReadingForm", "ReminderForm", "DueList", "Viewer" -> Destination.Objects
         "Search" -> Destination.Search
         "Settings", "Appearance", "Account", "SyncSettings", "About" -> Destination.Settings
         else -> null

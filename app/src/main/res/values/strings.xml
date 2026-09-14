@@ -203,7 +203,6 @@
     <string name="field_notes">Notes</string>
     <string name="counter_current_hint">Currently %1$s</string>
     <string name="counter_lower_warning">Lower than the current reading of %1$s</string>
-    <string name="photos_next_release">Photos and documents come with the next release.</string>
     <string name="delete_entry_title">Delete this entry?</string>
     <string name="delete_entry_body">Its photos go with it. This cannot be undone.</string>
     <string name="reminder_new">Add reminder</string>
@@ -244,6 +243,16 @@
         <item quantity="one">%d change could not be saved</item>
         <item quantity="other">%d changes could not be saved</item>
     </plurals>
-    <string name="attachment_add">Add a photo or document</string>
     <string name="attachment_not_uploaded">Not yet on the server</string>
+    <string name="field_attachments">Photos and documents</string>
+    <string name="pick_camera">Camera</string>
+    <string name="pick_gallery">Gallery</string>
+    <string name="pick_document">Document</string>
+    <string name="remove">Remove</string>
+    <string name="more">More</string>
+    <string name="caption_edit">Edit caption</string>
+    <string name="use_as_cover">Use as cover</string>
+    <string name="open_with">Open with…</string>
+    <string name="original_unavailable">The file is not on this phone yet. It downloads on Wi-Fi, or open it again while connected.</string>
+    <string name="delete_attachment_title">Delete this file?</string>
 </resources>

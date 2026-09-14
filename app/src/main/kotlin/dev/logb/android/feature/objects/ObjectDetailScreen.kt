@@ -50,7 +50,7 @@ private val TABS = listOf("timeline", "documents", "reminders", "info")
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, onLog: (String) -> Unit = {}, onEditEntry: (String, String) -> Unit = { _, _ -> }, onAddReminder: (String) -> Unit = {}, onEditReminder: (String, String) -> Unit = { _, _ -> }, onLogForReminder: (String, String, String) -> Unit = { _, _, _ -> }, onAttachment: (String) -> Unit = {}, onAddDocument: (String) -> Unit = {}, viewModel: ObjectDetailViewModel = hiltViewModel()) {
+fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, onLog: (String) -> Unit = {}, onEditEntry: (String, String) -> Unit = { _, _ -> }, onAddReminder: (String) -> Unit = {}, onEditReminder: (String, String) -> Unit = { _, _ -> }, onLogForReminder: (String, String, String) -> Unit = { _, _, _ -> }, onAttachment: (String) -> Unit = {}, viewModel: ObjectDetailViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TABS.indexOf(viewModel.route.tab).coerceAtLeast(0)) }
     val locale = currentLocale()
@@ -89,7 +89,7 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
         }
         when (TABS[tab]) {
             "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, onEntry = { onEditEntry(obj.uuid, it) }, onAttachment = onAttachment)
-            "documents" -> DocumentsTab(state, onAttachment = onAttachment, onAdd = { onAddDocument(obj.uuid) })
+            "documents" -> DocumentsTab(state, onAttachment = onAttachment, onPicked = viewModel::attach)
             "reminders" -> RemindersTab(
                 state, obj.counterUnit,
                 actions = ReminderActions(

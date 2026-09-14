@@ -11,6 +11,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import dev.logb.android.feature.entries.ActivityFormScreen
+import dev.logb.android.feature.entries.AttachmentViewerScreen
 import dev.logb.android.feature.entries.ReadingFormScreen
 import dev.logb.android.feature.objects.ObjectFormScreen
 import dev.logb.android.feature.reminders.DueListScreen
@@ -66,9 +67,11 @@ fun AppNavHost() {
                     onAddReminder = { uuid -> nav.navigate(ReminderForm(uuid)) },
                     onEditReminder = { objectUuid, uuid -> nav.navigate(ReminderForm(objectUuid, uuid)) },
                     onLogForReminder = { objectUuid, reminderUuid, title -> nav.navigate(ActivityForm(objectUuid, doneReminderUuid = reminderUuid, title = title)) },
+                    onAttachment = { uuid -> nav.navigate(Viewer(uuid)) },
                 )
             }
-            composable<ActivityForm> { ActivityFormScreen(onBack = { nav.popBackStack() }) }
+            composable<ActivityForm> { ActivityFormScreen(onBack = { nav.popBackStack() }, onAttachment = { uuid -> nav.navigate(Viewer(uuid)) }) }
+            composable<Viewer> { AttachmentViewerScreen(onBack = { nav.popBackStack() }) }
             composable<ReadingForm> { ReadingFormScreen(onBack = { nav.popBackStack() }) }
             composable<ReminderForm> { ReminderFormScreen(onBack = { nav.popBackStack() }) }
             composable<DueList> { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }) }

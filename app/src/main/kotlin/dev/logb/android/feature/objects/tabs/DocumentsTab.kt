@@ -4,15 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import dev.logb.android.feature.entries.AttachmentPicker
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -24,9 +22,9 @@ import dev.logb.android.core.design.components.EmptyState
 import dev.logb.android.feature.objects.ObjectDetailUiState
 
 @Composable
-fun DocumentsTab(state: ObjectDetailUiState, onAttachment: (String) -> Unit = {}, onAdd: (() -> Unit)? = null) {
+fun DocumentsTab(state: ObjectDetailUiState, onAttachment: (String) -> Unit = {}, onPicked: ((List<android.net.Uri>) -> Unit)? = null) {
     Column(Modifier.fillMaxSize()) {
-        if (onAdd != null) OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) { Text(stringResource(R.string.attachment_add)) }
+        if (onPicked != null) AttachmentPicker(onPicked = onPicked, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         if (state.loaded && state.documents.isEmpty()) {
             EmptyState(icon = rememberVectorPainter(Icons.Outlined.Description), title = stringResource(R.string.documents_empty), body = stringResource(R.string.documents_empty_body))
             return@Column
