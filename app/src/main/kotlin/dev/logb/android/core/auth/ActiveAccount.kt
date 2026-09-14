@@ -2,7 +2,9 @@ package dev.logb.android.core.auth
 
 import dev.logb.android.core.db.DatabaseProvider
 import dev.logb.android.core.db.LogbDatabase
+import dev.logb.android.core.network.ApiClient
 import dev.logb.android.core.network.LogbApi
+import okhttp3.OkHttpClient
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +22,7 @@ class ActiveAccount @Inject constructor(
     private var cachedKey: Pair<String, Long>? = null
     private var cachedDb: LogbDatabase? = null
     private var cachedApi: LogbApi? = null
+    private var cachedHttp: OkHttpClient? = null
 
     /** The signed-in session, or null. */
     val signedIn: Session.SignedIn? get() = sessions.session.value as? Session.SignedIn
@@ -38,12 +41,26 @@ class ActiveAccount @Inject constructor(
             cachedApi!!
         }
 
+    /** The same bearer-carrying client, for image loading. Null when signed out. */
+    val httpClient: OkHttpClient?
+        get() = synchronized(this) {
+            val s = signedIn ?: return null
+            refresh(s)
+            cachedHttp
+        }
+
+    /** `/api/files/{id}` or its thumbnail on the signed-in server; null when signed out. */
+    fun fileUrl(serverId: Long, thumb: Boolean): String? =
+        signedIn?.let { "${it.serverUrl}api/files/$serverId${if (thumb) "/thumb" else ""}" }
+
     private fun refresh(s: Session.SignedIn) {
         val key = s.serverUrl to s.user.id
         if (key == cachedKey) return
         cachedDb?.close()
         cachedDb = databases.open(s.serverUrl, s.user.id)
-        cachedApi = apiFactory.create(s.serverUrl, { (sessions.session.value as? Session.SignedIn)?.token }, null)
+        val tokenProvider = { (sessions.session.value as? Session.SignedIn)?.token }
+        cachedApi = apiFactory.create(s.serverUrl, tokenProvider, null)
+        cachedHttp = ApiClient.okHttp(tokenProvider)
         cachedKey = key
     }
 
@@ -52,6 +69,7 @@ class ActiveAccount @Inject constructor(
             cachedDb?.close()
             cachedDb = null
             cachedApi = null
+            cachedHttp = null
             cachedKey = null
         }
         databases.delete(serverUrl, userId)

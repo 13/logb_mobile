@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.db.LogbDatabase
+import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.sync.SyncManager
@@ -48,16 +49,17 @@ data class ObjectsUiState(
 /** Pure enough to test on an in-memory mirror: everything the screen needs, from Room flows. */
 class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalDate = { LocalDate.now() }) {
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun cards(archived: Flow<Boolean>): Flow<List<ObjectCard>> =
-        combine(archived.flatMapLatest { db.objectDao().roots(it) }, db.reminderDao().allOpen()) { roots, open -> roots to open }
-            .map { (roots, open) ->
-                roots.map { o ->
-                    val stats = db.objectDao().stats(o.uuid)
-                    val due = dueCount(open.filter { it.objectUuid == o.uuid }, stats.currentCounter, stats.lastReadingDate)
-                    val cover = o.coverAttachmentUuid?.let { db.attachmentDao().get(it) }?.let { db.fileDao().get(it.fileUuid) }?.serverId
-                    ObjectCard(o.uuid, o.name, o.type, stats.currentCounter, o.counterUnit, stats.totalCostCents, stats.lastActivityDate, due, cover)
-                }
-            }
+    fun cards(archived: Flow<Boolean>): Flow<List<ObjectCard>> = archived.flatMapLatest { db.objectDao().roots(it) }.flatMapLatest { cardsFor(it) }
+
+    /** Cards for a given set of objects, re-evaluated whenever their reminders change. */
+    fun cardsFor(objects: List<ObjectEntity>): Flow<List<ObjectCard>> = db.reminderDao().allOpen().map { open ->
+        objects.map { o ->
+            val stats = db.objectDao().stats(o.uuid)
+            val due = dueCount(open.filter { it.objectUuid == o.uuid }, stats.currentCounter, stats.lastReadingDate)
+            val cover = o.coverAttachmentUuid?.let { db.attachmentDao().get(it) }?.let { db.fileDao().get(it.fileUuid) }?.serverId
+            ObjectCard(o.uuid, o.name, o.type, stats.currentCounter, o.counterUnit, stats.totalCostCents, stats.lastActivityDate, due, cover)
+        }
+    }
 
     /** Every due reminder across every object, for the banner. */
     fun totalDue(): Flow<Int> = db.reminderDao().allOpen().map { open ->
