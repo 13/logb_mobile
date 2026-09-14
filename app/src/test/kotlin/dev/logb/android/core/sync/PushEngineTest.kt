@@ -1,0 +1,105 @@
+package dev.logb.android.core.sync
+
+import dev.logb.android.core.db.TestDatabase
+import dev.logb.android.core.db.act
+import dev.logb.android.core.db.entity.SyncStateEntity
+import dev.logb.android.core.db.obj
+import dev.logb.android.core.network.ApiClient
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+@RunWith(RobolectricTestRunner::class)
+class PushEngineTest {
+    private val server = MockWebServer()
+    private val db = TestDatabase.inMemory()
+    private lateinit var engine: PushEngine
+    private lateinit var writer: LocalWriter
+
+    @Before
+    fun start() = runTest {
+        server.start()
+        engine = PushEngine(db, ApiClient.create(server.url("/").toString(), { "t" }))
+        writer = LocalWriter(db)
+        db.syncStateDao().upsert(SyncStateEntity(deviceId = "phone-1", bootstrapNeeded = false))
+    }
+
+    @After
+    fun stop() { server.close(); db.close() }
+
+    private fun json(body: String, code: Int = 200) = MockResponse.Builder().code(code).addHeader("content-type", "application/json").body(body).build()
+    private val objectDto = """{"id":42,"name":"Golf","type":"car","created_at":"t","updated_at":"t","client_uuid":"u1"}"""
+
+    @Test
+    fun `an object create posts the row with its client_uuid and stores the server id`() = runTest {
+        writer.create("object", "u1") { db.objectDao().upsert(obj("u1", "Golf")) }
+        writer.set("object", "u1", mapOf("name" to "Golf VII")) { db.objectDao().upsert(db.objectDao().get("u1")!!.copy(name = "Golf VII")) }
+        server.enqueue(json(objectDto, 201))
+        engine.run()
+        val r = server.takeRequest()
+        assertEquals("/api/objects", r.url.encodedPath)
+        val body = r.body!!.utf8()
+        assertTrue(body.contains("\"client_uuid\":\"u1\""), body)
+        assertTrue(body.contains("\"name\":\"Golf VII\""), "the create carries the row's current values: $body")
+        assertEquals(42, db.objectDao().get("u1")!!.serverId)
+        assertTrue(db.opDao().pending().isEmpty())
+    }
+
+    @Test
+    fun `an entry under an unpushed object waits until the object is on the server, in order`() = runTest {
+        writer.create("object", "u1") { db.objectDao().upsert(obj("u1", "Golf")) }
+        writer.create("activity", "a1") { db.activityDao().upsert(act("a1", "u1", "2026-01-01", title = "Oil")) }
+        server.enqueue(json(objectDto, 201))
+        server.enqueue(json("""{"id":7,"object_id":42,"date":"2026-01-01","category":"maintenance","title":"Oil","created_at":"t","updated_at":"t"}""", 201))
+        engine.run()
+        assertEquals("/api/objects", server.takeRequest().url.encodedPath)
+        assertEquals("/api/objects/42/activities", server.takeRequest().url.encodedPath)
+        assertEquals(7, db.activityDao().get("a1")!!.serverId)
+        assertTrue(db.opDao().pending().isEmpty())
+    }
+
+    @Test
+    fun `sets and a delete become one push batch, and outcomes are applied per op`() = runTest {
+        db.objectDao().upsert(obj("u1", "Golf", serverId = 4), obj("u2", "Bike", serverId = 5), obj("house", "House", serverId = 6))
+        writer.set("object", "u1", mapOf("name" to "Polo", "parent_id" to "house")) { }
+        writer.set("object", "u2", mapOf("name" to "Nope")) { }
+        writer.delete("object", "u2")
+        val ops = db.opDao().pending()
+        assertEquals(listOf("set", "set", "delete"), ops.map { it.kind })
+        server.enqueue(json("""{"results":[{"client_op_id":"${ops[0].id}","outcome":"accepted"},{"client_op_id":"${ops[1].id}","outcome":"superseded"},{"client_op_id":"${ops[2].id}","outcome":"rejected","reason":"unknown entity_uuid"}],"server_time":"2026-09-14T10:00:00.000Z","ids":{}}"""))
+        engine.run()
+        val r = server.takeRequest()
+        assertEquals("/api/sync/push", r.url.encodedPath)
+        val body = r.body!!.utf8()
+        assertTrue(body.contains("\"device_id\":\"phone-1\""), body)
+        assertTrue(body.contains("\"field\":\"parent_id\",\"value\":6"), "the parent's uuid is sent as the server's id: $body")
+        assertTrue(db.opDao().pending().isEmpty())
+        val dead = db.opDao().dead()
+        assertEquals(1, dead.first().size)
+        assertEquals("unknown entity_uuid", dead.first().single().lastError)
+    }
+
+    @Test
+    fun `a 409 on a create marks it dead, a network failure leaves everything queued, attachments are skipped`() = runTest {
+        writer.create("object", "u1") { db.objectDao().upsert(obj("u1", "Golf")) }
+        server.enqueue(json("""{"error":"conflict","message":"client_uuid names a row you cannot reuse"}""", 409))
+        engine.run()
+        assertEquals(1, db.opDao().dead().first().size)
+
+        writer.create("object", "u2") { db.objectDao().upsert(obj("u2", "Bike")) }
+        server.close()
+        runCatching { engine.run() }
+        assertEquals(1, db.opDao().pending().size)
+        writer.create("attachment", "t1") { }
+        assertEquals(2, db.opDao().pending().size)
+    }
+}

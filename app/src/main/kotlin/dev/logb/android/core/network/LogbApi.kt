@@ -1,12 +1,18 @@
 package dev.logb.android.core.network
 
+import dev.logb.android.core.network.dto.ActivityDto
+import dev.logb.android.core.network.dto.ActivityInput
 import dev.logb.android.core.network.dto.BootstrapResult
 import dev.logb.android.core.network.dto.Credentials
 import dev.logb.android.core.network.dto.NewApiToken
 import dev.logb.android.core.network.dto.NewToken
+import dev.logb.android.core.network.dto.ObjectDto
+import dev.logb.android.core.network.dto.ObjectInput
 import dev.logb.android.core.network.dto.PullResult
 import dev.logb.android.core.network.dto.PushBody
 import dev.logb.android.core.network.dto.PushResult
+import dev.logb.android.core.network.dto.ReminderDto
+import dev.logb.android.core.network.dto.ReminderInput
 import dev.logb.android.core.network.dto.Settings
 import dev.logb.android.core.network.dto.User
 import retrofit2.Response
@@ -39,4 +45,12 @@ interface LogbApi {
     suspend fun pull(@Query("since") since: Long, @Query("epoch") epoch: String?, @Query("limit") limit: Int): PullResult
 
     @POST("api/sync/push") suspend fun push(@Body body: PushBody): PushResult
+
+    // Creates go through REST carrying the row's client_uuid: the server inserts, the change
+    // feed announces. A replay with the same client_uuid answers 200 with the same row.
+    @POST("api/objects") suspend fun createObject(@Body body: ObjectInput): ObjectDto
+
+    @POST("api/objects/{id}/activities") suspend fun createActivity(@Path("id") objectId: Long, @Body body: ActivityInput): ActivityDto
+
+    @POST("api/objects/{id}/reminders") suspend fun createReminder(@Path("id") objectId: Long, @Body body: ReminderInput): ReminderDto
 }

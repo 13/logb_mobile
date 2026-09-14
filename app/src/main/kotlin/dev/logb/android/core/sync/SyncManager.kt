@@ -29,6 +29,7 @@ class SyncManager(
     private val connectivity: ConnectivityMonitor,
     private val runnerFactory: () -> SyncRunner?,
     private val scope: CoroutineScope,
+    private val pendingCount: suspend () -> Int = { 0 },
     private val debounceMs: Long = 2_000,
 ) {
     private val mutex = Mutex()
@@ -53,13 +54,13 @@ class SyncManager(
             return Result.failure(IllegalStateException("signed out"))
         }
         if (!connectivity.isOnline.value) {
-            _status.value = SyncStatus.Offline(pending = 0)
+            _status.value = SyncStatus.Offline(pending = pendingCount())
             return Result.failure(IOException("offline"))
         }
         _status.value = SyncStatus.Syncing
         try {
             runner.run()
-            _status.value = SyncStatus.Idle(Clock.nowIso())
+            _status.value = SyncStatus.Idle(Clock.nowIso(), pending = pendingCount())
             Result.success(Unit)
         } catch (e: UnauthorizedException) {
             sessions.onUnauthorized()
@@ -69,7 +70,7 @@ class SyncManager(
             _status.value = SyncStatus.Failed(e.message)
             Result.failure(e)
         } catch (e: IOException) {
-            _status.value = SyncStatus.Offline(pending = 0)
+            _status.value = SyncStatus.Offline(pending = pendingCount())
             Result.failure(e)
         }
     }

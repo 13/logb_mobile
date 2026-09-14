@@ -18,7 +18,7 @@ import dev.logb.android.core.sync.SyncStatus
 fun SyncLine(status: SyncStatus, onOpenSync: () -> Unit, modifier: Modifier = Modifier) {
     val (text, warn) = when (status) {
         SyncStatus.None -> null to false
-        is SyncStatus.Idle -> stringResource(R.string.sync_synced, relativeTime(status.lastSyncedAt)) to false
+        is SyncStatus.Idle -> (if (status.pending > 0) pluralStringResource(R.plurals.sync_waiting, status.pending, status.pending) else stringResource(R.string.sync_synced, relativeTime(status.lastSyncedAt))) to false
         SyncStatus.Syncing -> stringResource(R.string.sync_syncing) to false
         is SyncStatus.Offline -> (if (status.pending > 0) stringResource(R.string.sync_offline_pending, pluralStringResource(R.plurals.sync_waiting, status.pending, status.pending)) else stringResource(R.string.sync_offline)) to false
         is SyncStatus.Failed -> stringResource(R.string.sync_failed) to true

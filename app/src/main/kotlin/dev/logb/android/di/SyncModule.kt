@@ -9,6 +9,7 @@ import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.sync.Connectivity
 import dev.logb.android.core.sync.ConnectivityMonitor
 import dev.logb.android.core.sync.PullEngine
+import dev.logb.android.core.sync.PushEngine
 import dev.logb.android.core.sync.SyncManager
 import dev.logb.android.core.sync.SyncRunner
 import kotlinx.coroutines.CoroutineScope
@@ -39,10 +40,12 @@ object SyncModule {
                     SyncRunner {
                         val db = accounts.db
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
+                        PushEngine(db, accounts.api).run()
                         PullEngine(db, accounts.api, deviceId).run()
                     }
                 }
             },
             scope = scope,
+            pendingCount = { accounts.signedIn?.let { accounts.db.opDao().pending().size } ?: 0 },
         )
 }
