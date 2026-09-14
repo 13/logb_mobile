@@ -94,7 +94,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
             composable<ShareTarget> { ShareTargetScreen(onCancel = { nav.popBackStack() }, onPick = { uuid -> nav.navigate(ActivityForm(uuid, fromShare = true)) { popUpTo<ShareTarget> { inclusive = true } } }) }
             composable<ReadingForm> { ReadingFormScreen(onBack = { nav.popBackStack() }) }
             composable<ReminderForm> { ReminderFormScreen(onBack = { nav.popBackStack() }) }
-            composable<DueList> { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }) }
+            composable<DueList> { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) }) }
             composable<ObjectForm> { entry ->
                 val editing = entry.toRoute<ObjectForm>().uuid != null
                 ObjectFormScreen(

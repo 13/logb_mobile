@@ -22,6 +22,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -69,19 +74,45 @@ import dev.logb.android.core.sync.SyncStatus
 @Composable
 fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue, onLog = onLog, onReading = onReading, onOpenStats = onOpenStats)
+    ObjectsContent(
+        state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue,
+        onLog = onLog, onReading = onReading, onOpenStats = onOpenStats, onQuery = viewModel::setQuery, onSort = viewModel::setSort,
+    )
 }
 
 /** The screen without its view model, so a UI test can hand it a state. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {}, onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}) {
+fun ObjectsContent(
+    state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {},
+    onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}, onQuery: (String) -> Unit = {}, onSort: (SortKey) -> Unit = {},
+) {
+    var sortMenu by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_objects), actions = {
+            Box {
+                IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = stringResource(R.string.sort)) }
+                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    SortKey.entries.forEach { key ->
+                        DropdownMenuItem(
+                            text = { Text(sortLabel(key)) },
+                            leadingIcon = { if (key == state.sort) Icon(Icons.Outlined.Check, contentDescription = null) },
+                            onClick = { sortMenu = false; onSort(key) },
+                        )
+                    }
+                }
+            }
             IconButton(onClick = onOpenStats) { Icon(Icons.Outlined.BarChart, contentDescription = stringResource(R.string.stats_title)) }
         })
         SyncLine(state.sync, onOpenSync, failed = state.failed)
+        OutlinedTextField(
+            value = state.query, onValueChange = onQuery, singleLine = true,
+            placeholder = { Text(stringResource(R.string.objects_search_hint)) },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = { if (state.query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear)) } },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.dueCount > 0) item { DueBanner(state.dueCount, onOpenDue) }
@@ -97,7 +128,7 @@ fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: 
                         )
                     }
                 }
-                items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }, onLog = { onLog(card.uuid) }, onReading = if (card.counterUnit != null) ({ onReading(card.uuid) }) else null) }
+                items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }, onLog = { onLog(card.uuid) }, onReading = if (card.counterUnit != null) ({ onReading(card.uuid) }) else null, parentName = state.parentNames[card.uuid]) }
                 item { Spacer(Modifier.height(72.dp)) }
             }
         }
@@ -107,6 +138,11 @@ fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: 
     }
     }
 }
+
+@Composable
+fun sortLabel(key: SortKey): String = stringResource(
+    when (key) { SortKey.Name -> R.string.sort_name; SortKey.LastActivity -> R.string.sort_last_activity; SortKey.Changed -> R.string.sort_changed; SortKey.Cost -> R.string.sort_cost; SortKey.Counter -> R.string.sort_counter },
+)
 
 @Composable
 private fun DueBanner(count: Int, onClick: () -> Unit) {
@@ -122,7 +158,7 @@ private fun DueBanner(count: Int, onClick: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog: (() -> Unit)? = null, onReading: (() -> Unit)? = null) {
+fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog: (() -> Unit)? = null, onReading: (() -> Unit)? = null, parentName: String? = null) {
     val locale = currentLocale()
     var menu by remember { mutableStateOf(false) }
     Card(
@@ -151,10 +187,14 @@ fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog
                 if (figures.isNotEmpty()) {
                     Text(figures.joinToString(" · "), style = MaterialTheme.typography.figureSmall, color = MaterialTheme.colorScheme.onSurface)
                 }
-                Text(
+                // A month is the unit people think in for mileage; 30.44 days is the average one.
+                val usage = card.counterPerDayMilli?.takeIf { card.counterUnit != null }?.let { stringResource(R.string.insights_per_month, formatCounter(Math.round(it * 30.44 / 1000), card.counterUnit, locale)) }
+                val meta = listOfNotNull(
+                    parentName?.let { stringResource(R.string.search_in, it) },
                     card.lastActivityDate?.let { stringResource(R.string.last_entry, formatDate(it, locale)) } ?: stringResource(R.string.no_entries_yet),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    usage,
                 )
+                Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (onLog != null) {
                 Box {

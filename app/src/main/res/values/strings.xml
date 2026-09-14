@@ -333,4 +333,12 @@
     <string name="shortcut_search_long">Search objects and entries</string>
     <string name="shortcut_new">New object</string>
     <string name="shortcut_new_long">Add an object</string>
+    <!-- Objects list search and sort -->
+    <string name="objects_search_hint">Search objects</string>
+    <string name="sort">Sort</string>
+    <string name="sort_name">Name A–Z</string>
+    <string name="sort_last_activity">Last activity</string>
+    <string name="sort_changed">Recently changed</string>
+    <string name="sort_cost">Highest cost</string>
+    <string name="sort_counter">Highest counter</string>
 </resources>

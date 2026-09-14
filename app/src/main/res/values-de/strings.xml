@@ -333,4 +333,12 @@
     <string name="shortcut_search_long">Objekte und Einträge suchen</string>
     <string name="shortcut_new">Neues Objekt</string>
     <string name="shortcut_new_long">Objekt anlegen</string>
+    <!-- Objects list search and sort -->
+    <string name="objects_search_hint">Objekte suchen</string>
+    <string name="sort">Sortieren</string>
+    <string name="sort_name">Name A–Z</string>
+    <string name="sort_last_activity">Letzter Eintrag</string>
+    <string name="sort_changed">Zuletzt geändert</string>
+    <string name="sort_cost">Höchste Kosten</string>
+    <string name="sort_counter">Höchster Zählerstand</string>
 </resources>

@@ -61,14 +61,14 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
+fun typeLabelRes(type: String): Int = when (type) {
+    "car" -> R.string.type_car; "e_bike" -> R.string.type_e_bike; "bike" -> R.string.type_bike; "motorcycle" -> R.string.type_motorcycle
+    "home" -> R.string.type_home; "appliance" -> R.string.type_appliance; "tool" -> R.string.type_tool; "body" -> R.string.type_body
+    else -> R.string.type_other
+}
+
 @Composable
-fun typeLabel(type: String): String = stringResource(
-    when (type) {
-        "car" -> R.string.type_car; "e_bike" -> R.string.type_e_bike; "bike" -> R.string.type_bike; "motorcycle" -> R.string.type_motorcycle
-        "home" -> R.string.type_home; "appliance" -> R.string.type_appliance; "tool" -> R.string.type_tool; "body" -> R.string.type_body
-        else -> R.string.type_other
-    },
-)
+fun typeLabel(type: String): String = stringResource(typeLabelRes(type))
 
 /** A field label plus the shared date-picker dialog: the value is an ISO date or null. */
 @OptIn(ExperimentalMaterial3Api::class)
