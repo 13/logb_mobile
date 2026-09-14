@@ -130,6 +130,7 @@
     <string name="sync_pending_title">Wartende Änderungen</string>
     <string name="sync_pending_none">Nichts wartet. Änderungen von diesem Telefon stehen hier, bis der Server sie hat.</string>
     <string name="about_body">Die komplette Geschichte deiner Dinge, auf deinem Telefon. Funktioniert komplett offline und synchronisiert mit deinem eigenen LogB-Server.</string>
+    <string name="about_commit">Build %1$s</string>
     <string name="about_licenses">Gebaut mit</string>
     <string name="template_oil">Ölwechsel</string>
     <string name="template_inspection">Inspektion</string>

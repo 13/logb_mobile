@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,6 +11,31 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+// The release workflow stamps the git tag in with -PversionName / -PversionCode.
+val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.5.0")
+val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(500)
+
+// A real signing key, when one exists: the user's global ANDROID_KEYSTORE* variables (CI exports
+// the same names from secrets), or an untracked keystore/keystore.properties. Without either,
+// release signs with the debug key, so a local build still installs.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore/keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun signingSecret(envName: String, propName: String): String? =
+    (System.getenv(envName) ?: keystoreProps.getProperty(propName))?.takeIf { it.isNotBlank() }
+val releaseStoreFile: String? = signingSecret("ANDROID_KEYSTORE", "storeFile")
+
+// Which commit a build came from, for the About screen. The commit's own hash, not the wall
+// clock, so BuildConfig does not change on every build.
+val gitHash: String = runCatching {
+    providers.exec { commandLine("git", "rev-parse", "--short", "HEAD"); workingDir = rootDir; isIgnoreExitValue = true }.standardOutput.asText.get().trim()
+}.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
+
+base {
+    archivesName.set("LogB")
+}
+
 android {
     namespace = "dev.logb.android"
     compileSdk = 37
@@ -18,9 +44,10 @@ android {
         applicationId = "dev.logb.android"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = logbVersionCode
+        versionName = logbVersionName
         testInstrumentationRunner = "dev.logb.android.HiltTestRunner"
+        buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // The two languages the server speaks; nothing else ships strings.
         androidResources.localeFilters += listOf("en", "de")
     }
@@ -41,11 +68,24 @@ android {
         )
     }
 
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = signingSecret("ANDROID_KEYSTORE_PASS", "storePassword")
+                keyAlias = signingSecret("ANDROID_KEY_ALIAS", "keyAlias")
+                keyPassword = signingSecret("ANDROID_KEY_PASS", "keyPassword")
+                enableV1Signing = false
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

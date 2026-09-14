@@ -279,6 +279,7 @@ fun AboutScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel
         LogbTopBar(title = stringResource(R.string.settings_about), onBack = onBack)
         Column(Modifier.padding(16.dp)) {
             Text("LogB ${state.version}", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.about_commit, dev.logb.android.BuildConfig.GIT_HASH), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.about_body), style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(16.dp))

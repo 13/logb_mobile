@@ -130,6 +130,7 @@
     <string name="sync_pending_title">Changes waiting</string>
     <string name="sync_pending_none">Nothing waiting. Changes made on this phone will be listed here until the server has them.</string>
     <string name="about_body">The complete history of your owned objects, on your phone. Works fully offline and syncs with your own LogB server.</string>
+    <string name="about_commit">Build %1$s</string>
     <string name="about_licenses">Built with</string>
     <string name="template_oil">Oil change</string>
     <string name="template_inspection">Inspection</string>
