@@ -39,3 +39,28 @@ jobs:
           name: unit-test-report
           path: app/build/reports/tests/testDebugUnitTest
           if-no-files-found: warn
+
+  contract:
+    name: Contract test against a real logb server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: 13/logb
+          path: logb
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build the server
+        run: |
+          cd logb && mkdir -p frontend/dist && cp frontend/public/icon.svg frontend/dist/ && cargo build --release --locked
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Use the runner's JDK
+        run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Contract test
+        run: ./gradlew :app:testDebugUnitTest -PlogbBin=$GITHUB_WORKSPACE/logb/target/release/logb --tests '*SyncContractTest' --console=plain

@@ -59,6 +59,9 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
+            // The contract test runs against a real logb binary when one is named:
+            //   ./gradlew :app:testDebugUnitTest -PlogbBin=$HOME/repo/logb/target/release/logb --tests '*SyncContractTest'
+            all { it.systemProperty("logb.bin", project.findProperty("logbBin")?.toString() ?: "") }
         }
     }
     packaging {

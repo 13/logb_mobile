@@ -51,18 +51,24 @@ import dev.logb.android.core.format.currentLocale
 import dev.logb.android.core.format.formatDate
 import dev.logb.android.core.sync.SyncStatus
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, viewModel: ObjectsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    ObjectsContent(state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived)
+}
+
+/** The screen without its view model, so a UI test can hand it a state. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ObjectsContent(state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_objects))
         SyncLine(state.sync, onOpenSync)
-        PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.dueCount > 0) item { DueBanner(state.dueCount) }
                 item {
-                    FilterChip(selected = state.archived, onClick = viewModel::toggleArchived, label = { Text(stringResource(R.string.filter_archived)) })
+                    FilterChip(selected = state.archived, onClick = onToggleArchived, label = { Text(stringResource(R.string.filter_archived)) })
                 }
                 if (state.loaded && state.cards.isEmpty()) {
                     item {

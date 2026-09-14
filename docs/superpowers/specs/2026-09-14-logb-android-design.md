@@ -1,6 +1,6 @@
 # LogB for Android: a native, offline-first client
 
-Status: design, awaiting review. Supersedes the client half of
+Status: phases 0 and 1 built (2026-09-14); phases 2–5 open. Supersedes the client half of
 `logb/docs/superpowers/specs/2026-09-08-offline-sync-design.md`, whose Capacitor shell is not
 built; its server half (phase 1, the sync protocol) is merged and is what this client talks to.
 

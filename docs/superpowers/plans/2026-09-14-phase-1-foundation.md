@@ -1,5 +1,7 @@
 # Phase 1: Foundation, read-only mirror — Implementation Plan
 
+> Status: executed 2026-09-14. Deviations: toolchain follows `~/repo/apexweather` (Gradle 9.7 / AGP 9.3) instead of Gradle 8.14; JVM DAO tests run on Robolectric's SQLite because the bundled driver ships Android natives only; the contract test lives in `src/test` behind `-PlogbBin` rather than its own source set; UI tests exercise stateless `*Content` composables instead of Hilt-wired screens.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A LogB Android app that signs in to a self-hosted server, mirrors everything the account owns into local SQLite, keeps that mirror current through the sync feed, and renders Objects, object detail, search and settings from the mirror alone — readable with the radio off.
