@@ -20,6 +20,8 @@ import dev.logb.android.core.notify.NotificationSettings
 import dev.logb.android.core.prefs.Appearance
 import dev.logb.android.core.prefs.AppearancePrefs
 import dev.logb.android.core.prefs.ThemeMode
+import dev.logb.android.core.server.Capabilities
+import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.sync.SyncManager
 import dev.logb.android.core.sync.SyncStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -57,6 +59,7 @@ class SettingsViewModel @Inject constructor(
     private val blobStore: BlobStore,
     private val notificationPrefs: NotificationPrefs,
     private val lockPrefs: LockPrefs,
+    private val serverCapabilities: ServerCapabilities,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
 ) : ViewModel() {
     private val usage = kotlinx.coroutines.flow.MutableStateFlow(0L)
@@ -135,6 +138,8 @@ class SettingsViewModel @Inject constructor(
     /** The server's version, fetched when the Account screen asks; null offline. */
     val serverVersion: StateFlow<String?> = kotlinx.coroutines.flow.flow { emit(runCatching { accounts.api.healthInfo().version }.getOrNull()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val capabilities: StateFlow<Capabilities> = serverCapabilities.current
 
     /** Null on success, else the server's reason. */
     fun changePassword(newPassword: String, onResult: (String?) -> Unit) = viewModelScope.launch {

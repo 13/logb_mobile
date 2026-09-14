@@ -351,6 +351,7 @@
     <string name="clear_cover">Titelbild entfernen</string>
     <!-- Account parity -->
     <string name="server_version">Server %1$s</string>
+    <string name="server_needs_update">Tags und eigene Typen brauchen LogB 0.8.0 oder neuer auf dem Server.</string>
     <string name="change_password">Passwort ändern</string>
     <string name="change_password_new">Neues Passwort</string>
     <string name="change_password_repeat">Neues Passwort wiederholen</string>

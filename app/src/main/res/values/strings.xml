@@ -351,6 +351,7 @@
     <string name="clear_cover">Clear cover</string>
     <!-- Account parity -->
     <string name="server_version">Server %1$s</string>
+    <string name="server_needs_update">Tags and own types need LogB 0.8.0 or newer on the server.</string>
     <string name="change_password">Change password</string>
     <string name="change_password_new">New password</string>
     <string name="change_password_repeat">Repeat new password</string>

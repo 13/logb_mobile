@@ -157,6 +157,7 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
     var removeData by remember { mutableStateOf(false) }
     val s = state.session as? Session.SignedIn
     val serverVersion by viewModel.serverVersion.collectAsStateWithLifecycle()
+    val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     var changePassword by remember { mutableStateOf(false) }
     var confirmEverywhere by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -165,6 +166,9 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
             Text(stringResource(R.string.server_url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(s?.serverUrl?.removeSuffix("/") ?: "", style = MaterialTheme.typography.bodyLarge)
             serverVersion?.let { Text(stringResource(R.string.server_version, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (serverVersion != null && !capabilities.tags) {
+                Text(stringResource(R.string.server_needs_update), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.username), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(s?.user?.username ?: "", style = MaterialTheme.typography.bodyLarge)
