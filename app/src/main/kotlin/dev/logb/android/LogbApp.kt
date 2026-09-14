@@ -52,8 +52,8 @@ class LogbApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     override fun onCreate() {
         super.onCreate()
         SyncWorker.schedule(this)
-        // Re-asserts the digest schedule (WorkManager keeps it across restarts; UPDATE is idempotent).
-        appScope.launch { DigestWorker.schedule(this@LogbApp, notificationPrefs.current()) }
+        // Re-asserts the digest schedule after a force-stop or an update; an existing schedule is kept.
+        appScope.launch { DigestWorker.schedule(this@LogbApp, notificationPrefs.current(), replace = false) }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 syncManager.requestSync(SyncReason.Foreground)

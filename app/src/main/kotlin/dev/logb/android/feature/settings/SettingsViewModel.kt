@@ -87,12 +87,12 @@ class SettingsViewModel @Inject constructor(
 
     fun setNotificationsEnabled(on: Boolean) = viewModelScope.launch {
         notificationPrefs.setEnabled(on)
-        DigestWorker.schedule(context, notificationPrefs.current())
+        DigestWorker.schedule(context, notificationPrefs.current(), replace = true)
     }
 
     fun setNotificationTime(hour: Int, minute: Int) = viewModelScope.launch {
         notificationPrefs.setTime(hour, minute)
-        DigestWorker.schedule(context, notificationPrefs.current())
+        DigestWorker.schedule(context, notificationPrefs.current(), replace = true)
     }
 
     fun setBudget(bytes: Long) = viewModelScope.launch { blobPrefs.setBudget(bytes); freeUpSpace(bytes) }

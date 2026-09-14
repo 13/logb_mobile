@@ -25,7 +25,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import android.content.pm.PackageManager
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.R
@@ -39,9 +41,17 @@ fun NotificationsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltV
     val n = state.notifications
     // Android 13+ asks before an app may post; refused means the switch stays off rather than lying.
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> viewModel.setNotificationsEnabled(granted) }
-    val blocked = !NotificationManagerCompat.from(context).areNotificationsEnabled()
+    // On Android 13+ nothing may be posted until the permission is granted, and "granted" is also what
+    // `areNotificationsEnabled` reports; so the switch asks first and only then turns on. Later blocking
+    // in the system settings shows as a hint under an enabled switch.
+    val granted = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    val blocked = granted && !NotificationManagerCompat.from(context).areNotificationsEnabled()
     fun toggle(on: Boolean) {
-        if (on && Build.VERSION.SDK_INT >= 33 && !blocked) ask.launch(Manifest.permission.POST_NOTIFICATIONS) else viewModel.setNotificationsEnabled(on && !blocked)
+        when {
+            !on -> viewModel.setNotificationsEnabled(false)
+            !granted -> ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+            else -> viewModel.setNotificationsEnabled(true)
+        }
     }
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.settings_notifications), onBack = onBack)

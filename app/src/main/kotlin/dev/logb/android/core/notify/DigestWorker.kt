@@ -52,15 +52,20 @@ class DigestWorker @AssistedInject constructor(
         const val WITHIN_DAYS = 7L
         private const val NAME = "logb-digest"
 
-        /** Once a day from the next `hour:minute`; replaces the previous schedule when the time changes. */
-        fun schedule(context: Context, settings: NotificationSettings) {
+        /**
+         * Once a day from the next `hour:minute`. `replace` when the person changed the settings:
+         * `UPDATE` would keep the original enqueue time and so the old hour, and `KEEP` (app start)
+         * leaves a run that is already due alone instead of pushing it to tomorrow.
+         */
+        fun schedule(context: Context, settings: NotificationSettings, replace: Boolean) {
             val work = WorkManager.getInstance(context)
             if (!settings.enabled) { work.cancelUniqueWork(NAME); return }
             val delay = Digest.delayUntil(LocalDateTime.now(), settings.hour, settings.minute)
             val request = PeriodicWorkRequestBuilder<DigestWorker>(24, TimeUnit.HOURS)
                 .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
                 .build()
-            work.enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+            val policy = if (replace) ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE else ExistingPeriodicWorkPolicy.KEEP
+            work.enqueueUniquePeriodicWork(NAME, policy, request)
         }
     }
 }
