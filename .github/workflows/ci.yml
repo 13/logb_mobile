@@ -96,8 +96,9 @@ jobs:
         with:
           workspaces: logb
 
+      # The server embeds frontend/dist; the icon is all the export needs from it.
       - name: Build logb
-        run: cargo build --release --locked
+        run: mkdir -p frontend/dist && cp frontend/public/icon.svg frontend/dist/ && cargo build --release --locked
         working-directory: logb
 
       - name: Set up JDK 21
