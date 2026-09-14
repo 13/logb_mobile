@@ -33,8 +33,11 @@ class PullEngine(
                 continue
             }
             applier.apply(page.changes)
+            // Re-read, not `s`: the applier may have asked for a bootstrap while this page was applied
+            // (a REST create it can only placeholder), and writing the stale copy back would forget that.
+            val applied = db.syncStateDao().get() ?: return
             db.syncStateDao().upsert(
-                s.copy(
+                applied.copy(
                     cursorSeq = page.nextSeq,
                     epoch = page.epoch,
                     clockOffsetMs = Clock.offsetMs(page.serverTime),
@@ -43,5 +46,8 @@ class PullEngine(
             )
             if (page.complete) break
         }
+        // Heal placeholders now rather than on the next run: a row made in the browser should show
+        // its values on the pull that announced it, not fifteen minutes later.
+        if (db.syncStateDao().get()?.bootstrapNeeded == true) bootstrap.apply(api.bootstrap(), deviceId)
     }
 }

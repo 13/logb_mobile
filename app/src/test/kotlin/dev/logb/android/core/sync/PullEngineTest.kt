@@ -89,6 +89,30 @@ class PullEngineTest {
     }
 
     @Test
+    fun `a bare create from a REST client is healed by a bootstrap in the same run`() = runTest {
+        // A browser-made reminder reaches the feed as a `create` with no values; the applier can only
+        // placeholder it and ask for a bootstrap. That request must survive the cursor write and be
+        // served before the run ends, not fifteen minutes later.
+        val fixture = javaClass.getResource("/fixtures/bootstrap.json")!!.readText()
+        val uuid = "9e9e9e9e-0000-4000-8000-000000000042"
+        val reminder = """{"client_uuid":"$uuid","created_at":"2026-09-14T13:06:02Z","deleted_at":null,"done_activity_id":null,"done_at":null,"due_counter":null,"due_date":"2026-09-16","every_n":null,"every_unit":null,"id":42,"kind":"service","notes":"","object_id":4,"repeat_counter":null,"repeat_months":null,"snoozed_until":null,"title":"Tyre pressure","updated_at":"2026-09-14T13:06:02Z"}"""
+        val withReminder = fixture.replace("\"reminders\": [", "\"reminders\": [$reminder,").replace("\"seq\": 16", "\"seq\": 24")
+        db.syncStateDao().upsert(SyncStateEntity(cursorSeq = 16, epoch = "c992a0a377fe349ac07becb5fa0bbee5", deviceId = "dev-1", bootstrapNeeded = false))
+        server.enqueue(json("""{"changes":[{"seq":24,"entity":"reminder","entity_uuid":"$uuid","op":"create","field":null,"value":null,"edited_at":"2026-09-14T13:06:02.279Z","device_id":"rest","entity_id":42}],
+            "next_seq":24,"complete":true,"server_time":"2026-09-14T13:06:10.000Z","epoch":"c992a0a377fe349ac07becb5fa0bbee5"}"""))
+        server.enqueue(json(withReminder))
+        engine.run()
+        assertTrue(server.takeRequest().url.encodedPath.endsWith("/sync/pull"))
+        assertEquals("/api/sync/bootstrap", server.takeRequest().url.encodedPath)
+        val row = assertNotNull(db.reminderDao().get(uuid))
+        assertEquals("Tyre pressure", row.title)
+        assertEquals(db.objectDao().uuidForServerId(4), row.objectUuid)
+        val s = assertNotNull(db.syncStateDao().get())
+        assertFalse(s.bootstrapNeeded)
+        assertEquals(24, s.cursorSeq)
+    }
+
+    @Test
     fun `a 401 propagates untouched`() = runTest {
         db.syncStateDao().upsert(SyncStateEntity(cursorSeq = 3, epoch = "e1", deviceId = "dev-1", bootstrapNeeded = false))
         server.enqueue(json("""{"error":"unauthorized","message":"x"}""", code = 401))
