@@ -15,5 +15,9 @@ interface FileDao {
 
     @Query("SELECT * FROM files WHERE server_id IS NOT NULL AND deleted_at IS NULL") suspend fun allFromServer(): List<FileEntity>
 
+    @Query("SELECT * FROM files WHERE sha256 = :sha AND deleted_at IS NULL LIMIT 1") suspend fun liveBySha(sha: String): FileEntity?
+
+    @Query("DELETE FROM files WHERE uuid = :uuid") suspend fun hardDelete(uuid: String)
+
     @Query("DELETE FROM files WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
 }
