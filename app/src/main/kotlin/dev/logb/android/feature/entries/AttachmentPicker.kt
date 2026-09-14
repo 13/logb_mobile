@@ -43,12 +43,20 @@ fun AttachmentPicker(onPicked: (List<Uri>) -> Unit, modifier: Modifier = Modifie
                 camera.launch(uri)
             },
             modifier = Modifier.weight(1f),
-        ) { Icon(Icons.Outlined.PhotoCamera, contentDescription = null); Text(" " + stringResource(R.string.pick_camera)) }
+        ) { PickLabel(Icons.Outlined.PhotoCamera, stringResource(R.string.pick_camera)) }
         OutlinedButton(onClick = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, modifier = Modifier.weight(1f)) {
-            Icon(Icons.Outlined.Image, contentDescription = null); Text(" " + stringResource(R.string.pick_gallery))
+            PickLabel(Icons.Outlined.Image, stringResource(R.string.pick_gallery))
         }
         OutlinedButton(onClick = { documents.launch(arrayOf("application/pdf", "text/plain", "text/markdown", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) }, modifier = Modifier.weight(1f)) {
-            Icon(Icons.Outlined.AttachFile, contentDescription = null); Text(" " + stringResource(R.string.pick_document))
+            PickLabel(Icons.Outlined.AttachFile, stringResource(R.string.pick_document))
         }
+    }
+}
+
+@Composable
+private fun PickLabel(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+    androidx.compose.foundation.layout.Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+        Icon(icon, contentDescription = null)
+        Text(label, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
     }
 }

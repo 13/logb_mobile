@@ -22,3 +22,12 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Airplane mode off: the sync line goes from "n changes waiting" to "Synced just now" on its own; the browser shows every change with the phone's values.
 - [ ] Edit the same object's name in the browser and on the phone while offline: the later edit wins on both after the sync.
 - [ ] Settings › Sync lists nothing failed; if the server refuses something, it lists it with Retry and Discard.
+
+## Phase 3 (photos and documents)
+
+- [ ] Airplane mode on. Edit an entry, add a gallery photo: it appears in the form and the timeline strip with the cloud-off badge; add a PDF on the Documents tab.
+- [ ] Airplane mode off: the badges go; the browser shows both files; open the photo in the viewer (pinch to zoom), set it as cover; the object card shows the cover.
+- [ ] Share a photo from the gallery app into LogB: pick an object; the entry form opens with it attached and the capture date offered; save.
+- [ ] Take a photo with the camera button on a new entry; drop it with the cross before saving; take another and save.
+- [ ] Delete a file from the viewer: it disappears on the phone and in the browser.
+- [ ] Settings › Sync › Storage: the used figure is plausible; set the budget to 1 GB; Free up space empties full-size files and the viewer re-downloads one on tap.

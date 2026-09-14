@@ -255,4 +255,14 @@
     <string name="open_with">Open with…</string>
     <string name="original_unavailable">The file is not on this phone yet. It downloads on Wi-Fi, or open it again while connected.</string>
     <string name="delete_attachment_title">Delete this file?</string>
+    <plurals name="share_title">
+        <item quantity="one">Attach %d file to…</item>
+        <item quantity="other">Attach %d files to…</item>
+    </plurals>
+    <string name="share_hint">Pick the object this belongs to. An entry form opens with the file attached.</string>
+    <string name="storage_title">Storage</string>
+    <string name="storage_used">Full-size files on this phone: %1$s. Thumbnails always stay.</string>
+    <string name="storage_budget">Keep full-size files up to</string>
+    <string name="storage_unmetered_only">Download full-size files on Wi-Fi only</string>
+    <string name="storage_free_up">Free up space now</string>
 </resources>

@@ -4,12 +4,13 @@ Native, offline-first Android client for [LogB](https://github.com/13/logb): the
 of your owned objects, on your phone, readable with the radio off, reconciled with your
 self-hosted server in the background.
 
-**Status: phases 1 and 2 built.** Sign in, everything the account owns lands on the phone and
+**Status: phases 1, 2 and 3 built.** Sign in, everything the account owns lands on the phone and
 stays readable offline; objects, entries, readings and reminders can be created, edited,
 deleted, marked done and snoozed with the radio off, and reconcile with the server -- and with
-edits made in the browser -- under field-level last-write-wins when a connection returns.
-Photos both ways (phase 3), statistics (phase 4) and polish (phase 5) follow, each with its
-own plan.
+edits made in the browser -- under field-level last-write-wins when a connection returns. Photos and documents work in
+both directions: taken, picked or shared into an entry offline and uploaded later; the
+server's files mirrored as thumbnails always and originals within a budget. Statistics
+(phase 4) and polish (phase 5) follow, each with its own plan.
 
 ## Requirements
 

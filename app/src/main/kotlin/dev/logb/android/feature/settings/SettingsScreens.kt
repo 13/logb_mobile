@@ -197,6 +197,24 @@ fun SyncScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel(
                 if (state.pending == 0) stringResource(R.string.sync_pending_none) else pluralStringResource(R.plurals.sync_waiting, state.pending, state.pending),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(24.dp))
+            Text(stringResource(R.string.storage_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.storage_used, android.text.format.Formatter.formatShortFileSize(androidx.compose.ui.platform.LocalContext.current, state.usageBytes)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.storage_budget), style = MaterialTheme.typography.bodyMedium)
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                val options = listOf(1L, 2L, 4L, 8L)
+                options.forEachIndexed { i, gb ->
+                    val bytes = gb * 1024 * 1024 * 1024
+                    SegmentedButton(selected = state.blobs.budgetBytes == bytes, onClick = { viewModel.setBudget(bytes) }, shape = SegmentedButtonDefaults.itemShape(i, options.size)) { Text("$gb GB") }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.storage_unmetered_only), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = state.blobs.originalsUnmeteredOnly, onCheckedChange = viewModel::setUnmeteredOnly)
+            }
+            TextButton(onClick = { viewModel.freeUpSpace() }) { Text(stringResource(R.string.storage_free_up)) }
             if (state.deadOps.isNotEmpty()) {
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.sync_failed_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)

@@ -13,6 +13,12 @@ import dev.logb.android.core.domain.ReminderDraft
 import dev.logb.android.core.sync.LocalWriter
 import dev.logb.android.core.sync.PullEngine
 import dev.logb.android.core.sync.PushEngine
+import dev.logb.android.core.blobs.BlobDownloader
+import dev.logb.android.core.blobs.BlobSettings
+import dev.logb.android.core.blobs.BlobStore
+import dev.logb.android.core.sync.ConnectivityMonitor
+import dev.logb.android.feature.entries.AttachmentRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import dev.logb.android.feature.entries.ActivityRepository
 import dev.logb.android.feature.objects.ObjectRepository
 import dev.logb.android.feature.reminders.ReminderRepository
@@ -214,5 +220,48 @@ class SyncContractTest {
         assertEquals("Newer browser name", db.objectDao().get(light)!!.name)
         assertEquals(emptyList(), db.opDao().pending(), "a superseded op is done with, not retried")
         db.close()
+    }
+
+    @Test
+    fun photosUploadDedupAndDownloadAsThumbnails() = runBlocking {
+        call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
+        val sessions = SessionRepository(FakeServerStore(), FakeTokenStore(), ApiFactory { b, t, j -> ApiClient.create(b, t, j) })
+        check(sessions.signIn(base, "ben", "correct horse").isSuccess)
+        val token = (sessions.session.value as Session.SignedIn).token
+        val api = ApiClient.create(base, { token })
+        val store = BlobStore(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+        val net = object : ConnectivityMonitor { override val isOnline = MutableStateFlow(true); override val isUnmetered = true }
+
+        // Phone A: an object with an entry and the same photo attached twice, all offline.
+        val db = TestDatabase.inMemory()
+        PullEngine(db, api, "phone-a").run()
+        val writer = LocalWriter(db)
+        val golf = ObjectRepository(db, writer).create(ObjectDraft(name = "Golf", type = "car", counterUnit = "km"))
+        val entry = ActivityRepository(db, writer).create(golf, ActivityDraft(date = "2026-09-14", category = "repair", title = "Wipers"))
+        val attachments = AttachmentRepository(db, store, writer)
+        val jpeg = File(javaClass.getResource("/fixtures/landscape.jpg")!!.toURI()).readBytes()
+        val first = attachments.import(jpeg.inputStream(), "first.jpg", "image/jpeg", golf, entry, caption = "Receipt")
+        val second = attachments.import(jpeg.inputStream(), "second.jpg", "image/jpeg", golf, null)
+        PushEngine(db, api, store).run(); PullEngine(db, api, "phone-a").run()
+        assertEquals(emptyList(), db.opDao().pending())
+        val golfId = db.objectDao().get(golf)!!.serverId!!
+        val listed = call("GET", "/objects/$golfId/attachments")
+        check(listed.contains(first) && listed.contains(second)) { listed }
+        val fileIds = Regex("\"file_id\":(\\d+)").findAll(listed).map { it.groupValues[1] }.toSet()
+        assertEquals(1, fileIds.size, "identical bytes are one file on the server: $listed")
+        val serverFileUuid = db.fileDao().get(db.attachmentDao().get(first)!!.fileUuid)!!.uuid
+        assertEquals(serverFileUuid, db.attachmentDao().get(second)!!.fileUuid, "both attachments point at the server's file row")
+
+        // Phone B: a fresh mirror bootstraps and gets the thumbnail (and, on Wi-Fi, the original).
+        val storeB = BlobStore(androidx.test.core.app.ApplicationProvider.getApplicationContext()).also { it.deleteAll(db.fileDao().get(serverFileUuid)!!.sha256) }
+        val dbB = TestDatabase.inMemory()
+        PullEngine(dbB, api, "phone-b").run()
+        BlobDownloader(dbB, api, storeB, net) { BlobSettings() }.runAfterPull()
+        val sha = dbB.fileDao().get(serverFileUuid)!!.sha256
+        check(storeB.hasThumb(sha) && storeB.hasOriginal(sha))
+        val serverThumb = http.newCall(Request.Builder().url(base + "api/files/${fileIds.single()}/thumb").build()).execute().use { it.body.bytes() }
+        assertEquals(serverThumb.size.toLong(), storeB.thumb(sha).length(), "the thumbnail is the server's, byte for byte")
+        assertEquals(jpeg.size.toLong(), storeB.original(sha).length())
+        db.close(); dbB.close()
     }
 }

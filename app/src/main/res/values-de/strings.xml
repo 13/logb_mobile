@@ -255,4 +255,14 @@
     <string name="open_with">Öffnen mit…</string>
     <string name="original_unavailable">Die Datei ist noch nicht auf diesem Telefon. Sie lädt über WLAN, oder öffne sie erneut mit Verbindung.</string>
     <string name="delete_attachment_title">Diese Datei löschen?</string>
+    <plurals name="share_title">
+        <item quantity="one">%d Datei anhängen an…</item>
+        <item quantity="other">%d Dateien anhängen an…</item>
+    </plurals>
+    <string name="share_hint">Wähle das Objekt, zu dem das gehört. Ein Eintragsformular öffnet sich mit der Datei angehängt.</string>
+    <string name="storage_title">Speicher</string>
+    <string name="storage_used">Dateien in voller Größe auf diesem Telefon: %1$s. Vorschaubilder bleiben immer.</string>
+    <string name="storage_budget">Dateien in voller Größe behalten bis</string>
+    <string name="storage_unmetered_only">Dateien in voller Größe nur über WLAN laden</string>
+    <string name="storage_free_up">Jetzt Speicher freigeben</string>
 </resources>

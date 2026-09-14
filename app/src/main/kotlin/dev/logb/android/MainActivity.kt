@@ -23,9 +23,17 @@ import dev.logb.android.navigation.AppNavHost
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    @javax.inject.Inject lateinit var shareInbox: dev.logb.android.feature.share.ShareInbox
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        shareInbox.offer(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) shareInbox.offer(intent)
         setContent {
             val root: RootViewModel = hiltViewModel()
             val appearance by root.appearance.collectAsStateWithLifecycle()
@@ -44,7 +52,7 @@ class MainActivity : AppCompatActivity() {
                             when (bootstrapNeeded) {
                                 null -> Box(Modifier.fillMaxSize())
                                 true -> BootstrapScreen()
-                                false -> AppNavHost()
+                                false -> AppNavHost(shareInbox)
                             }
                         }
                     }

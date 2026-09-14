@@ -57,7 +57,7 @@ data class ActivityFormState(
 }
 
 @HiltViewModel
-class ActivityFormViewModel @Inject constructor(@ApplicationContext private val context: Context, accounts: ActiveAccount, private val repos: Repositories, savedState: SavedStateHandle) : ViewModel() {
+class ActivityFormViewModel @Inject constructor(@ApplicationContext private val context: Context, accounts: ActiveAccount, private val repos: Repositories, private val inbox: dev.logb.android.feature.share.ShareInbox, savedState: SavedStateHandle) : ViewModel() {
     private val route: ActivityForm = savedState.toRoute()
     private val db = accounts.db
     private val _state = MutableStateFlow(ActivityFormState(editing = route.uuid != null))
@@ -86,6 +86,7 @@ class ActivityFormViewModel @Inject constructor(@ApplicationContext private val 
                     title = route.title ?: "",
                 )
             }
+            if (route.fromShare) attach(inbox.take())
         }
     }
 

@@ -3,7 +3,11 @@ package dev.logb.android.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import dev.logb.android.feature.share.ShareInbox
+import dev.logb.android.feature.share.ShareTargetScreen
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,8 +32,10 @@ import dev.logb.android.feature.settings.SyncScreen
 
 /** The signed-in, bootstrapped app: a bottom bar with three destinations and the screens under them. */
 @Composable
-fun AppNavHost() {
+fun AppNavHost(shareInbox: ShareInbox? = null) {
     val nav = rememberNavController()
+    val shared by (shareInbox?.pending ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsState()
+    LaunchedEffect(shared.isNotEmpty()) { if (shared.isNotEmpty()) nav.navigate(ShareTarget) { launchSingleTop = true } }
     val backStack by nav.currentBackStackEntryAsState()
     val active = activeDestination(backStack?.destination?.route)
     Scaffold(
@@ -72,6 +78,7 @@ fun AppNavHost() {
             }
             composable<ActivityForm> { ActivityFormScreen(onBack = { nav.popBackStack() }, onAttachment = { uuid -> nav.navigate(Viewer(uuid)) }) }
             composable<Viewer> { AttachmentViewerScreen(onBack = { nav.popBackStack() }) }
+            composable<ShareTarget> { ShareTargetScreen(onCancel = { nav.popBackStack() }, onPick = { uuid -> nav.navigate(ActivityForm(uuid, fromShare = true)) { popUpTo<ShareTarget> { inclusive = true } } }) }
             composable<ReadingForm> { ReadingFormScreen(onBack = { nav.popBackStack() }) }
             composable<ReminderForm> { ReminderFormScreen(onBack = { nav.popBackStack() }) }
             composable<DueList> { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }) }
