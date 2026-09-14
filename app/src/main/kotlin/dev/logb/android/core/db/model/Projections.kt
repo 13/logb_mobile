@@ -22,3 +22,18 @@ data class AttachmentWithFile(
     @Embedded val attachment: AttachmentEntity,
     @Relation(parentColumn = "file_uuid", entityColumn = "uuid") val file: FileEntity,
 )
+
+/** `api::stats::read`'s grouping: spend per object, month and category; readings and costless entries left out. */
+data class SpendRow(val objectUuid: String, val month: String, val category: String, val costCents: Long)
+
+/** `api::insights::Bucket`: a year or a category with its spend and entry count. */
+data class Bucket(val bucket: String, val costCents: Long, val count: Int)
+
+data class MonthTotal(val month: String, val costCents: Long)
+
+data class CounterSpan(val minCounter: Long?, val maxCounter: Long?, val totalCostCents: Long)
+
+/** A fuel entry with an odometer reading and a quantity, as the consumption figures need it. */
+data class FillRow(val date: String, val counterValue: Long, val quantityMilli: Long, val costCents: Long?)
+
+data class ReadingRow(val date: String, val counterValue: Long)
