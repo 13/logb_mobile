@@ -31,3 +31,12 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Take a photo with the camera button on a new entry; drop it with the cross before saving; take another and save.
 - [ ] Delete a file from the viewer: it disappears on the phone and in the browser.
 - [ ] Settings › Sync › Storage: the used figure is plausible; set the budget to 1 GB; Free up space empties full-size files and the viewer re-downloads one on tap.
+
+## Phase 4 (statistics and insights)
+
+- [ ] Airplane mode on. Objects › chart icon opens Statistics: total, spend over time, by object (expand a house to see its garage; tap a name to open it), by type, by category. Pick a year: twelve month bars, zeros included. Turn on *Include purchase prices*: the total and the years grow, *Purchase price* leads the categories.
+- [ ] Open a car › Info: total cost of ownership with "≈ … a year since …", spend per month, per year, per category, cost per km, fuel logged, consumption, usage "≈ … a month", usage per month with dashes for unmeasured months, consumption per fill once two fuel entries carry a counter and a quantity.
+- [ ] Open a house › Info: *Include contents* folds the children's spend in and out.
+- [ ] Reminders: a counter-target reminder shows "≈ <date> at recent usage" once the car has two readings at least 14 days apart; the due list includes it when that date is within 30 days.
+- [ ] Airplane mode off. Compare every figure with the browser's Statistics page and the object's Cost block on the same server.
+

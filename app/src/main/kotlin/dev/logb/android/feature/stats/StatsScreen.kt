@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material3.DropdownMenu
@@ -113,10 +115,7 @@ fun StatsContent(
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
             item { YearPicker(state.year, state.years, onYear) }
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.stats_purchases), style = MaterialTheme.typography.bodyLarge)
-                    Switch(checked = state.purchases, onCheckedChange = onPurchases)
-                }
+                SwitchRow(stringResource(R.string.stats_purchases), state.purchases, onPurchases)
             }
             val stats = state.stats ?: return@LazyColumn
             if (stats.totalCents == 0L) {
@@ -159,6 +158,18 @@ fun StatsContent(
                 }
             }
         }
+    }
+}
+
+/** A labelled switch whose whole row toggles, as a settings row does. */
+@Composable
+fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,10 +31,7 @@ fun InsightsSection(insights: ObjectInsights?, counterUnit: String?, currency: S
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.insights_title), style = MaterialTheme.typography.titleSmall)
         if (data.hasContents) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.insights_contents), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = includeContents, onCheckedChange = onIncludeContents)
-            }
+            SwitchRow(stringResource(R.string.insights_contents), includeContents, onIncludeContents)
         }
         val o = data.ownership
         if (o.totalCents > 0) {

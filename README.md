@@ -4,13 +4,17 @@ Native, offline-first Android client for [LogB](https://github.com/13/logb): the
 of your owned objects, on your phone, readable with the radio off, reconciled with your
 self-hosted server in the background.
 
-**Status: phases 1, 2 and 3 built.** Sign in, everything the account owns lands on the phone and
+**Status: phases 1 to 4 built.** Sign in, everything the account owns lands on the phone and
 stays readable offline; objects, entries, readings and reminders can be created, edited,
 deleted, marked done and snoozed with the radio off, and reconcile with the server -- and with
-edits made in the browser -- under field-level last-write-wins when a connection returns. Photos and documents work in
-both directions: taken, picked or shared into an entry offline and uploaded later; the
-server's files mirrored as thumbnails always and originals within a budget. Statistics
-(phase 4) and polish (phase 5) follow, each with its own plan.
+edits made in the browser -- under field-level last-write-wins when a connection returns. Photos
+and documents work in both directions: taken, picked or shared into an entry offline and
+uploaded later; the server's files mirrored as thumbnails always and originals within a budget.
+Statistics (spend over time, by object tree, by type, by category, with a year picker) and every
+object's insights (cost of ownership, spend per month, cost per km, fuel consumption, usage,
+consumption per fill) are computed on the phone from the mirror, and reminders with a counter
+target show when recent usage will reach it. Polish (phase 5: notifications, biometric lock,
+shortcuts, screenshots, release signing, CI) follows with its own plan.
 
 ## Requirements
 
@@ -47,7 +51,7 @@ cleartext only for `localhost` and `10.0.2.2`.
 ## Design
 
 - `docs/superpowers/specs/2026-09-14-logb-android-design.md` — architecture, sync rules, screens, phases.
-- `docs/superpowers/plans/` — phase 0 (server, in the `logb` repo) and phase 1 (this).
+- `docs/superpowers/plans/` — phase 0 (server additions), phases 1–4 (this app), each with a status header.
 
 Stack: Kotlin, Jetpack Compose (Material 3), Room, Retrofit + OkHttp, WorkManager, DataStore,
 Hilt, Coil.
