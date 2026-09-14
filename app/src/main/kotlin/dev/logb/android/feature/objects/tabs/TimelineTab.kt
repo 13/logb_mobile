@@ -20,7 +20,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -83,7 +85,7 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry
                 }
                 items(group.rows, key = { row -> when (row) { is TimelineRow.Entry -> row.activity.uuid; is TimelineRow.Readings -> row.key } }) { row ->
                     when (row) {
-                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty(), onClick = { onEntry(row.activity.uuid) }, onAttachment = onAttachment)
+                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty(), onClick = { onEntry(row.activity.uuid) }, onAttachment = onAttachment, pending = row.activity.uuid in state.pendingEntryUuids)
                         is TimelineRow.Readings -> ReadingsRow(row, unit, isOpen = row.key in expanded.value, onToggle = { expanded.value = if (row.key in expanded.value) expanded.value - row.key else expanded.value + row.key }, currency = state.currency, onEntry = onEntry)
                     }
                 }
@@ -93,12 +95,14 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry
 }
 
 @Composable
-private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, attachments: List<AttachmentWithFile>, onClick: () -> Unit = {}, onAttachment: (String) -> Unit = {}) {
+private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, attachments: List<AttachmentWithFile>, onClick: () -> Unit = {}, onAttachment: (String) -> Unit = {}, pending: Boolean = false) {
     val locale = currentLocale()
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(formatDate(a.date, locale), style = MaterialTheme.typography.figureLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(96.dp))
             AssistChip(onClick = {}, label = { Text(categoryLabel(a.category), style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.height(24.dp))
+            // The web's "Waiting to send": born here, not yet on the server.
+            if (pending) AssistChip(onClick = {}, label = { Text(stringResource(R.string.timeline_pending), style = MaterialTheme.typography.labelSmall) }, leadingIcon = { Icon(Icons.Outlined.CloudOff, contentDescription = null, modifier = Modifier.size(14.dp)) }, modifier = Modifier.height(24.dp))
         }
         Text(a.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 2.dp))
         val figures = listOfNotNull(a.costCents?.let { formatCents(it, currency, locale) }, a.counterValue?.let { formatCounter(it, unit, locale) })

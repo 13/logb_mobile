@@ -347,4 +347,6 @@
     <string name="reminder_new_reading">An den Zählerstand erinnern</string>
     <string name="reminder_skip">Diesmal überspringen</string>
     <string name="reading_warn_implausible">Weit mehr als üblich seit %1$s. Auf Tippfehler prüfen, dann erneut speichern.</string>
+    <string name="timeline_pending">Wartet auf Senden</string>
+    <string name="clear_cover">Titelbild entfernen</string>
 </resources>

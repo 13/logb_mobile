@@ -347,4 +347,6 @@
     <string name="reminder_new_reading">Remind me to log the reading</string>
     <string name="reminder_skip">Skip this one</string>
     <string name="reading_warn_implausible">Far more than usual since %1$s. Check for a typo, then save again.</string>
+    <string name="timeline_pending">Waiting to send</string>
+    <string name="clear_cover">Clear cover</string>
 </resources>

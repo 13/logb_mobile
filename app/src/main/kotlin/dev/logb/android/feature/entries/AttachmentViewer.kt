@@ -89,6 +89,7 @@ class AttachmentViewerViewModel @Inject constructor(accounts: ActiveAccount, pri
     }
 
     fun useAsCover() = viewModelScope.launch { _state.value.att?.let { repos.attachmentRepository.setCover(it.attachment.objectUuid, it.attachment.uuid) } }
+    fun clearCover() = viewModelScope.launch { _state.value.att?.let { repos.attachmentRepository.setCover(it.attachment.objectUuid, null) } }
 
     fun delete(onDone: () -> Unit) = viewModelScope.launch { repos.attachmentRepository.delete(route.attachmentUuid); onDone() }
 }
@@ -112,7 +113,9 @@ fun AttachmentViewerScreen(onBack: () -> Unit, viewModel: AttachmentViewerViewMo
                 IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.caption_edit)) }, onClick = { menu = false; editCaption = true })
-                    if (isImage) DropdownMenuItem(text = { Text(stringResource(R.string.use_as_cover)) }, onClick = { menu = false; viewModel.useAsCover() })
+                    val isCover = state.obj?.coverAttachmentUuid == att.attachment.uuid
+                    if (isImage && !isCover) DropdownMenuItem(text = { Text(stringResource(R.string.use_as_cover)) }, onClick = { menu = false; viewModel.useAsCover() })
+                    if (isCover) DropdownMenuItem(text = { Text(stringResource(R.string.clear_cover)) }, onClick = { menu = false; viewModel.clearCover() })
                     state.original?.let { file ->
                         DropdownMenuItem(text = { Text(stringResource(R.string.open_with)) }, onClick = {
                             menu = false

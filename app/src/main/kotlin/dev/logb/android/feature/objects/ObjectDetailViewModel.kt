@@ -48,6 +48,8 @@ data class ObjectDetailUiState(
     /** Attachments of every entry on the timeline, by entry uuid. */
     val attachmentsByActivity: Map<String, List<AttachmentWithFile>> = emptyMap(),
     val documents: List<AttachmentWithFile> = emptyList(),
+    /** Entries whose create has not been pushed yet: the timeline marks them "waiting to send". */
+    val pendingEntryUuids: Set<String> = emptySet(),
     val openReminders: List<ReminderView> = emptyList(),
     val doneReminders: List<ReminderView> = emptyList(),
     val currency: String = "EUR",
@@ -87,6 +89,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
                 categoryFilter = filter,
                 categories = ObjectTypes.categoriesFor(obj.type).filter { c -> acts.any { it.category == c } },
                 attachmentsByActivity = atts.groupBy { it.attachment.activityUuid ?: "" },
+                pendingEntryUuids = db.opDao().pending().filter { it.kind == "create" && it.entity == "activity" }.map { it.entityUuid }.toSet(),
                 documents = docs,
                 openReminders = views.filter { it.reminder.doneAt == null }.sortedWith(compareByDescending<ReminderView> { it.due }.thenBy { it.daysUntil ?: Long.MAX_VALUE }),
                 doneReminders = views.filter { it.reminder.doneAt != null }.sortedByDescending { it.reminder.doneAt },

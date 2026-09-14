@@ -104,7 +104,10 @@ fun SearchScreen(onOpenObject: (String) -> Unit, viewModel: SearchViewModel = hi
                     items(results.objects, key = { "o" + it.uuid }) { hit ->
                         ListItem(
                             headlineContent = { Text(hit.name) },
-                            supportingContent = hit.parentName?.let { { Text(stringResource(R.string.search_in, it)) } },
+                            supportingContent = {
+                                val parts = listOfNotNull(hit.parentName?.let { stringResource(R.string.search_in, it) }, if (hit.archivedAt != null) stringResource(R.string.stats_archived) else null)
+                                if (parts.isNotEmpty()) Text(parts.joinToString(" · "))
+                            },
                             leadingContent = { ObjectTypeIcon(hit.type, tint = MaterialTheme.colorScheme.primary) },
                             modifier = Modifier.clickable { onOpenObject(hit.uuid) },
                         )

@@ -11,12 +11,13 @@ data class ObjectHit(
     val type: String,
     val description: String,
     val parentName: String?,
+    val archivedAt: String? = null,
 )
 
 @Dao
 interface SearchDao {
     @Query(
-        """SELECT o.uuid AS uuid, o.name AS name, o.type AS type, o.description AS description, p.name AS parentName
+        """SELECT o.uuid AS uuid, o.name AS name, o.type AS type, o.description AS description, p.name AS parentName, o.archived_at AS archivedAt
            FROM objects o LEFT JOIN objects p ON p.uuid = o.parent_uuid
            WHERE o.deleted_at IS NULL AND (o.name LIKE :pattern ESCAPE '\' OR o.description LIKE :pattern ESCAPE '\')
            ORDER BY o.name COLLATE NOCASE LIMIT 50""",
