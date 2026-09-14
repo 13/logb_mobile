@@ -61,7 +61,11 @@ android {
             isReturnDefaultValues = true
             // The contract test runs against a real logb binary when one is named:
             //   ./gradlew :app:testDebugUnitTest -PlogbBin=$HOME/repo/logb/target/release/logb --tests '*SyncContractTest'
-            all { it.systemProperty("logb.bin", project.findProperty("logbBin")?.toString() ?: "") }
+            all {
+                it.systemProperty("logb.bin", project.findProperty("logbBin")?.toString() ?: "")
+                // Thumbnails are real pixels; Robolectric's legacy graphics mode decodes nothing.
+                it.systemProperty("robolectric.graphicsMode", "NATIVE")
+            }
         }
     }
     packaging {
@@ -108,6 +112,7 @@ dependencies {
     implementation(libs.sqlite.bundled)
     implementation(libs.work.runtime)
     implementation(libs.datastore.preferences)
+    implementation(libs.exifinterface)
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
     implementation(libs.retrofit)
