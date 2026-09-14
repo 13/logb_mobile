@@ -12,8 +12,8 @@ plugins {
 }
 
 // The release workflow stamps the git tag in with -PversionName / -PversionCode.
-val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.5.0")
-val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(500)
+val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.7.0")
+val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(700)
 
 // A real signing key, when one exists: the user's global ANDROID_KEYSTORE* variables (CI exports
 // the same names from secrets), or an untracked keystore/keystore.properties. Without either,
@@ -32,6 +32,11 @@ val gitHash: String = runCatching {
     providers.exec { commandLine("git", "rev-parse", "--short", "HEAD"); workingDir = rootDir; isIgnoreExitValue = true }.standardOutput.asText.get().trim()
 }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
 
+// The commit's date, for the About screen: like the hash, stable for a given commit.
+val gitDate: String = runCatching {
+    providers.exec { commandLine("git", "show", "-s", "--format=%cs", "HEAD"); workingDir = rootDir; isIgnoreExitValue = true }.standardOutput.asText.get().trim()
+}.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
+
 base {
     archivesName.set("LogB")
 }
@@ -48,6 +53,7 @@ android {
         versionName = logbVersionName
         testInstrumentationRunner = "dev.logb.android.HiltTestRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
+        buildConfigField("String", "BUILD_DATE", "\"$gitDate\"")
         // The two languages the server speaks; nothing else ships strings.
         androidResources.localeFilters += listOf("en", "de")
     }
