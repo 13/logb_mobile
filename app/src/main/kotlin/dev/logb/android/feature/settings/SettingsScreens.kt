@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Sync
@@ -76,11 +77,13 @@ fun SettingsHubScreen(onOpen: (SettingsPage) -> Unit, viewModel: SettingsViewMod
                 SettingsPage.Appearance -> R.string.settings_appearance to Icons.Outlined.Palette
                 SettingsPage.Account -> R.string.settings_account to Icons.Outlined.Person
                 SettingsPage.Sync -> R.string.settings_sync to Icons.Outlined.Sync
+                SettingsPage.Notifications -> R.string.settings_notifications to Icons.Outlined.Notifications
                 SettingsPage.About -> R.string.settings_about to Icons.Outlined.Info
             }
             val value = when (row.page) {
                 SettingsPage.Appearance -> "${themeLabel(state.appearance.theme)} · ${language.uppercase()}"
                 SettingsPage.Sync -> if (state.deadOps.isNotEmpty()) pluralStringResource(R.plurals.sync_could_not_save, state.deadOps.size, state.deadOps.size) else syncValueLabel(state.sync)
+                SettingsPage.Notifications -> if (state.notifications.enabled) stringResource(R.string.notify_daily_at, state.notifications.time) else stringResource(R.string.off)
                 else -> row.value
             }
             HubRow(icon, stringResource(title), value) { onOpen(row.page) }

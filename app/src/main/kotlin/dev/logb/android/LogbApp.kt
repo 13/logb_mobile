@@ -15,6 +15,9 @@ import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.blobs.BlobDownloader
 import dev.logb.android.core.blobs.BlobFetcher
 import dev.logb.android.core.blobs.BlobStore
+import dev.logb.android.core.notify.DigestWorker
+import dev.logb.android.core.notify.NotificationPrefs
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import dagger.hilt.android.HiltAndroidApp
 import dev.logb.android.core.sync.SyncManager
@@ -29,6 +32,8 @@ class LogbApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     @Inject lateinit var accounts: ActiveAccount
     @Inject lateinit var blobStore: BlobStore
     @Inject lateinit var downloader: () -> BlobDownloader?
+    @Inject lateinit var notificationPrefs: NotificationPrefs
+    @Inject lateinit var appScope: kotlinx.coroutines.CoroutineScope
 
     /** Every image is a `BlobImage` served from the blob store, fetched from the server first when missing; plain URLs still work through the account's client. */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
@@ -47,6 +52,8 @@ class LogbApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
     override fun onCreate() {
         super.onCreate()
         SyncWorker.schedule(this)
+        // Re-asserts the digest schedule (WorkManager keeps it across restarts; UPDATE is idempotent).
+        appScope.launch { DigestWorker.schedule(this@LogbApp, notificationPrefs.current()) }
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 syncManager.requestSync(SyncReason.Foreground)

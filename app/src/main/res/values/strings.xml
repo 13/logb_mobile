@@ -298,4 +298,23 @@
     <string name="stats_purchase_price">Purchase price</string>
     <string name="stats_archived">archived</string>
     <string name="stats_none">No costs recorded for this period.</string>
+    <!-- Notifications -->
+    <string name="settings_notifications">Notifications</string>
+    <string name="notify_channel">Reminders</string>
+    <string name="notify_channel_body">One daily summary of what is due or comes due within a week.</string>
+    <string name="notify_enable">Daily reminder summary</string>
+    <string name="notify_enable_hint">Once a day, when something is due or comes due within seven days. Computed on this phone; nothing is sent anywhere.</string>
+    <string name="notify_time">Time</string>
+    <string name="notify_daily_at">Daily at %1$s</string>
+    <string name="notify_denied">Notifications are blocked for LogB in the system settings.</string>
+    <string name="notify_due">due</string>
+    <plurals name="notify_in_days">
+        <item quantity="one">in %d day</item>
+        <item quantity="other">in %d days</item>
+    </plurals>
+    <plurals name="notify_more">
+        <item quantity="one">%d more</item>
+        <item quantity="other">%d more</item>
+    </plurals>
+    <string name="off">Off</string>
 </resources>

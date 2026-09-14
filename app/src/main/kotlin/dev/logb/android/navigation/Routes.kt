@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
 @Serializable object Account
 @Serializable object SyncSettings
 @Serializable object About
+@Serializable object Notifications
 
 /** The three destinations the bottom bar shows; everything else is a drill-down from one of them. */
 enum class Destination { Objects, Search, Settings }
@@ -32,7 +33,7 @@ fun activeDestination(route: String?): Destination? {
     return when (name) {
         "Objects", "ObjectDetail", "ObjectForm", "ActivityForm", "ReadingForm", "ReminderForm", "DueList", "Viewer", "ShareTarget", "Stats" -> Destination.Objects
         "Search" -> Destination.Search
-        "Settings", "Appearance", "Account", "SyncSettings", "About" -> Destination.Settings
+        "Settings", "Appearance", "Account", "SyncSettings", "About", "Notifications" -> Destination.Settings
         else -> null
     }
 }

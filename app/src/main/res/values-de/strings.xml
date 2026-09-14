@@ -298,4 +298,23 @@
     <string name="stats_purchase_price">Kaufpreis</string>
     <string name="stats_archived">archiviert</string>
     <string name="stats_none">Für diesen Zeitraum sind keine Kosten erfasst.</string>
+    <!-- Notifications -->
+    <string name="settings_notifications">Benachrichtigungen</string>
+    <string name="notify_channel">Erinnerungen</string>
+    <string name="notify_channel_body">Einmal täglich eine Zusammenfassung dessen, was fällig ist oder innerhalb einer Woche fällig wird.</string>
+    <string name="notify_enable">Tägliche Erinnerungsübersicht</string>
+    <string name="notify_enable_hint">Einmal täglich, wenn etwas fällig ist oder innerhalb von sieben Tagen fällig wird. Auf diesem Telefon berechnet; nichts wird verschickt.</string>
+    <string name="notify_time">Uhrzeit</string>
+    <string name="notify_daily_at">Täglich um %1$s</string>
+    <string name="notify_denied">Benachrichtigungen sind für LogB in den Systemeinstellungen blockiert.</string>
+    <string name="notify_due">fällig</string>
+    <plurals name="notify_in_days">
+        <item quantity="one">in %d Tag</item>
+        <item quantity="other">in %d Tagen</item>
+    </plurals>
+    <plurals name="notify_more">
+        <item quantity="one">%d weitere</item>
+        <item quantity="other">%d weitere</item>
+    </plurals>
+    <string name="off">Aus</string>
 </resources>

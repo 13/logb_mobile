@@ -15,11 +15,11 @@ class SettingsRowsTest {
     @Test
     fun `rows carry their current value`() {
         val rows = settingsRows(signedIn, Appearance(ThemeMode.Dark, false), SyncStatus.Offline(pending = 3), "de", "0.1.0")
-        assertEquals(listOf(SettingsPage.Appearance, SettingsPage.Account, SettingsPage.Sync, SettingsPage.About), rows.map { it.page })
+        assertEquals(listOf(SettingsPage.Appearance, SettingsPage.Account, SettingsPage.Sync, SettingsPage.Notifications, SettingsPage.About), rows.map { it.page })
         assertEquals("dark · DE", rows[0].value)
         assertEquals("ben", rows[1].value)
         assertEquals("pending:3", rows[2].value)
-        assertEquals("0.1.0", rows[3].value)
+        assertEquals("0.1.0", rows[4].value)
     }
 
     @Test

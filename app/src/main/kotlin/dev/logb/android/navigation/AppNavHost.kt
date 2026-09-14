@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import dev.logb.android.feature.share.LaunchTarget
 import dev.logb.android.feature.share.ShareInbox
 import dev.logb.android.feature.share.ShareTargetScreen
 import androidx.compose.ui.Modifier
@@ -27,6 +28,7 @@ import dev.logb.android.feature.stats.StatsScreen
 import dev.logb.android.feature.settings.AboutScreen
 import dev.logb.android.feature.settings.AccountScreen
 import dev.logb.android.feature.settings.AppearanceScreen
+import dev.logb.android.feature.settings.NotificationsScreen
 import dev.logb.android.feature.settings.SettingsHubScreen
 import dev.logb.android.feature.settings.SettingsPage
 import dev.logb.android.feature.settings.SyncScreen
@@ -37,6 +39,15 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
     val nav = rememberNavController()
     val shared by (shareInbox?.pending ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsState()
     LaunchedEffect(shared.isNotEmpty()) { if (shared.isNotEmpty()) nav.navigate(ShareTarget) { launchSingleTop = true } }
+    val target by (shareInbox?.target ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
+    LaunchedEffect(target) {
+        when (shareInbox?.takeTarget()) {
+            LaunchTarget.Due -> nav.navigate(DueList) { launchSingleTop = true }
+            LaunchTarget.Search -> nav.navigate(Search) { launchSingleTop = true }
+            LaunchTarget.NewObject -> nav.navigate(ObjectForm()) { launchSingleTop = true }
+            null -> Unit
+        }
+    }
     val backStack by nav.currentBackStackEntryAsState()
     val active = activeDestination(backStack?.destination?.route)
     Scaffold(
@@ -100,6 +111,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                             SettingsPage.Appearance -> Appearance
                             SettingsPage.Account -> Account
                             SettingsPage.Sync -> SyncSettings
+                            SettingsPage.Notifications -> Notifications
                             SettingsPage.About -> About
                         },
                     )
@@ -109,6 +121,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
             composable<Account> { AccountScreen(onBack = { nav.popBackStack() }) }
             composable<SyncSettings> { SyncScreen(onBack = { nav.popBackStack() }) }
             composable<About> { AboutScreen(onBack = { nav.popBackStack() }) }
+            composable<Notifications> { NotificationsScreen(onBack = { nav.popBackStack() }) }
         }
     }
 }
