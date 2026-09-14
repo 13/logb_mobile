@@ -42,6 +42,7 @@ import dev.logb.android.core.format.formatCounter
 import dev.logb.android.core.format.formatDate
 import dev.logb.android.feature.objects.tabs.DocumentsTab
 import dev.logb.android.feature.objects.tabs.InfoTab
+import dev.logb.android.feature.objects.tabs.ReminderActions
 import dev.logb.android.feature.objects.tabs.RemindersTab
 import dev.logb.android.feature.objects.tabs.TimelineTab
 
@@ -49,7 +50,7 @@ private val TABS = listOf("timeline", "documents", "reminders", "info")
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, onLog: (String) -> Unit = {}, onEditEntry: (String, String) -> Unit = { _, _ -> }, viewModel: ObjectDetailViewModel = hiltViewModel()) {
+fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (String) -> Unit = {}, onAddChild: (String) -> Unit = {}, onLog: (String) -> Unit = {}, onEditEntry: (String, String) -> Unit = { _, _ -> }, onAddReminder: (String) -> Unit = {}, onEditReminder: (String, String) -> Unit = { _, _ -> }, onLogForReminder: (String, String, String) -> Unit = { _, _, _ -> }, viewModel: ObjectDetailViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TABS.indexOf(viewModel.route.tab).coerceAtLeast(0)) }
     val locale = currentLocale()
@@ -89,7 +90,18 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
         when (TABS[tab]) {
             "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, thumbUrl = { viewModel.fileUrl(it, thumb = true) }, onEntry = { onEditEntry(obj.uuid, it) })
             "documents" -> DocumentsTab(state, thumbUrl = { viewModel.fileUrl(it, thumb = true) })
-            "reminders" -> RemindersTab(state, obj.counterUnit)
+            "reminders" -> RemindersTab(
+                state, obj.counterUnit,
+                actions = ReminderActions(
+                    onAdd = { onAddReminder(obj.uuid) },
+                    onEdit = { onEditReminder(obj.uuid, it) },
+                    onDone = { r, a -> viewModel.markDone(r, a) },
+                    onLogNow = { r, title -> onLogForReminder(obj.uuid, r, title) },
+                    onSnooze = { r, days -> viewModel.snooze(r, days) },
+                    onUnsnooze = viewModel::unsnooze,
+                    onDelete = viewModel::deleteReminder,
+                ),
+            )
             "info" -> InfoTab(state, onOpen = onOpen, onEdit = { onEdit(obj.uuid) }, onAddChild = { onAddChild(obj.uuid) }, onArchive = { viewModel.setArchived(it) }, onDelete = { viewModel.delete(onBack) })
         }
     }

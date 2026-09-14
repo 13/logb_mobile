@@ -13,6 +13,8 @@ import androidx.navigation.toRoute
 import dev.logb.android.feature.entries.ActivityFormScreen
 import dev.logb.android.feature.entries.ReadingFormScreen
 import dev.logb.android.feature.objects.ObjectFormScreen
+import dev.logb.android.feature.reminders.DueListScreen
+import dev.logb.android.feature.reminders.ReminderFormScreen
 import dev.logb.android.feature.objects.ObjectDetailScreen
 import dev.logb.android.feature.objects.ObjectsScreen
 import dev.logb.android.feature.search.SearchScreen
@@ -50,6 +52,7 @@ fun AppNavHost() {
                 ObjectsScreen(
                     onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) },
                     onLog = { uuid -> nav.navigate(ActivityForm(uuid)) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
+                    onOpenDue = { nav.navigate(DueList) },
                 )
             }
             composable<ObjectDetail> {
@@ -60,10 +63,15 @@ fun AppNavHost() {
                     onAddChild = { uuid -> nav.navigate(ObjectForm(parentUuid = uuid)) },
                     onLog = { uuid -> nav.navigate(ActivityForm(uuid)) },
                     onEditEntry = { objectUuid, uuid -> nav.navigate(ActivityForm(objectUuid, uuid)) },
+                    onAddReminder = { uuid -> nav.navigate(ReminderForm(uuid)) },
+                    onEditReminder = { objectUuid, uuid -> nav.navigate(ReminderForm(objectUuid, uuid)) },
+                    onLogForReminder = { objectUuid, reminderUuid, title -> nav.navigate(ActivityForm(objectUuid, doneReminderUuid = reminderUuid, title = title)) },
                 )
             }
             composable<ActivityForm> { ActivityFormScreen(onBack = { nav.popBackStack() }) }
             composable<ReadingForm> { ReadingFormScreen(onBack = { nav.popBackStack() }) }
+            composable<ReminderForm> { ReminderFormScreen(onBack = { nav.popBackStack() }) }
+            composable<DueList> { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }) }
             composable<ObjectForm> { entry ->
                 val editing = entry.toRoute<ObjectForm>().uuid != null
                 ObjectFormScreen(

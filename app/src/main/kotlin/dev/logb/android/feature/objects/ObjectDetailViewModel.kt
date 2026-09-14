@@ -105,6 +105,11 @@ class ObjectDetailViewModel @Inject constructor(accounts: ActiveAccount, private
 
     fun setArchived(archived: Boolean) = viewModelScope.launch { repos.objectRepository.setArchived(route.uuid, archived) }
 
+    fun markDone(reminderUuid: String, activityUuid: String?) = viewModelScope.launch { repos.reminderRepository.done(reminderUuid, activityUuid) }
+    fun snooze(reminderUuid: String, days: Long) = viewModelScope.launch { repos.reminderRepository.snooze(reminderUuid, days) }
+    fun unsnooze(reminderUuid: String) = viewModelScope.launch { repos.reminderRepository.unsnooze(reminderUuid) }
+    fun deleteReminder(reminderUuid: String) = viewModelScope.launch { repos.reminderRepository.delete(reminderUuid) }
+
     fun delete(onDone: () -> Unit) = viewModelScope.launch { repos.objectRepository.delete(route.uuid); onDone() }
 
     private val accountsRef = accounts

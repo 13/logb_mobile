@@ -69,7 +69,7 @@ class ActivityFormViewModel @Inject constructor(accounts: ActiveAccount, private
                 )
                 else base.copy(
                     category = route.category?.takeIf { it in base.categories } ?: base.categories.first(),
-                    counter = if (route.category == "reading") "" else "",
+                    title = route.title ?: "",
                 )
             }
         }
@@ -90,7 +90,13 @@ class ActivityFormViewModel @Inject constructor(accounts: ActiveAccount, private
         if (errors.isNotEmpty()) { _state.update { it.copy(errors = errors) }; return }
         _state.update { it.copy(saving = true) }
         viewModelScope.launch {
-            if (route.uuid != null) repos.activityRepository.update(route.uuid, s.draft) else repos.activityRepository.create(route.objectUuid, s.draft)
+            if (route.uuid != null) {
+                repos.activityRepository.update(route.uuid, s.draft)
+            } else {
+                val created = repos.activityRepository.create(route.objectUuid, s.draft)
+                // Opened from a reminder's "log an entry now": the entry is what did the job.
+                route.doneReminderUuid?.let { repos.reminderRepository.done(it, created) }
+            }
             _state.update { it.copy(saving = false, saved = true) }
         }
     }
