@@ -130,4 +130,25 @@
     <string name="sync_pending_none">Nothing waiting. Changes made on this phone will be listed here until the server has them.</string>
     <string name="about_body">The complete history of your owned objects, on your phone. Works fully offline and syncs with your own LogB server.</string>
     <string name="about_licenses">Built with</string>
+    <string name="template_oil">Oil change</string>
+    <string name="template_inspection">Inspection</string>
+    <string name="template_tyres">Tyre change</string>
+    <string name="template_service">Service</string>
+    <string name="template_chain">Chain</string>
+    <string name="template_smoke">Smoke detectors</string>
+    <string name="template_heating">Heating service</string>
+    <string name="template_descale">Descale</string>
+    <string name="template_filter">Filter change</string>
+    <string name="template_checkup">Check-up</string>
+    <string name="template_dentist">Dentist</string>
+    <string name="template_reading">Log the reading</string>
+    <string name="error_required">Required</string>
+    <string name="error_invalid">Not a valid choice</string>
+    <string name="error_date">Not a date</string>
+    <string name="error_negative">Cannot be negative</string>
+    <string name="error_positive">Must be more than zero</string>
+    <string name="error_no_counter">This object has no counter</string>
+    <string name="error_reading_needs_counter">A reading needs a counter value</string>
+    <string name="error_due_required">A date or a counter is needed</string>
+    <string name="error_every">Between 1 and 60 weeks or months</string>
 </resources>

@@ -7,8 +7,8 @@
   phone. The second is the trade-off cuenti_mobile documents: anything in the user store is
   accepted silently, an MDM profile or a proxy root included.
 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration,AcceptsUserCertificates">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="user" />
