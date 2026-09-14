@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  A self-hosted LogB on a home LAN is often plain http. Cleartext is allowed only to the two names
-  a developer uses (the emulator's host alias and adb reverse); everything else must be https.
+  The server address is typed by the person who runs it. Two allowances for a self-hosted LogB
+  on a home LAN: plain http is permitted (a bare host name is still normalised to https first,
+  see ApiClient.normalizeBaseUrl, so http only happens when it was typed), and user-installed
+  CAs are trusted, for the self-hoster who runs an internal CA and installs its root on the
+  phone. The second is the trade-off cuenti_mobile documents: anything in the user store is
+  accepted silently, an MDM profile or a proxy root included.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">10.0.2.2</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>
