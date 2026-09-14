@@ -6,14 +6,14 @@
 
 **Architecture:** Single-activity Jetpack Compose app, package-by-feature under `dev.logb.android`. Room is the only thing screens read. `core/sync` is the only thing that writes mirror tables from the network; it applies pulled ops with the server's own last-write-wins rule. Writes to the mirror from the UI are phase 2; this phase ships no forms.
 
-**Tech Stack:** Kotlin 2.2, Gradle 8.14 + AGP 8.11 on JDK 21, Compose (Material 3, Navigation Compose type-safe routes), Hilt, Room with the bundled SQLite driver, OkHttp 5 + Retrofit 3 + kotlinx.serialization, Coil 3, WorkManager, DataStore, MockWebServer, Turbine.
+**Tech Stack:** Kotlin 2.4 (built into AGP 9), Gradle 9.7 + AGP 9.3 on JDK 21 — the toolchain `~/repo/apexweather` builds with on this machine —, Compose (Material 3, Navigation Compose type-safe routes), Hilt, Room with the bundled SQLite driver, OkHttp 5 + Retrofit 3 + kotlinx.serialization, Coil 3, WorkManager, DataStore, MockWebServer, Turbine.
 
 Spec: `docs/superpowers/specs/2026-09-14-logb-android-design.md`. Requires phase 0 merged and a server built from it running for the contract test; MockWebServer covers everything else.
 
 ## Global Constraints
 
 - Package `dev.logb.android`; `applicationId` the same; `minSdk 28`, `targetSdk 36`, `compileSdk 36`.
-- Build with JDK 21: every Gradle command in this plan is `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew …`. The machine's default JDK 25 is newer than AGP 8.11 supports.
+- Build with JDK 21: `gradle.properties` pins `org.gradle.java.home=/usr/lib/jvm/java-21-openjdk` (CI strips the line and brings its own 21), so a plain `./gradlew …` works. The machine's default JDK 25 is newer than AGP supports.
 - `ANDROID_HOME` in the shell points at `/opt/android-sdk`, which does not exist; the SDK is at `~/Android/Sdk`. Task 1 writes `local.properties` with `sdk.dir=/home/ben/Android/Sdk` (git-ignored) and every command inherits it.
 - Versions are pinned in `gradle/libs.versions.toml`. Where this plan says *latest stable*, look it up at task time (`https://developer.android.com/jetpack/androidx/versions`, `https://github.com/coil-kt/coil/releases`) and pin the number; never a `+` range.
 - Screens read only from Room. Nothing under `feature/` imports `core.network`.
@@ -22,7 +22,7 @@ Spec: `docs/superpowers/specs/2026-09-14-logb-android-design.md`. Requires phase
 - Strings live in `res/values/strings.xml` (EN) and `res/values-de/strings.xml` (DE); a unit test keeps the two key sets identical. Copy is taken from `~/repo/logb/frontend/src/i18n/en.ts` and `de.ts` where a key exists.
 - Every icon-only control has a `contentDescription`; every tap target is at least 48 dp.
 - Commit after each task; messages end with the attribution lines the session provides.
-- Verification before claiming a task done: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` passes.
+- Verification before claiming a task done: `./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug` passes.
 
 ## File map
 
@@ -87,13 +87,13 @@ app/src/androidTest/kotlin/…              Compose UI tests
 
 - [ ] **Step 1: Bootstrap the wrapper**
 
-There is no `gradle` on the PATH. Borrow the wrapper from the sibling Flutter project, which is the same Gradle version this plan pins:
+There is no `gradle` on the PATH. Borrow the wrapper from `~/repo/apexweather`, the newest Android project on this machine and the source of every version pinned below:
 
 ```bash
 cd ~/repo/logb_mobile
-cp -r ~/repo/cuenti_mobile/android/gradle ~/repo/cuenti_mobile/android/gradlew .
+cp -r ~/repo/apexweather/gradle ~/repo/apexweather/gradlew . && rm gradle/libs.versions.toml
 chmod +x gradlew
-grep distributionUrl gradle/wrapper/gradle-wrapper.properties   # expect gradle-8.14-all.zip
+grep distributionUrl gradle/wrapper/gradle-wrapper.properties   # expect gradle-9.7.1-bin.zip
 printf 'sdk.dir=/home/ben/Android/Sdk\n' > local.properties
 ```
 
@@ -113,87 +113,7 @@ captures/
 
 - [ ] **Step 3: Version catalog**
 
-`gradle/libs.versions.toml` — pin these, replacing *latest stable* with the number found at task time:
-
-```toml
-[versions]
-agp = "8.11.1"
-kotlin = "2.2.20"
-ksp = "2.2.20-2.0.3"            # matching the Kotlin version; check github.com/google/ksp/releases
-hilt = "2.57"                   # latest stable
-composeBom = "2025.09.00"       # latest stable
-activity = "1.11.0"             # latest stable
-navigation = "2.9.4"            # latest stable 2.x
-lifecycle = "2.9.3"             # latest stable
-room = "2.8.0"                  # latest stable ≥ 2.7 (bundled driver support)
-sqlite = "2.6.0"                # androidx.sqlite, matches room's requirement
-work = "2.10.3"                 # latest stable
-datastore = "1.1.7"             # latest stable
-okhttp = "5.1.0"                # latest stable 5.x
-retrofit = "3.0.0"              # latest stable
-kotlinxSerialization = "1.9.0"
-kotlinxCoroutines = "1.10.2"
-coil = "3.3.0"                  # latest stable 3.x
-hiltNavigationCompose = "1.2.0"
-hiltWork = "1.2.0"
-junit = "4.13.2"
-turbine = "1.2.1"
-androidxTestExt = "1.3.0"
-espresso = "3.7.0"
-
-[libraries]
-androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.17.0" }
-androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
-compose-ui = { module = "androidx.compose.ui:ui" }
-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
-compose-material3 = { module = "androidx.compose.material3:material3" }
-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
-hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
-hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hiltWork" }
-hilt-work-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "hiltWork" }
-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
-okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
-okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3-junit4", version.ref = "okhttp" }
-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
-retrofit-kotlinx-serialization = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }
-kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
-kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
-kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
-coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
-coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
-junit = { module = "junit:junit", version.ref = "junit" }
-kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
-turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
-androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExt" }
-androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
-
-[plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-room = { id = "androidx.room", version.ref = "room" }
-```
+`gradle/libs.versions.toml` — the file as committed in Task 1 is the reference; its `[versions]` table copies `~/repo/apexweather` (AGP 9.3.2, Kotlin 2.4.10, KSP 2.3.11, Hilt 2.60.1, Compose BOM 2026.08.00, Room 2.8.4, sqlite-bundled 2.6.2, Navigation 2.10.0, WorkManager 2.11.2, DataStore 1.2.1, OkHttp 5.5.0, Retrofit 3.0.0, Coil 3.6.2, kotlinx.serialization 1.11.0, Robolectric 4.16.1, Turbine 1.2.0). Every one of them is already in the local Gradle cache. AGP 9 has Kotlin built in, so `kotlin-android` is declared but applied nowhere.
 
 - [ ] **Step 4: Root build files**
 
@@ -411,7 +331,7 @@ class SmokeTest { @Test fun `the test task runs`() { assertEquals(4, 2 + 2) } }
 - [ ] **Step 8: Build and run on the device**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:testDebugUnitTest :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk && adb shell am start -n dev.logb.android/.MainActivity
 ```
 
@@ -465,7 +385,7 @@ class DatesTest {
 
 - [ ] **Step 2: Run, expect compile failure**
 
-Run: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.format.*'`
+Run: `./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.format.*'`
 
 - [ ] **Step 3: Formatters**
 
@@ -526,7 +446,7 @@ Add `@Preview` composables for each in light and dark.
 - [ ] **Step 7: Tests pass, wire the theme into `MainActivity`, commit**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest :app:assembleDebug
+./gradlew :app:testDebugUnitTest :app:assembleDebug
 git add -A && git commit -m "feat: LogB theme, tabular figures, type icons, launcher icon, formatters"
 ```
 
@@ -678,7 +598,7 @@ class ObjectDaoTest {
 
 - [ ] **Step 3: Run, expect failure**
 
-Run: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.db.*'`
+Run: `./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.db.*'`
 
 - [ ] **Step 4: DAOs**
 
@@ -749,7 +669,7 @@ abstract class LogbDatabase : RoomDatabase() { abstract fun objectDao(): ObjectD
 - [ ] **Step 5: Tests pass; export the schema; commit**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.db.*'
+./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.db.*'
 git add -A && git commit -m "feat: Room mirror schema with uuid keys, op queue, sync state, field clock"
 ```
 
@@ -826,7 +746,7 @@ class ApiClientTest {
 
 - [ ] **Step 3: Run, expect failure**
 
-Run: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.network.*'`
+Run: `./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.network.*'`
 
 - [ ] **Step 4: Implement**
 
@@ -946,8 +866,8 @@ Strings: `server_title`, `server_hint`, `server_continue`, `server_unreachable`,
 - [ ] **Step 6: Tests pass; keystore test on device; commit**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.auth.*'
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:connectedDebugAndroidTest --tests 'dev.logb.android.core.auth.TokenStoreTest'
+./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.auth.*'
+./gradlew :app:connectedDebugAndroidTest --tests 'dev.logb.android.core.auth.TokenStoreTest'
 git add -A && git commit -m "feat: server URL, password sign-in that mints a token, keystore-wrapped token store"
 ```
 
@@ -1080,9 +1000,14 @@ class ChangeApplierTest {
         applier.apply(listOf(row(1, "object", "garage", "create", id = 11), row(2, "object", "garage", "set", "parent_id", "999")))
         assertNull(db.objectDao().get("garage")!!.parentUuid); assertTrue(db.syncStateDao().get()!!.bootstrapNeeded)
     }
-    @Test fun `a null value clears the field`() = runTest {
+    @Test fun `a null value clears the field, whether SQL NULL or the string null`() = runTest {
+        // A pushed op with an explicit null lands as SQL NULL; a REST-side clear lands as the
+        // double-encoded JSON null, i.e. the four-character string "null". Both mean clear.
         applier.apply(listOf(row(1, "object", "u1", "create"), row(2, "object", "u1", "set", "purchase_price_cents", "1200"),
             row(3, "object", "u1", "set", "purchase_price_cents", null, at = "2026-09-02T00:00:00.000Z")))
+        assertNull(db.objectDao().get("u1")!!.purchasePriceCents)
+        applier.apply(listOf(row(4, "object", "u1", "set", "purchase_price_cents", "1300", at = "2026-09-03T00:00:00.000Z"),
+            row(5, "object", "u1", "set", "purchase_price_cents", "null", at = "2026-09-04T00:00:00.000Z")))
         assertNull(db.objectDao().get("u1")!!.purchasePriceCents)
     }
     @Test fun `deleting an object tombstones its activities, attachments, reminders and descendants`() = runTest {
@@ -1124,7 +1049,7 @@ for (r in rows) when (r.op) {
         if (!exists(r.entity, r.entityUuid)) continue
         val current = db.fieldClockDao().get(r.entity, r.entityUuid, field)
         if (!Lww.wins(r.editedAt, r.deviceId, current?.editedAt, current?.deviceId)) continue
-        val value = r.value?.let { json.parseToJsonElement(it) }   // double-encoded; null = clear
+        val value = r.value?.let { json.parseToJsonElement(it) }?.takeUnless { it is JsonNull }   // double-encoded; SQL NULL or "null" = clear
         val bound = spec.bind(value, resolver)                      // Text → String?, Integer → Long?, Ref(table) → uuid?
         if (bound is Unresolved) { markBootstrapNeeded(); writeNull(...) } else writeField(r.entity, r.entityUuid, field, bound)
         db.fieldClockDao().upsert(FieldClockEntity(r.entity, r.entityUuid, field, Lww.canonical(r.editedAt), r.deviceId))
@@ -1153,7 +1078,7 @@ while (true) {
 - [ ] **Step 5: All sync tests pass; commit**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.sync.*'
+./gradlew :app:testDebugUnitTest --tests 'dev.logb.android.core.sync.*'
 git add -A && git commit -m "feat: pull engine applies the change feed with the server's last-write-wins rule"
 ```
 
@@ -1262,7 +1187,7 @@ Cover thumbnails: `AsyncImage` with Coil, `model = "$serverUrl/api/files/$coverF
 - [ ] **Step 5: Run on the device**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:installDebug
+./gradlew :app:installDebug
 ```
 
 Sign in against the local phase-0 server (`http://10.0.2.2:8080` on the emulator, the LAN address on the phone — which needs https or a debug override; for the phone use `adb reverse tcp:8080 tcp:8080` and `http://localhost:8080`). Expected: the objects appear; airplane mode on; kill and reopen; they are still there.
@@ -1349,7 +1274,7 @@ git add -A && git commit -m "feat: local search, settings hub with appearance, a
 
 `OnboardingTest`: with a MockWebServer bound in the test (Hilt test module replacing `ApiClient`'s base URL), enter a server, sign in, land on Objects with the seeded object's name on screen. `ObjectsScreenTest`: seed the in-memory database through Hilt, assert the card shows name, counter and cost, the archived chip hides and shows, tapping opens detail with the timeline tab selected.
 
-Run: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:connectedDebugAndroidTest` on the connected device or the `Medium_Phone` AVD.
+Run: `./gradlew :app:connectedDebugAndroidTest` on the connected device or the `Medium_Phone` AVD.
 
 - [ ] **Step 2: Contract test against the real server**
 
@@ -1364,7 +1289,7 @@ Run: `JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:connectedDebugAndroi
 
 Gradle: `tasks.register<Test>("contractTest") { useJUnit(); testClassesDirs = sourceSets["contractTest"].output.classesDirs; classpath = sourceSets["contractTest"].runtimeClasspath; systemProperty("logb.bin", project.findProperty("logbBin") ?: "") }`.
 
-Locally: `cd ~/repo/logb && cargo build --release` then `JAVA_HOME=… ./gradlew :app:contractTest -PlogbBin=$HOME/repo/logb/target/release/logb`.
+Locally: `cd ~/repo/logb && cargo build --release` then `./gradlew :app:contractTest -PlogbBin=$HOME/repo/logb/target/release/logb`.
 
 CI: a second job checks out `13/logb` at the phase-0 tag beside this repo, `cargo build --release` (with `frontend/dist` stubbed), and runs the task.
 
@@ -1377,9 +1302,9 @@ CI: a second job checks out `13/logb` at the phase-0 tag beside this repo, `carg
 - [ ] **Step 4: Full verification and commit**
 
 ```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:connectedDebugAndroidTest
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew :app:contractTest -PlogbBin=$HOME/repo/logb/target/release/logb
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:contractTest -PlogbBin=$HOME/repo/logb/target/release/logb
 git add -A && git commit -m "test: UI tests, contract test against the real server, README and smoke checklist"
 ```
 

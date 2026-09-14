@@ -97,8 +97,8 @@ only things that talk to the server are `core/sync`, `core/blobs` and `core/auth
 
 | Piece | Choice |
 |-------|--------|
-| Language | Kotlin 2.2.x, KSP |
-| Build | Gradle 8.14 wrapper, AGP 8.11.x (the pair known to build on this machine), JDK 21 (`/usr/lib/jvm/java-21-openjdk`; the default JDK 25 is newer than AGP supports) |
+| Language | Kotlin 2.4.x (built into AGP 9), KSP 2.3.x |
+| Build | Gradle 9.7 wrapper, AGP 9.3 — the toolchain `~/repo/apexweather` builds with on this machine — on JDK 21 (`org.gradle.java.home` in `gradle.properties`; the default JDK 25 is newer than AGP supports) |
 | UI | Compose BOM (latest stable at task time), Material 3, Navigation Compose with type-safe `@Serializable` routes, `androidx.activity` edge-to-edge and predictive back |
 | DI | Hilt |
 | Database | Room 2.7+ with the bundled SQLite driver, so DAO and sync tests run on the JVM with no emulator |
@@ -218,7 +218,8 @@ On every sync, after pushing:
    - `create`: if the uuid is unknown, insert a placeholder row (all nullable fields null, required
      text fields empty) carrying `server_id = entity_id`; the `set` rows that follow fill it in.
      If known (the phone made it), just record `server_id`.
-   - `set`: parse the double-encoded `value` (`JSON.parse` of a JSON string); compare against
+   - `set`: parse the double-encoded `value` (`JSON.parse` of a JSON string; SQL NULL and the
+     string `"null"` both mean clear — REST-side clears store the latter); compare against
      `field_clock` with the server's rule (greater `edited_at` wins, equal `edited_at` and greater
      `device_id` wins); on a win, write the field and the clock entry. Integer values for
      reference fields are translated to uuids.

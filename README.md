@@ -10,5 +10,6 @@ Status: designed, not yet built.
 - Plans: `docs/superpowers/plans/` — phase 0 (server prerequisites, in the `logb` repo), phase 1
   (foundation, read-only mirror). Phases 2–5 get their plans when reached.
 
-Stack: Kotlin, Jetpack Compose (Material 3), Room, Retrofit, WorkManager. Built with JDK 21
-(`JAVA_HOME=/usr/lib/jvm/java-21-openjdk ./gradlew …`); the Android SDK lives at `~/Android/Sdk`.
+Stack: Kotlin, Jetpack Compose (Material 3), Room, Retrofit, WorkManager. Gradle 9.7 / AGP 9.3 on
+JDK 21 (pinned in `gradle.properties`); the Android SDK path goes in `local.properties`
+(`sdk.dir=/home/ben/Android/Sdk` on the development machine).
