@@ -317,4 +317,12 @@
         <item quantity="other">%d more</item>
     </plurals>
     <string name="off">Off</string>
+    <!-- Lock -->
+    <string name="lock_enable">Lock with biometrics or screen lock</string>
+    <string name="lock_enable_hint">Asked on opening the app and after a minute in the background.</string>
+    <string name="lock_unavailable">No screen lock is set up on this device.</string>
+    <string name="lock_prompt_title">Unlock LogB</string>
+    <string name="lock_locked">Locked</string>
+    <string name="lock_locked_body">Your logbook stays private until you unlock it.</string>
+    <string name="lock_unlock">Unlock</string>
 </resources>

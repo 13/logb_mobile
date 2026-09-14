@@ -7,7 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import dev.logb.android.feature.lock.LockScreen
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +42,16 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val root: RootViewModel = hiltViewModel()
             val appearance by root.appearance.collectAsStateWithLifecycle()
+            // The gate follows the process, not this activity: a picker or the camera is another activity of
+            // the same process and must not count as leaving the app.
+            DisposableEffect(root) {
+                val observer = object : DefaultLifecycleObserver {
+                    override fun onStart(owner: LifecycleOwner) { root.onForeground() }
+                    override fun onStop(owner: LifecycleOwner) = root.onBackground()
+                }
+                ProcessLifecycleOwner.get().lifecycle.addObserver(observer)
+                onDispose { ProcessLifecycleOwner.get().lifecycle.removeObserver(observer) }
+            }
             LogbTheme(
                 darkTheme = when (appearance.theme) { ThemeMode.System -> isSystemInDarkTheme(); ThemeMode.Light -> false; ThemeMode.Dark -> true },
                 dynamicColor = appearance.dynamicColor,
@@ -49,10 +64,12 @@ class MainActivity : AppCompatActivity() {
                         is Session.SignedOut -> SignInScreen()
                         is Session.SignedIn -> {
                             val bootstrapNeeded by root.bootstrapNeeded.collectAsStateWithLifecycle()
-                            when (bootstrapNeeded) {
-                                null -> Box(Modifier.fillMaxSize())
-                                true -> BootstrapScreen()
-                                false -> AppNavHost(shareInbox)
+                            val locked by root.locked.collectAsStateWithLifecycle()
+                            when {
+                                locked != false -> if (locked == true) LockScreen(onUnlock = root::unlock) else Box(Modifier.fillMaxSize())
+                                bootstrapNeeded == null -> Box(Modifier.fillMaxSize())
+                                bootstrapNeeded == true -> BootstrapScreen()
+                                else -> AppNavHost(shareInbox)
                             }
                         }
                     }

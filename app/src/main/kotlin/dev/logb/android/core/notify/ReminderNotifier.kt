@@ -46,7 +46,12 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
-        runCatching { manager.notify(ID, notification) }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        try {
+            manager.notify(ID, notification)
+        } catch (_: SecurityException) {
+            // Permission revoked between the check and the call: nothing to post, nothing to crash.
+        }
     }
 
     fun cancel() { manager.cancel(ID) }

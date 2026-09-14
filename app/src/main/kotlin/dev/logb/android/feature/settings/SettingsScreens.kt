@@ -46,7 +46,10 @@ import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.R
+import dev.logb.android.core.auth.LockPolicy
 import dev.logb.android.core.auth.Session
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import dev.logb.android.core.design.components.LogbTopBar
 import dev.logb.android.core.format.currentLocale
 import dev.logb.android.core.format.relativeTime
@@ -155,6 +158,23 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.username), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(s?.user?.username ?: "", style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(24.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val availability = LockPolicy.availability(androidx.biometric.BiometricManager.from(context).canAuthenticate(LockPolicy.AUTHENTICATORS))
+            val available = availability == LockPolicy.Availability.Available
+            Row(
+                Modifier.fillMaxWidth().toggleable(value = state.lockEnabled && available, enabled = available, role = Role.Switch, onValueChange = viewModel::setLockEnabled),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.lock_enable), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(if (available) R.string.lock_enable_hint else R.string.lock_unavailable),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = state.lockEnabled && available, onCheckedChange = null, enabled = available)
+            }
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
         }

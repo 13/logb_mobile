@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.work.runtime)
     implementation(libs.datastore.preferences)
     implementation(libs.exifinterface)
+    implementation(libs.biometric)
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
     implementation(libs.retrofit)

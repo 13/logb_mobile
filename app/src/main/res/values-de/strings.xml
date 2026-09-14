@@ -317,4 +317,12 @@
         <item quantity="other">%d weitere</item>
     </plurals>
     <string name="off">Aus</string>
+    <!-- Lock -->
+    <string name="lock_enable">Mit Biometrie oder Displaysperre sperren</string>
+    <string name="lock_enable_hint">Beim Öffnen der App und nach einer Minute im Hintergrund abgefragt.</string>
+    <string name="lock_unavailable">Auf diesem Gerät ist keine Displaysperre eingerichtet.</string>
+    <string name="lock_prompt_title">LogB entsperren</string>
+    <string name="lock_locked">Gesperrt</string>
+    <string name="lock_locked_body">Dein Logbuch bleibt privat, bis du es entsperrst.</string>
+    <string name="lock_unlock">Entsperren</string>
 </resources>

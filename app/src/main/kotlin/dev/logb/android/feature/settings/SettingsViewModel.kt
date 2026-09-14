@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.logb.android.BuildConfig
 import dev.logb.android.core.auth.ActiveAccount
+import dev.logb.android.core.auth.LockPrefs
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.blobs.BlobPrefs
@@ -42,6 +43,7 @@ data class SettingsUiState(
     val usageBytes: Long = 0,
     val version: String = BuildConfig.VERSION_NAME,
     val notifications: NotificationSettings = NotificationSettings(),
+    val lockEnabled: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -54,6 +56,7 @@ class SettingsViewModel @Inject constructor(
     private val blobPrefs: BlobPrefs,
     private val blobStore: BlobStore,
     private val notificationPrefs: NotificationPrefs,
+    private val lockPrefs: LockPrefs,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
 ) : ViewModel() {
     private val usage = kotlinx.coroutines.flow.MutableStateFlow(0L)
@@ -65,12 +68,12 @@ class SettingsViewModel @Inject constructor(
         sessions.session.flatMapLatest { s -> if (s is Session.SignedIn) accounts.db.syncStateDao().observe() else flowOf(null) },
         sessions.session.flatMapLatest { s -> if (s is Session.SignedIn) combine(accounts.db.opDao().dead(), accounts.db.opDao().pendingCount()) { d, p -> d to p } else flowOf(emptyList<OpEntity>() to 0) },
         combine(blobPrefs.settings, usage) { b, u -> b to u },
-        notificationPrefs.settings,
+        combine(notificationPrefs.settings, lockPrefs.isEnabled) { n, l -> n to l },
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val ops = values[4] as Pair<List<OpEntity>, Int>
         val blobs = values[5] as Pair<BlobSettings, Long>
-        SettingsUiState(values[0] as Session, values[1] as dev.logb.android.core.prefs.Appearance, values[2] as SyncStatus, values[3] as SyncStateEntity?, ops.first, ops.second, blobs.first, blobs.second, notifications = values[6] as NotificationSettings)
+        SettingsUiState(values[0] as Session, values[1] as dev.logb.android.core.prefs.Appearance, values[2] as SyncStatus, values[3] as SyncStateEntity?, ops.first, ops.second, blobs.first, blobs.second, notifications = (values[6] as Pair<NotificationSettings, Boolean>).first, lockEnabled = (values[6] as Pair<NotificationSettings, Boolean>).second)
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
@@ -79,6 +82,8 @@ class SettingsViewModel @Inject constructor(
     fun setDynamicColor(on: Boolean) = viewModelScope.launch { prefs.setDynamicColor(on) }
 
     fun syncNow() = viewModelScope.launch { syncManager.syncNow() }
+
+    fun setLockEnabled(on: Boolean) = viewModelScope.launch { lockPrefs.setEnabled(on) }
 
     fun setNotificationsEnabled(on: Boolean) = viewModelScope.launch {
         notificationPrefs.setEnabled(on)
