@@ -359,4 +359,7 @@
     <string name="sign_out_everywhere">Sign out everywhere</string>
     <string name="sign_out_everywhere_hint">Ends every browser session of your account. Other phones keep their tokens.</string>
     <string name="sign_out_everywhere_body">Every browser session ends and this phone signs out; the logbook stays on the phone.</string>
+    <string name="export_object">Export this object</string>
+    <string name="export_failed">Export failed: %1$s</string>
+    <string name="export_unpushed">not on the server yet</string>
 </resources>

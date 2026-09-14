@@ -76,6 +76,9 @@ interface LogbApi {
 
     @Streaming @GET("api/files/{id}/thumb") suspend fun downloadThumb(@Path("id") fileId: Long): ResponseBody
 
+    /** The server's zip of one object (its entries, reminders and files), for the share sheet. */
+    @Streaming @GET("api/export") suspend fun export(@Query("object_id") objectId: Long): ResponseBody
+
     /** The multipart upload; identical bytes are stored once server-side and answer with the shared `file_uuid`. */
     @Multipart
     @POST("api/objects/{id}/attachments")

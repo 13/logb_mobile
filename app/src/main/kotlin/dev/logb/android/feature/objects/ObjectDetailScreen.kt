@@ -54,6 +54,8 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TABS.indexOf(viewModel.route.tab).coerceAtLeast(0)) }
     val locale = currentLocale()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val obj = state.obj
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
@@ -111,6 +113,15 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
                 InfoTab(
                     state, onOpen = onOpen, onEdit = { onEdit(obj.uuid) }, onAddChild = { onAddChild(obj.uuid) }, onArchive = { viewModel.setArchived(it) }, onDelete = { viewModel.delete(onBack) },
                     insights = insights, includeContents = includeContents, onIncludeContents = viewModel::setIncludeContents,
+                    onExport = {
+                        viewModel.export { result ->
+                            result.onSuccess { file ->
+                                val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("application/zip").putExtra(android.content.Intent.EXTRA_STREAM, uri).addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                context.startActivity(android.content.Intent.createChooser(send, null))
+                            }.onFailure { e -> android.widget.Toast.makeText(context, resources.getString(dev.logb.android.R.string.export_failed, e.message ?: ""), android.widget.Toast.LENGTH_LONG).show() }
+                        }
+                    },
                 )
             }
         }

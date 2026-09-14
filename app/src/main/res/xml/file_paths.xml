@@ -3,4 +3,5 @@
 <paths>
     <cache-path name="camera" path="camera/" />
     <files-path name="blobs" path="blobs/" />
+    <cache-path name="exports" path="exports/" />
 </paths>

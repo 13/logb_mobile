@@ -102,7 +102,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
 @HiltViewModel
 class ObjectDetailViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
-    accounts: ActiveAccount,
+    private val accounts: ActiveAccount,
     private val repos: dev.logb.android.core.sync.Repositories,
     private val statsPrefs: StatsPrefs,
     savedState: SavedStateHandle,
@@ -142,5 +142,24 @@ class ObjectDetailViewModel @Inject constructor(
     fun deleteReminder(reminderUuid: String) = viewModelScope.launch { repos.reminderRepository.delete(reminderUuid) }
 
     fun delete(onDone: () -> Unit) = viewModelScope.launch { repos.objectRepository.delete(route.uuid); onDone() }
+
+    /**
+     * The web's *Export this object*: the server's zip, streamed into the cache for the share sheet.
+     * Needs the network and a server id; an object born here and not yet pushed has nothing to export.
+     */
+    fun export(onResult: (Result<java.io.File>) -> Unit) = viewModelScope.launch {
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val obj = accounts.db.objectDao().get(route.uuid) ?: error("gone")
+                val id = obj.serverId ?: throw IllegalStateException(context.getString(dev.logb.android.R.string.export_unpushed))
+                val dir = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+                val safe = obj.name.replace(Regex("[^A-Za-z0-9._-]+"), "_").ifBlank { "object" }
+                val file = java.io.File(dir, "logb-$safe.zip")
+                accounts.api.export(id).use { body -> file.outputStream().use { out -> body.byteStream().copyTo(out) } }
+                file
+            }
+        }
+        onResult(result)
+    }
 
 }

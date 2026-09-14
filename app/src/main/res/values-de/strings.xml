@@ -359,4 +359,7 @@
     <string name="sign_out_everywhere">Überall abmelden</string>
     <string name="sign_out_everywhere_hint">Beendet jede Browser-Sitzung deines Kontos. Andere Telefone behalten ihre Zugänge.</string>
     <string name="sign_out_everywhere_body">Jede Browser-Sitzung endet und dieses Telefon meldet sich ab; das Logbuch bleibt auf dem Telefon.</string>
+    <string name="export_object">Dieses Objekt exportieren</string>
+    <string name="export_failed">Export fehlgeschlagen: %1$s</string>
+    <string name="export_unpushed">noch nicht auf dem Server</string>
 </resources>

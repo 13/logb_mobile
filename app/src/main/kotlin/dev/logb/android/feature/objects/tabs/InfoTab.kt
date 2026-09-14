@@ -37,6 +37,7 @@ import dev.logb.android.feature.stats.ObjectInsights
 fun InfoTab(
     state: ObjectDetailUiState, onOpen: (String) -> Unit, onEdit: () -> Unit, onAddChild: () -> Unit, onArchive: (Boolean) -> Unit, onDelete: () -> Unit,
     insights: ObjectInsights? = null, includeContents: Boolean = false, onIncludeContents: (Boolean) -> Unit = {},
+    onExport: (() -> Unit)? = null,
 ) {
     val obj = state.obj ?: return
     val locale = currentLocale()
@@ -60,6 +61,7 @@ fun InfoTab(
                 }
             }
         }
+        if (onExport != null) item { OutlinedButton(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.export_object)) } }
         item {
             InsightsSection(insights, state.obj.counterUnit, state.currency, includeContents, onIncludeContents)
         }
