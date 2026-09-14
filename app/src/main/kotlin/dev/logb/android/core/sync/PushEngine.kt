@@ -26,20 +26,35 @@ class PushEngine(private val db: LogbDatabase, private val api: LogbApi) {
     private class NotYet : Exception()
 
     suspend fun run() {
-        val ops = db.opDao().pending()
-        var i = 0
-        while (i < ops.size) {
-            val op = ops[i]
-            if (op.kind == "create") {
-                if (op.entity == "attachment") { i++; continue } // phase 3
-                if (!pushCreate(op)) return
-                i++
-            } else {
-                val batch = mutableListOf<OpEntity>()
-                while (i < ops.size && ops[i].kind != "create") { batch += ops[i]; i++ }
-                if (!pushBatch(batch)) return
+        // A pass works through a snapshot of the queue; a create can append follow-up sets (see
+        // `pushCreate`), so another pass runs while a pass made progress and left work behind.
+        var passes = 0
+        while (passes++ < MAX_PASSES) {
+            val ops = db.opDao().pending()
+            if (ops.isEmpty()) return
+            var i = 0
+            var progressed = false
+            while (i < ops.size) {
+                val op = ops[i]
+                if (op.kind == "create") {
+                    if (op.entity == "attachment") { i++; continue } // phase 3
+                    if (!pushCreate(op)) return
+                    progressed = true
+                    i++
+                } else {
+                    val batch = mutableListOf<OpEntity>()
+                    while (i < ops.size && ops[i].kind != "create") { batch += ops[i]; i++ }
+                    if (!pushBatch(batch)) return
+                    progressed = true
+                }
             }
+            if (!progressed) return
         }
+    }
+
+    private companion object {
+        /** Follow-up sets appended by a create are pushed by the next pass; a few passes cover any chain of them. */
+        const val MAX_PASSES = 4
     }
 
     private suspend fun pushCreate(op: OpEntity): Boolean {
@@ -64,6 +79,18 @@ class PushEngine(private val db: LogbDatabase, private val api: LogbApi) {
                     val objectId = db.objectDao().serverIdFor(r.objectUuid) ?: throw NotYet()
                     val dto = api.createReminder(objectId, ReminderInput(r.title, r.notes, r.dueDate, r.dueCounter, r.repeatMonths, r.repeatCounter, r.kind, r.everyN, r.everyUnit, clientUuid = r.uuid))
                     db.reminderDao().upsert(r.copy(serverId = dto.id))
+                    // The create input has no done or snooze fields; what happened to the row
+                    // before its push travels as sets, now that the server knows the uuid.
+                    val followUps = buildMap<String, Any?> {
+                        r.doneAt?.let { put("done_at", it) }
+                        r.doneActivityUuid?.let { put("done_activity_id", it) }
+                        r.snoozedUntil?.let { put("snoozed_until", it) }
+                    }
+                    if (followUps.isNotEmpty()) {
+                        db.opDao().delete(op.id)
+                        LocalWriter(db).set("reminder", r.uuid, followUps) { }
+                        return true
+                    }
                 }
                 else -> return dropped(op)
             }

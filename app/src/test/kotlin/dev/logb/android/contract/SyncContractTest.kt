@@ -7,7 +7,16 @@ import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.db.TestDatabase
 import dev.logb.android.core.network.ApiClient
+import dev.logb.android.core.domain.ActivityDraft
+import dev.logb.android.core.domain.ObjectDraft
+import dev.logb.android.core.domain.ReminderDraft
+import dev.logb.android.core.sync.LocalWriter
 import dev.logb.android.core.sync.PullEngine
+import dev.logb.android.core.sync.PushEngine
+import dev.logb.android.feature.entries.ActivityRepository
+import dev.logb.android.feature.objects.ObjectRepository
+import dev.logb.android.feature.reminders.ReminderRepository
+import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
@@ -138,6 +147,72 @@ class SyncContractTest {
         process.destroy(); process.waitFor()
         assertFailsWith<IOException> { engine.run() }
         assertEquals("Double garage", db.objectDao().get(garageUuid)!!.name)
+        db.close()
+    }
+
+    @Test
+    fun offlineCreatesEditsAndLastWriteWinsBothWays() = runBlocking {
+        call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
+        val sessions = SessionRepository(FakeServerStore(), FakeTokenStore(), ApiFactory { b, t, j -> ApiClient.create(b, t, j) })
+        check(sessions.signIn(base, "ben", "correct horse").isSuccess)
+        val token = (sessions.session.value as Session.SignedIn).token
+        val api = ApiClient.create(base, { token })
+        val db = TestDatabase.inMemory()
+        val pull = PullEngine(db, api, deviceId = "contract-phone")
+        val push = PushEngine(db, api)
+        pull.run() // empty bootstrap; the device id and clock land
+
+        // Offline: a nested tree, an entry, a repeating reminder marked done.
+        val writer = LocalWriter(db)
+        val objects = ObjectRepository(db, writer); val activities = ActivityRepository(db, writer); val reminders = ReminderRepository(db, writer)
+        val today = LocalDate.parse("2026-09-14")
+        val house = objects.create(ObjectDraft(name = "House", type = "home", counterUnit = null))
+        val garage = objects.create(ObjectDraft(name = "Garage", type = "home", counterUnit = null, parentUuid = house))
+        val light = objects.create(ObjectDraft(name = "Light", type = "appliance", counterUnit = null, parentUuid = garage))
+        val bulb = activities.create(light, ActivityDraft(date = "2026-08-20", category = "repair", title = "Bulb replaced", costCents = 499))
+        val oil = reminders.create(light, ReminderDraft(title = "Check", dueDate = "2026-09-01", repeatMonths = 6), today)
+        val successor = reminders.done(oil, bulb, today)!!
+        objects.update(light, ObjectDraft(name = "Main light", type = "appliance", counterUnit = null, parentUuid = garage)) // before push: the create carries it
+        assertEquals(listOf("create", "create", "create", "create", "create", "create"), db.opDao().pending().map { it.kind })
+
+        push.run(); pull.run()
+        assertEquals(emptyList(), db.opDao().pending())
+        val serverObjects = call("GET", "/objects?all=true")
+        for (uuid in listOf(house, garage, light)) check(serverObjects.contains(uuid)) { "server lacks $uuid" }
+        assertNotNull(db.objectDao().get(light)!!.serverId)
+        val lightId = db.objectDao().get(light)!!.serverId!!
+        val garageId = db.objectDao().get(garage)!!.serverId!!
+        check(call("GET", "/objects/$lightId").contains("\"parent_id\":$garageId"))
+        check(call("GET", "/objects/$lightId").contains("\"name\":\"Main light\""))
+        check(call("GET", "/objects/$lightId/activities").contains("Bulb replaced"))
+        val serverReminders = call("GET", "/objects/$lightId/reminders")
+        check(serverReminders.contains(oil) && serverReminders.contains(successor)) { serverReminders }
+        check(serverReminders.contains("\"due_date\":\"2027-03-14\"")) { "successor six months on from the completion day: $serverReminders" }
+        check(Regex("\"id\":\\d+,\"object_id\":$lightId,\"title\":\"Check\"[^}]*\"due_date\":\"2026-09-01\"[^}]*\"done_at\":\"20").containsMatchIn(serverReminders)) { "the original is done on the server: $serverReminders" }
+
+        // Different fields on both sides while apart: both survive.
+        call("PATCH", "/objects/$garageId", """{"name":"Double garage","type":"home","parent_id":${db.objectDao().get(house)!!.serverId}}""")
+        objects.update(light, ObjectDraft(name = "Main light", type = "appliance", counterUnit = null, description = "LED", parentUuid = garage))
+        push.run(); pull.run()
+        assertEquals("Double garage", db.objectDao().get(garage)!!.name)
+        check(call("GET", "/objects/$lightId").contains("\"description\":\"LED\""))
+
+        // The same field on both sides: the newer edit wins on both. The phone's edit is stamped
+        // later than the browser's, so the phone wins even though the browser's landed first.
+        call("PATCH", "/objects/$lightId", """{"name":"Browser name","type":"appliance","parent_id":$garageId}""")
+        Thread.sleep(20)
+        objects.update(light, ObjectDraft(name = "Phone name", type = "appliance", counterUnit = null, description = "LED", parentUuid = garage))
+        push.run(); pull.run()
+        assertEquals("Phone name", db.objectDao().get(light)!!.name)
+        check(call("GET", "/objects/$lightId").contains("\"name\":\"Phone name\""))
+
+        // And the other way round: a browser edit made after the phone's queued one beats it.
+        objects.update(light, ObjectDraft(name = "Stale phone name", type = "appliance", counterUnit = null, description = "LED", parentUuid = garage))
+        Thread.sleep(20)
+        call("PATCH", "/objects/$lightId", """{"name":"Newer browser name","type":"appliance","parent_id":$garageId}""")
+        push.run(); pull.run()
+        assertEquals("Newer browser name", db.objectDao().get(light)!!.name)
+        assertEquals(emptyList(), db.opDao().pending(), "a superseded op is done with, not retried")
         db.close()
     }
 }

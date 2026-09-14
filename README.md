@@ -4,15 +4,19 @@ Native, offline-first Android client for [LogB](https://github.com/13/logb): the
 of your owned objects, on your phone, readable with the radio off, reconciled with your
 self-hosted server in the background.
 
-**Status: phase 1 (read-only mirror) built.** Sign in, everything the account owns lands on the
-phone and stays readable offline, and edits made in the browser appear on the phone. Writing
-from the phone (phase 2), photos both ways (phase 3), statistics (phase 4) and polish (phase 5)
-follow, each with its own plan.
+**Status: phases 1 and 2 built.** Sign in, everything the account owns lands on the phone and
+stays readable offline; objects, entries, readings and reminders can be created, edited,
+deleted, marked done and snoozed with the radio off, and reconcile with the server -- and with
+edits made in the browser -- under field-level last-write-wins when a connection returns.
+Photos both ways (phase 3), statistics (phase 4) and polish (phase 5) follow, each with its
+own plan.
 
 ## Requirements
 
-- A LogB server built from the `android-prereqs` work (the four sync additions: `client_uuid` on
-  creates, `client_uuid` in responses, `entity_id` on pull rows, logged reference cleanups).
+- A LogB server at 0.7.1 or newer with the `server_time` millisecond fix (logb branch
+  `server-time-millis`): the four sync additions from 0.7.0 (`client_uuid` on creates,
+  `client_uuid` in responses, `entity_id` on pull rows, logged reference cleanups) plus
+  millisecond `server_time`, which offline edits made right after a create depend on.
 - Android 9 or newer.
 
 ## Build

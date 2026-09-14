@@ -102,4 +102,26 @@ class PushEngineTest {
         writer.create("attachment", "t1") { }
         assertEquals(2, db.opDao().pending().size)
     }
+
+    @Test
+    fun `a reminder marked done before its create is pushed sends the done fields as sets afterwards`() = runTest {
+        db.objectDao().upsert(obj("u1", "Golf", serverId = 4))
+        writer.create("reminder", "r1") { db.reminderDao().upsert(dev.logb.android.core.db.rem("r1", "u1", title = "Check", dueDate = "2026-09-01")) }
+        writer.set("reminder", "r1", mapOf("done_at" to "2026-09-14T10:00:00.000Z")) { db.reminderDao().upsert(db.reminderDao().get("r1")!!.copy(doneAt = "2026-09-14T10:00:00.000Z")) }
+        assertEquals(listOf("create"), db.opDao().pending().map { it.kind })
+        // The set's op id is minted during the push, so the answer is built from the request.
+        server.dispatcher = object : mockwebserver3.Dispatcher() {
+            override fun dispatch(request: mockwebserver3.RecordedRequest): MockResponse {
+                if (request.url.encodedPath.endsWith("/reminders")) return json("""{"id":9,"object_id":4,"title":"Check","due_date":"2026-09-01","created_at":"t"}""", 201)
+                val ids = Regex("\"client_op_id\":\"([^\"]+)\"").findAll(request.body?.utf8() ?: "").map { it.groupValues[1] }.toList()
+                return json("""{"results":[${ids.joinToString(",") { "{\"client_op_id\":\"$it\",\"outcome\":\"accepted\"}" }}],"server_time":"2026-09-14T10:00:00.000Z","ids":{}}""")
+            }
+        }
+        engine.run()
+        assertTrue(db.opDao().pending().isEmpty())
+        assertEquals("/api/objects/4/reminders", server.takeRequest().url.encodedPath)
+        val push = server.takeRequest()
+        assertEquals("/api/sync/push", push.url.encodedPath)
+        assertTrue(push.body!!.utf8().contains("\"field\":\"done_at\""), push.body!!.utf8())
+    }
 }

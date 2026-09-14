@@ -1,5 +1,7 @@
 # Phase 2: Offline writes — Implementation Plan
 
+> Status: executed 2026-09-14. Findings: a reminder marked done or snoozed before its create is pushed needs follow-up `set` ops after the create (the REST input has no such fields), and the server's `server_time` had second precision while the field clock has milliseconds, biasing the phone's clock by up to a second -- fixed server-side (logb branch `server-time-millis`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Everything except photos works with the radio off — objects, entries, readings and reminders can be created, edited, deleted, marked done and snoozed on the phone — and reconciles with the server when a connection returns, with the server's own last-write-wins rule and no conflict dialogs.
