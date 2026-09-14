@@ -74,6 +74,10 @@ class ScreensScreenshotTest {
         ObjectsContent(ObjectsUiState(emptyList(), sync = SyncStatus.Idle("2026-09-13T08:00:00.000Z"), loaded = true), onOpen = {}, onOpenSync = {}, onRefresh = {}, onToggleArchived = {})
     }
 
+    @Test fun objectsArchived() = capture("objects_archived") {
+        ObjectsContent(ObjectsUiState(emptyList(), archived = true, sync = SyncStatus.Idle("2026-09-13T08:00:00.000Z"), loaded = true), onOpen = {}, onOpenSync = {}, onRefresh = {}, onToggleArchived = {})
+    }
+
     private val stats = SpendStats.Stats(
         totalCents = 34_230, years = listOf("2026", "2025"),
         overTime = listOf(SpendStats.Amount("2025", 20_000), SpendStats.Amount("2026", 14_230)),

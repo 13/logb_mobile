@@ -1,5 +1,6 @@
 package dev.logb.android.feature.objects
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -22,8 +23,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material3.OutlinedTextField
@@ -38,8 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -90,7 +93,14 @@ fun ObjectsContent(
     var sortMenu by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
-        LogbTopBar(title = stringResource(R.string.nav_objects), actions = {
+        BackHandler(enabled = state.archived) { onToggleArchived() }
+        LogbTopBar(title = stringResource(if (state.archived) R.string.filter_archived else R.string.nav_objects), actions = {
+            IconToggleButton(checked = state.archived, onCheckedChange = { onToggleArchived() }) {
+                Icon(
+                    if (state.archived) Icons.Filled.Inventory2 else Icons.Outlined.Inventory2,
+                    contentDescription = stringResource(R.string.filter_archived),
+                )
+            }
             Box {
                 IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = stringResource(R.string.sort)) }
                 DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
@@ -116,9 +126,6 @@ fun ObjectsContent(
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.dueCount > 0) item { DueBanner(state.dueCount, onOpenDue) }
-                item {
-                    FilterChip(selected = state.archived, onClick = onToggleArchived, label = { Text(stringResource(R.string.filter_archived)) })
-                }
                 if (state.loaded && state.cards.isEmpty()) {
                     item {
                         EmptyState(

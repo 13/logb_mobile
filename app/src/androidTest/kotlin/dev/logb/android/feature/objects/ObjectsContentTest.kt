@@ -1,8 +1,14 @@
 package dev.logb.android.feature.objects
 
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,6 +20,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @RunWith(AndroidJUnit4::class)
 class ObjectsContentTest {
@@ -42,5 +50,21 @@ class ObjectsContentTest {
     fun anEmptyMirrorShowsTheEmptyState() {
         compose.setContent { LogbTheme { ObjectsContent(ObjectsUiState(loaded = true), {}, {}, {}, {}) } }
         compose.onNodeWithText(res.getString(R.string.objects_empty)).assertIsDisplayed()
+    }
+
+    @Test
+    fun archivedIconTogglesTheTitleAndBackLeavesTheArchive() {
+        var archived by mutableStateOf(false)
+        lateinit var back: OnBackPressedDispatcher
+        compose.setContent {
+            back = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+            LogbTheme { ObjectsContent(ObjectsUiState(loaded = true, archived = archived), onOpen = {}, {}, {}, onToggleArchived = { archived = !archived }) }
+        }
+        val label = res.getString(R.string.filter_archived)
+        compose.onNodeWithContentDescription(label).performClick()
+        compose.runOnIdle { assertTrue(archived) }
+        compose.onNodeWithText(label).assertIsDisplayed() // the title; the chip is gone, so exactly one text node
+        compose.runOnUiThread { back.onBackPressed() } // espresso-core is not on the androidTest compile classpath
+        compose.runOnIdle { assertFalse(archived) }
     }
 }
