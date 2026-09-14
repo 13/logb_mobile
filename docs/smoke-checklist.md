@@ -39,4 +39,13 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Open a house › Info: *Include contents* folds the children's spend in and out.
 - [ ] Reminders: a counter-target reminder shows "≈ <date> at recent usage" once the car has two readings at least 14 days apart; the due list includes it when that date is within 30 days.
 - [ ] Airplane mode off. Compare every figure with the browser's Statistics page and the object's Cost block on the same server.
+- [ ] Create a reminder in the browser; pull to refresh on the phone: it appears with its title and date on that very sync (a browser create is a bare `create` in the feed; the phone heals it with a bootstrap in the same run).
+
+## Phase 5 (polish)
+
+- [ ] Settings › Notifications: turn the daily summary on (Android 13+ asks for permission); set the time to the next minute; with a reminder due within seven days the notification "Golf: Tyre pressure in 2 days" arrives, tapping it opens the due list; with nothing due, nothing arrives.
+- [ ] Settings › Account: *Lock with biometrics or screen lock* is greyed out without a screen lock; with one set, turn it on, force-stop and reopen: the prompt shows, cancelling leaves the *Locked* screen, *Unlock* prompts again, the credential opens the logbook; a camera round trip does not lock.
+- [ ] Long-press the launcher icon: *Due*, *Search* and *New object* open the right screens.
+- [ ] Settings › About shows the version and the build commit.
+- [ ] Install the release APK over nothing (different signature from debug), sign in, open Statistics, an object's timeline with thumbnails, take a photo: R8 broke nothing.
 

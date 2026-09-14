@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> Status: executed 2026-09-14. Deviations: on Android 13+ `areNotificationsEnabled()` is false until the permission is granted, so the switch asks first and treats "blocked" as granted-but-disabled; the digest is re-asserted with `KEEP` on app start and `CANCEL_AND_REENQUEUE` on a settings change (`UPDATE` keeps the original enqueue time, so a changed hour would not move the run); `WorkManager` refuses a forced `cmd jobscheduler run` before the scheduled time, so the device check sets the time to the next five-minute mark; the phone had no screen lock, so the lock was exercised with a temporary `locksettings set-pin`, cleared afterwards; the git hash comes from `providers.exec` (a raw `ProcessBuilder` breaks the configuration cache); the repo has no GitHub remote yet, so the workflows are unexercised on a runner but mirror apexweather's, which run. Verified on the phone: release APK signed CN=Ben signs in, bootstraps, shows Statistics and thumbnails (R8 clean); the three shortcuts open their screens; the lock prompts on a cold start and unlocks with the device credential; the digest arrives at the chosen minute ("Golf: Tyre pressure in 2 Tagen · 1 weitere") and opens the due list. Found on the way and fixed: the pull engine wrote a stale sync state back after applying a page, wiping the applier's bootstrap request, so a row created in the browser (a bare `create` in the feed) stayed a placeholder until the next full bootstrap; it now re-reads the state and heals in the same run (`PullEngineTest`).
+
 **Goal:** The last items the spec lists: a daily local reminder notification, an optional biometric / device-credential lock, launcher shortcuts, a screenshot suite, release signing with the user's keystore, CI workflows, and a README with screenshots.
 
 **Architecture:** Every feature reads the mirror the earlier phases built; nothing new talks to the server. Notifications are one WorkManager job a day that reuses `DueListModel`. The lock is a gate in `MainActivity` over the existing content, driven by a pure `LockPolicy`. Shortcuts and the share target share one intent inbox. Screenshots are Roborazzi goldens over the state-driven `*Content` composables at phone width in both themes. Signing reads the user's global `ANDROID_KEYSTORE*` variables, with a `keystore.properties` fallback; CI mirrors apexweather's workflows.
@@ -53,10 +55,10 @@ object Digest {
     fun nextRun(now: LocalDateTime, hour: Int, minute: Int): LocalDateTime
 }
 ```
-- [ ] Tests: `text` with one due item gives "Golf: Oil change due" and no body; with three gives "… · 2 more" and a body listing the rest; an upcoming-only item says "in 3 days"; empty gives null; `nextRun` today at 08:00 when now is 07:59, tomorrow when now is 08:00.
-- [ ] Worker: `DueListModel(db).items(withinDays = 7).first()` → `ReminderNotifier.post(text)` or `cancel()`; unique periodic work 24 h with `initialDelay = nextRun - now`; rescheduled (`REPLACE`) when the hour changes or the switch turns on; cancelled when off. Tap intent: `MainActivity` with `EXTRA_OPEN = "due"`.
-- [ ] Settings › Notifications: switch (asks `POST_NOTIFICATIONS` on 33+, stays off when refused), time row opening a `TimePickerDialog`, hub row value.
-- [ ] Commit `feat: daily reminder digest as a local notification`.
+- [x] Tests: `text` with one due item gives "Golf: Oil change due" and no body; with three gives "… · 2 more" and a body listing the rest; an upcoming-only item says "in 3 days"; empty gives null; `nextRun` today at 08:00 when now is 07:59, tomorrow when now is 08:00.
+- [x] Worker: `DueListModel(db).items(withinDays = 7).first()` → `ReminderNotifier.post(text)` or `cancel()`; unique periodic work 24 h with `initialDelay = nextRun - now`; rescheduled (`REPLACE`) when the hour changes or the switch turns on; cancelled when off. Tap intent: `MainActivity` with `EXTRA_OPEN = "due"`.
+- [x] Settings › Notifications: switch (asks `POST_NOTIFICATIONS` on 33+, stays off when refused), time row opening a `TimePickerDialog`, hub row value.
+- [x] Commit `feat: daily reminder digest as a local notification`.
 
 ### Task 2: Biometric lock
 **Files:** create `core/auth/{LockPrefs,LockPolicy}.kt`, `feature/lock/LockScreen.kt`; modify `MainActivity.kt`, `RootViewModel.kt` (lock state), `feature/settings/SettingsScreens.kt` (Account: lock switch with availability reason), strings; test `core/auth/LockPolicyTest.kt`.
@@ -68,35 +70,35 @@ object LockPolicy {
     fun availability(canAuthenticate: Int): Availability   // Available, NoHardware, NoneEnrolled, Unavailable
 }
 ```
-- [ ] Tests: disabled never locks; enabled with no background stamp (cold start) locks; 30 s in background does not, 61 s does; availability mapping for `BIOMETRIC_SUCCESS`, `BIOMETRIC_ERROR_NONE_ENROLLED`, `BIOMETRIC_ERROR_NO_HARDWARE`.
-- [ ] `RootViewModel`: `locked: StateFlow<Boolean>`; `onBackground()` stamps, `onForeground()` evaluates, `unlock()` clears. `MainActivity` shows `LockScreen` over the signed-in content when locked; `LockScreen` launches `BiometricPrompt` (`BIOMETRIC_WEAK or DEVICE_CREDENTIAL`, title *Unlock LogB*) on show and on the *Unlock* button; a failed or cancelled prompt stays locked.
-- [ ] Account screen: *Lock with biometrics or screen lock* switch; disabled with "No screen lock is set up on this device" when unavailable.
-- [ ] Commit `feat: optional biometric or screen-lock gate`.
+- [x] Tests: disabled never locks; enabled with no background stamp (cold start) locks; 30 s in background does not, 61 s does; availability mapping for `BIOMETRIC_SUCCESS`, `BIOMETRIC_ERROR_NONE_ENROLLED`, `BIOMETRIC_ERROR_NO_HARDWARE`.
+- [x] `RootViewModel`: `locked: StateFlow<Boolean>`; `onBackground()` stamps, `onForeground()` evaluates, `unlock()` clears. `MainActivity` shows `LockScreen` over the signed-in content when locked; `LockScreen` launches `BiometricPrompt` (`BIOMETRIC_WEAK or DEVICE_CREDENTIAL`, title *Unlock LogB*) on show and on the *Unlock* button; a failed or cancelled prompt stays locked.
+- [x] Account screen: *Lock with biometrics or screen lock* switch; disabled with "No screen lock is set up on this device" when unavailable.
+- [x] Commit `feat: optional biometric or screen-lock gate`.
 
 ### Task 3: Launcher shortcuts
 **Files:** create `res/xml/shortcuts.xml`, `res/drawable/ic_shortcut_{due,search,add}.xml`; modify `AndroidManifest.xml` (`<meta-data android:name="android.app.shortcuts">`), `feature/share/ShareInbox.kt` (`LaunchTarget` flow from action `dev.logb.android.action.OPEN`, extra `target`), `AppNavHost.kt` (navigate on a target), strings (short/long labels); test `feature/share/LaunchTargetTest.kt` (parsing an intent's extra).
-- [ ] Three static shortcuts: *Due reminders* → DueList, *Search* → Search, *New object* → ObjectForm. The notification tap reuses the same action with `target=due`.
-- [ ] Commit `feat: launcher shortcuts`.
+- [x] Three static shortcuts: *Due reminders* → DueList, *Search* → Search, *New object* → ObjectForm. The notification tap reuses the same action with `target=due`.
+- [x] Commit `feat: launcher shortcuts`.
 
 ### Task 4: Screenshot suite
 **Files:** modify `gradle/libs.versions.toml` (roborazzi 1.74.0 + plugin), `app/build.gradle.kts` (plugin, test deps); create `app/src/test/kotlin/dev/logb/android/screenshot/ScreensScreenshotTest.kt`, goldens in `app/src/test/screenshots/`.
-- [ ] One test per screen and theme over state-driven composables: `ObjectsContent` (three cards, a due banner, the offline sync line), `StatsContent` (the phase-4 fixture), `InsightsSection` (car), `DueListContent`, `LockScreen`, `ServerScreen` content, Settings hub rows; each captured in `LogbTheme(darkTheme = false)` and `true` at `w400dp-h800dp-xhdpi`. Record with `./gradlew :app:recordRoborazziDebug`, look at every PNG, then `verifyRoborazziDebug` passes.
-- [ ] Commit `test: screenshot goldens of every state-driven screen in both themes`.
+- [x] One test per screen and theme over state-driven composables: `ObjectsContent` (three cards, a due banner, the offline sync line), `StatsContent` (the phase-4 fixture), `InsightsSection` (car), `DueListContent`, `LockScreen`, `ServerScreen` content, Settings hub rows; each captured in `LogbTheme(darkTheme = false)` and `true` at `w400dp-h800dp-xhdpi`. Record with `./gradlew :app:recordRoborazziDebug`, look at every PNG, then `verifyRoborazziDebug` passes.
+- [x] Commit `test: screenshot goldens of every state-driven screen in both themes`.
 
 ### Task 5: Release signing and versioning
 **Files:** modify `app/build.gradle.kts` (signing configs, `archivesName = "LogB"`, `versionName`/`versionCode` overridable by `-PversionName`/`-PversionCode`, git hash in `BuildConfig` for About), `proguard-rules.pro` (kotlinx.serialization + Retrofit keep rules), `.gitignore` (`keystore/`), `feature/settings/SettingsScreens.kt` (About shows the commit).
-- [ ] `./gradlew :app:assembleRelease` with the user's environment signs with `~/sync/AndroidKeystore/androidkeystorenew.jks` (`apksigner verify --print-certs` shows CN=Ben); without the variables it signs with the debug key. Install the release APK on the phone (uninstall the debug build first: different signature), sign in, open an object, Statistics, take a photo: R8 broke nothing.
-- [ ] Commit `build: release signing from the environment, versioned outputs`.
+- [x] `./gradlew :app:assembleRelease` with the user's environment signs with `~/sync/AndroidKeystore/androidkeystorenew.jks` (`apksigner verify --print-certs` shows CN=Ben); without the variables it signs with the debug key. Install the release APK on the phone (uninstall the debug build first: different signature), sign in, open an object, Statistics, take a photo: R8 broke nothing.
+- [x] Commit `build: release signing from the environment, versioned outputs`.
 
 ### Task 6: CI
 **Files:** create `.github/workflows/ci.yml` (unit tests, lint, `verifyRoborazziDebug`, assemble debug + release, contract job checking out `13/logb` beside the repo and building it with `cargo build --release --locked`, artifacts), `.github/workflows/release.yml` (tag `v*` → decode `LOGB_KEYSTORE_BASE64`, `-PversionName`, signed APK attached to a GitHub release).
-- [ ] Both workflows strip `org.gradle.java.home` as apexweather's do. No remote exists yet; the workflows are verified by `act`-free reading and by running the same Gradle tasks locally.
-- [ ] Commit `ci: unit, lint, screenshots, contract test against a real logb, release workflow`.
+- [x] Both workflows strip `org.gradle.java.home` as apexweather's do. No remote exists yet; the workflows are verified by `act`-free reading and by running the same Gradle tasks locally.
+- [x] Commit `ci: unit, lint, screenshots, contract test against a real logb, release workflow`.
 
 ### Task 7: README with screenshots, docs, device check
-- [ ] Phone screenshots (light, German locale as the phone is) of Objects, an object's timeline, the Statistics screen, the Info tab insights, the due list and the lock screen, scaled to 360 px wide under `docs/screenshots/`; README gets a gallery, the notification / lock / shortcut features, the signing and CI sections; `docs/smoke-checklist.md` gains phase 5 checks; spec status "phases 0–5 built"; this plan's status header; memory.
-- [ ] Device check: turn the digest on at the next minute and see the notification arrive and open the due list; turn the lock on, background the app for over a minute, reopen: the prompt shows; long-press the launcher icon: three shortcuts work.
-- [ ] Commit `docs: phase 5 status, README screenshots`.
+- [x] Phone screenshots (light, German locale as the phone is) of Objects, an object's timeline, the Statistics screen, the Info tab insights, the due list and the lock screen, scaled to 360 px wide under `docs/screenshots/`; README gets a gallery, the notification / lock / shortcut features, the signing and CI sections; `docs/smoke-checklist.md` gains phase 5 checks; spec status "phases 0–5 built"; this plan's status header; memory.
+- [x] Device check: turn the digest on at the next minute and see the notification arrive and open the due list; turn the lock on, background the app for over a minute, reopen: the prompt shows; long-press the launcher icon: three shortcuts work.
+- [x] Commit `docs: phase 5 status, README screenshots`.
 
 ## Self-review
 Spec *Notifications* ✔ T1; auth item 5 ✔ T2; Settings hub *Notifications* row and Account *lock* ✔ T1/T2; phase 5 list (notifications, lock, shortcuts, screenshots, signing, CI, README) ✔ T1–T7; *Testing › UI* screenshot tests ✔ T4; *Testing › Contract* on CI ✔ T6. Types: `DueItem` (phase 2) feeds `Digest.text`; `LaunchTarget` is consumed by `AppNavHost` and produced by `ShareInbox`; `LockPolicy` is used by `RootViewModel` only.

@@ -4,7 +4,7 @@ Native, offline-first Android client for [LogB](https://github.com/13/logb): the
 of your owned objects, on your phone, readable with the radio off, reconciled with your
 self-hosted server in the background.
 
-**Status: phases 1 to 4 built.** Sign in, everything the account owns lands on the phone and
+**Status: all five phases built.** Sign in, everything the account owns lands on the phone and
 stays readable offline; objects, entries, readings and reminders can be created, edited,
 deleted, marked done and snoozed with the radio off, and reconcile with the server -- and with
 edits made in the browser -- under field-level last-write-wins when a connection returns. Photos
@@ -13,8 +13,21 @@ uploaded later; the server's files mirrored as thumbnails always and originals w
 Statistics (spend over time, by object tree, by type, by category, with a year picker) and every
 object's insights (cost of ownership, spend per month, cost per km, fuel consumption, usage,
 consumption per fill) are computed on the phone from the mirror, and reminders with a counter
-target show when recent usage will reach it. Polish (phase 5: notifications, biometric lock,
-shortcuts, screenshots, release signing, CI) follows with its own plan.
+target show when recent usage will reach it. A daily notification summarises what is due, an
+optional biometric or screen-lock gate covers the logbook, and launcher shortcuts jump to the
+due list, search and a new object.
+
+<p>
+<img src="docs/screenshots/objects.png" width="180" alt="Objects">
+<img src="docs/screenshots/timeline.png" width="180" alt="An object's timeline">
+<img src="docs/screenshots/statistics.png" width="180" alt="Statistics">
+<img src="docs/screenshots/insights.png" width="180" alt="Insights on the Info tab">
+</p>
+<p>
+<img src="docs/screenshots/reminders.png" width="180" alt="Reminders with a usage estimate">
+<img src="docs/screenshots/settings.png" width="180" alt="Settings">
+<img src="docs/screenshots/lock.png" width="180" alt="The lock screen">
+</p>
 
 ## Requirements
 
@@ -38,11 +51,27 @@ A server on the development machine is reachable from the phone through
 `adb reverse tcp:8090 tcp:8090` as `http://localhost:8090`; the network security config allows
 cleartext only for `localhost` and `10.0.2.2`.
 
+## Release builds
+
+`./gradlew :app:assembleRelease` signs with the key named by `ANDROID_KEYSTORE`,
+`ANDROID_KEYSTORE_PASS`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASS` in the environment (or an
+untracked `keystore/keystore.properties` with `storeFile`, `storePassword`, `keyAlias`,
+`keyPassword`); without either it signs with the debug key. `-PversionName=0.5.0
+-PversionCode=500` stamp a version; the About screen shows the commit the build came from.
+
+The release workflow (`.github/workflows/release.yml`) builds a tagged `v*` push into a signed
+APK attached to a GitHub release, reading the keystore from the `LOGB_KEYSTORE_BASE64`,
+`LOGB_KEYSTORE_PASSWORD`, `LOGB_KEY_ALIAS` and `LOGB_KEY_PASSWORD` secrets. CI
+(`.github/workflows/ci.yml`) runs the unit tests, lint, the screenshot goldens, both APKs, and
+the contract test against a `13/logb` checkout built beside the app.
+
 ## Tests
 
 - Unit tests (JVM, Room on Robolectric's SQLite, MockWebServer): `./gradlew :app:testDebugUnitTest`
 - Contract test against a real server binary:
   `./gradlew :app:testDebugUnitTest -PlogbBin=$HOME/repo/logb/target/release/logb --tests '*SyncContractTest'`
+- Screenshot goldens (Roborazzi, both themes): `./gradlew :app:verifyRoborazziDebug`; re-record
+  deliberately with `:app:recordRoborazziDebug` and look at every PNG under `app/src/test/screenshots/`.
 - Instrumented (a device or emulator): `./gradlew :app:connectedDebugAndroidTest`
 - By hand: `docs/smoke-checklist.md`.
 
@@ -51,7 +80,7 @@ cleartext only for `localhost` and `10.0.2.2`.
 ## Design
 
 - `docs/superpowers/specs/2026-09-14-logb-android-design.md` — architecture, sync rules, screens, phases.
-- `docs/superpowers/plans/` — phase 0 (server additions), phases 1–4 (this app), each with a status header.
+- `docs/superpowers/plans/` — phase 0 (server additions), phases 1–5 (this app), each with a status header.
 
 Stack: Kotlin, Jetpack Compose (Material 3), Room, Retrofit + OkHttp, WorkManager, DataStore,
 Hilt, Coil.
