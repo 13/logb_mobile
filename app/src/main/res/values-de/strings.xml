@@ -22,4 +22,7 @@
     <string name="change_server">Ändern</string>
     <string name="signed_in_as">Angemeldet als %1$s</string>
     <string name="sign_out">Abmelden</string>
+    <string name="bootstrap_title">Dein Logbuch wird geladen…</string>
+    <string name="bootstrap_failed">Dein Logbuch konnte nicht geladen werden</string>
+    <string name="retry">Erneut versuchen</string>
 </resources>

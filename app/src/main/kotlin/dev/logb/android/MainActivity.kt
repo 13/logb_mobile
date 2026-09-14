@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.design.theme.LogbTheme
+import dev.logb.android.feature.onboarding.BootstrapScreen
 import dev.logb.android.feature.onboarding.ServerScreen
 import dev.logb.android.feature.onboarding.SignInScreen
 
@@ -39,10 +40,17 @@ class MainActivity : ComponentActivity() {
                         Session.Loading -> Box(Modifier.fillMaxSize())
                         Session.NeedsServer -> ServerScreen()
                         is Session.SignedOut -> SignInScreen()
-                        is Session.SignedIn -> Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            // Placeholder until the navigation shell lands.
-                            Text(stringResource(R.string.signed_in_as, s.user.username))
-                            Button(onClick = root::signOut) { Text(stringResource(R.string.sign_out)) }
+                        is Session.SignedIn -> {
+                            val bootstrapNeeded by root.bootstrapNeeded.collectAsStateWithLifecycle()
+                            when (bootstrapNeeded) {
+                                null -> Box(Modifier.fillMaxSize())
+                                true -> BootstrapScreen()
+                                false -> Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    // Placeholder until the navigation shell lands.
+                                    Text(stringResource(R.string.signed_in_as, s.user.username))
+                                    Button(onClick = root::signOut) { Text(stringResource(R.string.sign_out)) }
+                                }
+                            }
                         }
                     }
                 }

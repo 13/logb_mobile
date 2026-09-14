@@ -1,6 +1,6 @@
 package dev.logb.android.core.sync
 
-import androidx.room.withTransaction
+import dev.logb.android.core.db.inTransaction
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.db.entity.AttachmentEntity
@@ -82,7 +82,7 @@ class Bootstrap(private val db: LogbDatabase) {
             )
         }
 
-        db.withTransaction {
+        db.inTransaction {
             db.attachmentDao().deleteServerRows()
             db.reminderDao().deleteServerRows()
             db.activityDao().deleteServerRows()

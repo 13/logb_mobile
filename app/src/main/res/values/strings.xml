@@ -22,4 +22,7 @@
     <string name="change_server">Change</string>
     <string name="signed_in_as">Signed in as %1$s</string>
     <string name="sign_out">Sign out</string>
+    <string name="bootstrap_title">Getting your logbook…</string>
+    <string name="bootstrap_failed">Could not fetch your logbook</string>
+    <string name="retry">Retry</string>
 </resources>

@@ -1,6 +1,6 @@
 package dev.logb.android.core.sync
 
-import androidx.room.withTransaction
+import dev.logb.android.core.db.inTransaction
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.db.entity.AttachmentEntity
@@ -26,7 +26,7 @@ class ChangeApplier(private val db: LogbDatabase) {
 
     suspend fun apply(rows: List<ChangeRow>) {
         if (rows.isEmpty()) return
-        db.withTransaction {
+        db.inTransaction {
             for (row in rows) applyOne(row)
         }
     }
