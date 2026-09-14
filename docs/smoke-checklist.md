@@ -60,3 +60,9 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › Account: *Server x.y.z* under the address; *Change password* to the same password reports success; *Sign out everywhere* signs the phone out and keeps the logbook.
 - [ ] Object › Info › *Export this object*: the share sheet offers the zip; offline it says so.
 
+
+## Release 0.7.0 (capabilities, About, archived)
+
+- [ ] Settings › About: logo, *Version 0.7.0 (700)*, *Built* with the commit's date, *Commit* opens GitHub, *Release build, release key* on a tagged APK; server address, version and *Tags: no* against 0.7.1; *Copy details* copies the text.
+- [ ] Settings › Account against a server older than 0.8.0: *Tags and own types need LogB 0.8.0 or newer on the server.*
+- [ ] Objects: the archive icon in the top bar shows archived objects under the title *Archived*; system back returns to the active list.
