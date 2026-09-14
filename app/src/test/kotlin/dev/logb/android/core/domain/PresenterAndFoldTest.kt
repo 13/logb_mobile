@@ -34,6 +34,25 @@ class ReminderPresenterTest {
         assertTrue(v.due)
     }
 
+    @Test fun `usage estimates a counter target but never makes it due`() {
+        val usage = Insights.Usage(Insights.Reading(LocalDate.parse("2026-09-01"), 59_000), 25_000)
+        val v = ReminderPresenter.present(rem("r", "o", dueCounter = 60_000), currentCounter = 59_000, lastReadingDate = null, today = today, usage = usage)
+        assertFalse(v.due)
+        assertEquals(LocalDate.parse("2026-10-11"), v.estimatedDueDate)
+        assertEquals(28, v.soonestDays, "no due date: the estimate is what the lookahead sees")
+        assertNull(v.daysUntil)
+    }
+
+    @Test fun `a due reminder has no estimate and soonest picks the nearer of date and estimate`() {
+        val usage = Insights.Usage(Insights.Reading(LocalDate.parse("2026-09-01"), 59_000), 25_000)
+        assertNull(ReminderPresenter.present(rem("r", "o", dueCounter = 59_000), 59_000, null, today, usage).estimatedDueDate)
+        val far = ReminderPresenter.present(rem("r", "o", dueDate = "2027-01-01", dueCounter = 60_000), 59_000, null, today, usage)
+        assertEquals(28, far.soonestDays)
+        val near = ReminderPresenter.present(rem("r", "o", dueDate = "2026-09-20", dueCounter = 60_000), 59_000, null, today, usage)
+        assertEquals(7, near.soonestDays)
+        assertNull(ReminderPresenter.present(rem("r", "o", dueCounter = 60_000), 59_000, null, today, usage = null).estimatedDueDate)
+    }
+
     @Test fun `a reading dated past tomorrow is not the last reading`() {
         assertNull(ReminderPresenter.clampLastReading("2026-09-15", today))
         assertEquals("2026-09-14", ReminderPresenter.clampLastReading("2026-09-14", today))

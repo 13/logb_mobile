@@ -17,6 +17,7 @@ import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.ReminderView
 import dev.logb.android.core.domain.TimelineFold
 import dev.logb.android.core.domain.TimelineRow
+import dev.logb.android.feature.stats.InsightsModel
 import dev.logb.android.navigation.ObjectDetail
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +55,7 @@ data class ObjectDetailUiState(
 /** Everything one object's screen needs, from Room flows; testable on an in-memory mirror. */
 class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, private val today: () -> LocalDate = { LocalDate.now() }) {
     private val objects = ObjectsModel(db, today)
+    private val insights = InsightsModel(db, today)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun state(categoryFilter: Flow<String?>, currency: String): Flow<ObjectDetailUiState> {
@@ -74,7 +76,8 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
             val stats = db.objectDao().stats(uuid)
             val t = today()
             val lastReading = ReminderPresenter.clampLastReading(stats.lastReadingDate, t)
-            val views = rems.map { ReminderPresenter.present(it, stats.currentCounter, lastReading, t) }
+            val usage = insights.usage(uuid)
+            val views = rems.map { ReminderPresenter.present(it, stats.currentCounter, lastReading, t, usage) }
             val filtered = if (filter == null) acts else acts.filter { it.category == filter }
             ObjectDetailUiState(
                 obj = obj, stats = stats, ancestors = db.objectDao().ancestors(uuid), children = kids,

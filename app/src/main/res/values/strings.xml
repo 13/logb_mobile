@@ -78,6 +78,7 @@
         <item quantity="one">In %d day</item>
         <item quantity="other">In %d days</item>
     </plurals>
+    <string name="reminder_estimated">≈ %1$s at recent usage</string>
     <string name="reminder_in_counter">In %1$s</string>
     <string name="info_type">Type</string>
     <string name="info_purchased">Purchased</string>

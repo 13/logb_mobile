@@ -32,6 +32,7 @@ import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.ReminderRules
 import dev.logb.android.core.domain.ReminderView
 import dev.logb.android.feature.objects.tabs.reminderSubtitle
+import dev.logb.android.feature.stats.InsightsModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,16 +45,20 @@ data class DueItem(val view: ReminderView, val objectUuid: String, val objectNam
 
 /** Every reminder that is due or comes due within 30 days, across every object: what the banner opens. */
 class DueListModel(private val db: LogbDatabase, private val today: () -> LocalDate = { LocalDate.now() }) {
+    private val insights = InsightsModel(db, today)
+
+    /** As the server's lookahead: a mileage-only service shows up once its usage estimate is near. */
     fun items(withinDays: Long = 30): Flow<List<DueItem>> = db.reminderDao().allOpen().map { open ->
         val t = today()
         open.groupBy { it.objectUuid }.flatMap { (objectUuid, rs) ->
             val obj = db.objectDao().get(objectUuid)?.takeIf { it.deletedAt == null } ?: return@flatMap emptyList()
             val stats = db.objectDao().stats(objectUuid)
             val lastReading = ReminderPresenter.clampLastReading(stats.lastReadingDate, t)
-            rs.map { ReminderPresenter.present(it, stats.currentCounter, lastReading, t) }
-                .filter { ReminderRules.isUpcoming(t, it.due, it.daysUntil, withinDays, ReminderRules.parseDate(it.reminder.snoozedUntil)) }
+            val usage = insights.usage(objectUuid)
+            rs.map { ReminderPresenter.present(it, stats.currentCounter, lastReading, t, usage) }
+                .filter { ReminderRules.isUpcoming(t, it.due, it.soonestDays, withinDays, ReminderRules.parseDate(it.reminder.snoozedUntil)) }
                 .map { DueItem(it, obj.uuid, obj.name, obj.type, obj.counterUnit) }
-        }.sortedWith(compareByDescending<DueItem> { it.view.due }.thenBy { it.view.daysUntil ?: Long.MAX_VALUE }.thenBy { it.objectName })
+        }.sortedWith(compareByDescending<DueItem> { it.view.due }.thenBy { it.view.soonestDays ?: Long.MAX_VALUE }.thenBy { it.objectName })
     }
 }
 

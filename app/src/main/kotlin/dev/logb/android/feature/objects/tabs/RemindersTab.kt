@@ -129,7 +129,7 @@ fun reminderSubtitle(v: ReminderView, counterUnit: String?, today: LocalDate = L
     val locale = currentLocale()
     val r = v.reminder
     val snoozed = ReminderRules.parseDate(r.snoozedUntil)?.let { it > today } == true
-    return when {
+    val base = when {
         r.doneAt != null -> stringResource(R.string.reminder_done_on, formatDate(r.doneAt.take(10), locale))
         snoozed -> stringResource(R.string.reminder_snoozed_until, formatDate(r.snoozedUntil!!, locale))
         v.due -> stringResource(R.string.reminder_due_now)
@@ -137,6 +137,9 @@ fun reminderSubtitle(v: ReminderView, counterUnit: String?, today: LocalDate = L
         v.counterUntil != null && v.counterUntil > 0 -> stringResource(R.string.reminder_in_counter, formatCounter(v.counterUntil, counterUnit, locale))
         else -> ""
     }
+    // The usage projection rides along, as the web's reminder row shows it: never instead of the real terms.
+    val estimate = v.estimatedDueDate?.takeIf { r.doneAt == null && !snoozed && !v.due }?.let { stringResource(R.string.reminder_estimated, formatDate(it.toString(), locale)) }
+    return listOfNotNull(base.takeIf { it.isNotEmpty() }, estimate).joinToString(" · ")
 }
 
 @Composable
