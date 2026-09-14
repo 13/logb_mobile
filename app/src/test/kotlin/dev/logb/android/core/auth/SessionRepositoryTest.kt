@@ -1,0 +1,124 @@
+package dev.logb.android.core.auth
+
+import dev.logb.android.core.network.ApiClient
+import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class SessionRepositoryTest {
+    private val server = MockWebServer()
+    private val serverStore = FakeServerStore()
+    private val tokenStore = FakeTokenStore()
+    private val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) })
+
+    @Before fun start() = server.start()
+
+    @After fun stop() = server.close()
+
+    private fun json(body: String, code: Int = 200, vararg headers: Pair<String, String>) =
+        MockResponse.Builder().code(code).addHeader("content-type", "application/json").apply { headers.forEach { (k, v) -> addHeader(k, v) } }.body(body).build()
+
+    private val me = """{"id":1,"username":"ben","is_admin":true,"lang":"en"}"""
+
+    @Test
+    fun `sign in logs in with a cookie, mints a token, ends the cookie session, and loads me`() = runTest {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+
+        val result = repo.signIn(server.url("/").toString(), "ben", "correct horse")
+        assertTrue(result.isSuccess, result.toString())
+
+        val login = server.takeRequest()
+        assertEquals("/api/auth/login", login.url.encodedPath)
+        val mint = server.takeRequest()
+        assertEquals("/api/auth/tokens", mint.url.encodedPath)
+        assertEquals("logb_session=abc", mint.headers["Cookie"])
+        assertNull(mint.headers["Authorization"])
+        assertEquals("/api/auth/logout", server.takeRequest().url.encodedPath)
+        val meReq = server.takeRequest()
+        assertEquals("/api/auth/me", meReq.url.encodedPath)
+        assertEquals("Bearer logb_pat_abcdef", meReq.headers["Authorization"])
+        assertNull(meReq.headers["Cookie"])
+
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("ben", s.user.username)
+        assertEquals("CHF", s.currency)
+        assertEquals("logb_pat_abcdef", tokenStore.read())
+        assertEquals(9, serverStore.read()!!.tokenId)
+    }
+
+    @Test
+    fun `a wrong password surfaces the servers message and stores nothing`() = runTest {
+        server.enqueue(json("""{"error":"unauthorized","message":"wrong username or password"}""", code = 401))
+        val r = repo.signIn(server.url("/").toString(), "ben", "nope")
+        assertEquals("wrong username or password", r.exceptionOrNull()!!.message)
+        assertNull(tokenStore.read())
+    }
+
+    @Test
+    fun `restore reads the stores without touching the network`() = runTest {
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9, "EUR"))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals(1, s.user.id)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `restore with a server but no token is signed out, with nothing is first run`() = runTest {
+        repo.restore()
+        assertIs<Session.NeedsServer>(repo.session.value)
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben"))
+        repo.restore()
+        val s = assertIs<Session.SignedOut>(repo.session.value)
+        assertEquals("ben", s.username)
+    }
+
+    @Test
+    fun `onUnauthorized drops the token but remembers the server and user`() = runTest {
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        repo.onUnauthorized()
+        val s = assertIs<Session.SignedOut>(repo.session.value)
+        assertEquals("https://logb.example/", s.serverUrl)
+        assertEquals("unauthorized", s.reason)
+        assertNull(tokenStore.read())
+        assertEquals("ben", serverStore.read()!!.username)
+    }
+
+    @Test
+    fun `sign out revokes the token by id and keeps the server`() = runTest {
+        serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        server.enqueue(json("{}", code = 204))
+        repo.signOut()
+        val revoke = server.takeRequest()
+        assertEquals("/api/auth/tokens/9", revoke.url.encodedPath)
+        assertEquals("DELETE", revoke.method)
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertNull(tokenStore.read())
+    }
+
+    @Test
+    fun `checkServer hits health and remembers the address`() = runTest {
+        server.enqueue(json("{}"))
+        val r = repo.checkServer(server.url("/").toString().removeSuffix("/"))
+        assertTrue(r.isSuccess)
+        assertEquals("/api/health", server.takeRequest().url.encodedPath)
+        assertEquals(server.url("/").toString(), serverStore.read()!!.serverUrl)
+        assertIs<Session.SignedOut>(repo.session.value)
+    }
+}

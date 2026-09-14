@@ -6,4 +6,20 @@
         <item quantity="one">%d fällig</item>
         <item quantity="other">%d fällig</item>
     </plurals>
+
+    <string name="server_title">Dein LogB-Server</string>
+    <string name="server_hint">Die Adresse deines LogB, zum Beispiel https://logb.example</string>
+    <string name="server_url">Serveradresse</string>
+    <string name="server_continue">Weiter</string>
+    <string name="server_unreachable">Unter dieser Adresse ist kein LogB-Server erreichbar</string>
+    <string name="signin_title">Anmelden</string>
+    <string name="signin_expired">Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.</string>
+    <string name="username">Benutzername</string>
+    <string name="password">Passwort</string>
+    <string name="show_password">Passwort anzeigen</string>
+    <string name="hide_password">Passwort verbergen</string>
+    <string name="sign_in">Anmelden</string>
+    <string name="change_server">Ändern</string>
+    <string name="signed_in_as">Angemeldet als %1$s</string>
+    <string name="sign_out">Abmelden</string>
 </resources>

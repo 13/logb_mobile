@@ -6,4 +6,20 @@
         <item quantity="one">%d due</item>
         <item quantity="other">%d due</item>
     </plurals>
+
+    <string name="server_title">Your LogB server</string>
+    <string name="server_hint">The address of the LogB you run, for example https://logb.example</string>
+    <string name="server_url">Server address</string>
+    <string name="server_continue">Continue</string>
+    <string name="server_unreachable">Could not reach a LogB server at this address</string>
+    <string name="signin_title">Sign in</string>
+    <string name="signin_expired">Your sign-in has expired. Please sign in again.</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
+    <string name="sign_in">Sign in</string>
+    <string name="change_server">Change</string>
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="sign_out">Sign out</string>
 </resources>
