@@ -102,7 +102,14 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
                     onDelete = viewModel::deleteReminder,
                 ),
             )
-            "info" -> InfoTab(state, onOpen = onOpen, onEdit = { onEdit(obj.uuid) }, onAddChild = { onAddChild(obj.uuid) }, onArchive = { viewModel.setArchived(it) }, onDelete = { viewModel.delete(onBack) })
+            "info" -> {
+                val insights by viewModel.insights.collectAsStateWithLifecycle()
+                val includeContents by viewModel.includeContents.collectAsStateWithLifecycle()
+                InfoTab(
+                    state, onOpen = onOpen, onEdit = { onEdit(obj.uuid) }, onAddChild = { onAddChild(obj.uuid) }, onArchive = { viewModel.setArchived(it) }, onDelete = { viewModel.delete(onBack) },
+                    insights = insights, includeContents = includeContents, onIncludeContents = viewModel::setIncludeContents,
+                )
+            }
         }
     }
     if (obj != null && TABS[tab] == "timeline") {

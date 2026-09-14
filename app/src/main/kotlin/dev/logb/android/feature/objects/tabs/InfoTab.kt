@@ -30,9 +30,14 @@ import dev.logb.android.core.format.formatDate
 import dev.logb.android.feature.objects.ObjectCardRow
 import dev.logb.android.feature.objects.ObjectDetailUiState
 import dev.logb.android.feature.objects.typeLabel
+import dev.logb.android.feature.stats.InsightsSection
+import dev.logb.android.feature.stats.ObjectInsights
 
 @Composable
-fun InfoTab(state: ObjectDetailUiState, onOpen: (String) -> Unit, onEdit: () -> Unit, onAddChild: () -> Unit, onArchive: (Boolean) -> Unit, onDelete: () -> Unit) {
+fun InfoTab(
+    state: ObjectDetailUiState, onOpen: (String) -> Unit, onEdit: () -> Unit, onAddChild: () -> Unit, onArchive: (Boolean) -> Unit, onDelete: () -> Unit,
+    insights: ObjectInsights? = null, includeContents: Boolean = false, onIncludeContents: (Boolean) -> Unit = {},
+) {
     val obj = state.obj ?: return
     val locale = currentLocale()
     var confirmDelete by remember { mutableStateOf(false) }
@@ -54,6 +59,9 @@ fun InfoTab(state: ObjectDetailUiState, onOpen: (String) -> Unit, onEdit: () -> 
                     Text(stringResource(if (obj.archivedAt == null) R.string.archive else R.string.unarchive))
                 }
             }
+        }
+        item {
+            InsightsSection(insights, state.obj.counterUnit, state.currency, includeContents, onIncludeContents)
         }
         item {
             Text(stringResource(R.string.info_contents), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))

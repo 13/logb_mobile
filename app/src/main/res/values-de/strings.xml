@@ -266,4 +266,23 @@
     <string name="storage_budget">Dateien in voller Größe behalten bis</string>
     <string name="storage_unmetered_only">Dateien in voller Größe nur über WLAN laden</string>
     <string name="storage_free_up">Jetzt Speicher freigeben</string>
+    <!-- Insights (Info tab) -->
+    <string name="insights_title">Kosten</string>
+    <string name="insights_contents">Inhalt einrechnen</string>
+    <string name="insights_ownership">Gesamtkosten</string>
+    <string name="insights_per_year_since">≈ %1$s pro Jahr seit %2$s</string>
+    <string name="insights_since">seit %1$s</string>
+    <string name="insights_none">Noch zu wenig Daten.</string>
+    <string name="insights_spend_by_month">Ausgaben pro Monat</string>
+    <string name="insights_by_year">Pro Jahr</string>
+    <string name="insights_by_category">Pro Kategorie</string>
+    <string name="insights_per_counter">Kosten pro %1$s</string>
+    <string name="insights_fuel_total">Getankt</string>
+    <string name="insights_consumption">Verbrauch</string>
+    <string name="insights_fuel_per_counter">Spritkosten pro %1$s</string>
+    <string name="insights_usage">Nutzung</string>
+    <string name="insights_per_month">≈ %1$s pro Monat</string>
+    <string name="insights_usage_by_month">Nutzung pro Monat</string>
+    <string name="insights_by_fill">Verbrauch pro Tankfüllung</string>
+    <string name="insights_by_fill_hint">Setzt voraus, dass jedes Mal vollgetankt wurde.</string>
 </resources>

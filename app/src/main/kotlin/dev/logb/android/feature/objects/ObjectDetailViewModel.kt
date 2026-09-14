@@ -18,6 +18,8 @@ import dev.logb.android.core.domain.ReminderView
 import dev.logb.android.core.domain.TimelineFold
 import dev.logb.android.core.domain.TimelineRow
 import dev.logb.android.feature.stats.InsightsModel
+import dev.logb.android.feature.stats.ObjectInsights
+import dev.logb.android.feature.stats.StatsPrefs
 import dev.logb.android.navigation.ObjectDetail
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -95,12 +97,28 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
 }
 
 @HiltViewModel
-class ObjectDetailViewModel @Inject constructor(@dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context, accounts: ActiveAccount, private val repos: dev.logb.android.core.sync.Repositories, savedState: SavedStateHandle) : ViewModel() {
+class ObjectDetailViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
+    accounts: ActiveAccount,
+    private val repos: dev.logb.android.core.sync.Repositories,
+    private val statsPrefs: StatsPrefs,
+    savedState: SavedStateHandle,
+) : ViewModel() {
     val route: ObjectDetail = savedState.toRoute()
     private val filter = MutableStateFlow<String?>(null)
     private val model = ObjectDetailModel(accounts.db, route.uuid)
     val state: StateFlow<ObjectDetailUiState> = model.state(filter, accounts.signedIn?.currency ?: "EUR")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ObjectDetailUiState())
+
+    val includeContents: StateFlow<Boolean> = statsPrefs.includeContents.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Recomputed whenever the object's screen state changes (an entry written, a child added) or the switch flips. */
+    private val insightsModel = InsightsModel(accounts.db)
+    val insights: StateFlow<ObjectInsights?> = combine(state, includeContents) { s, contents -> s.loaded to contents }
+        .map { (loaded, contents) -> if (loaded) insightsModel.insights(route.uuid, contents) else null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setIncludeContents(on: Boolean) = viewModelScope.launch { statsPrefs.setIncludeContents(on) }
 
     fun setFilter(category: String?) { filter.value = if (filter.value == category) null else category }
 

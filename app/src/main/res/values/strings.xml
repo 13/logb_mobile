@@ -266,4 +266,23 @@
     <string name="storage_budget">Keep full-size files up to</string>
     <string name="storage_unmetered_only">Download full-size files on Wi-Fi only</string>
     <string name="storage_free_up">Free up space now</string>
+    <!-- Insights (Info tab) -->
+    <string name="insights_title">Cost</string>
+    <string name="insights_contents">Include contents</string>
+    <string name="insights_ownership">Total cost of ownership</string>
+    <string name="insights_per_year_since">≈ %1$s a year since %2$s</string>
+    <string name="insights_since">since %1$s</string>
+    <string name="insights_none">Not enough data yet.</string>
+    <string name="insights_spend_by_month">Spend per month</string>
+    <string name="insights_by_year">Per year</string>
+    <string name="insights_by_category">Per category</string>
+    <string name="insights_per_counter">Cost per %1$s</string>
+    <string name="insights_fuel_total">Fuel logged</string>
+    <string name="insights_consumption">Consumption</string>
+    <string name="insights_fuel_per_counter">Fuel cost per %1$s</string>
+    <string name="insights_usage">Usage</string>
+    <string name="insights_per_month">≈ %1$s a month</string>
+    <string name="insights_usage_by_month">Usage per month</string>
+    <string name="insights_by_fill">Consumption per fill</string>
+    <string name="insights_by_fill_hint">Assumes every fill tops the tank up.</string>
 </resources>
