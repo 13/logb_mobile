@@ -41,6 +41,16 @@ tokens, the database, instance settings and whole-instance import.
   millisecond `server_time`, which offline edits made right after a create depend on.
 - Android 9 or newer.
 
+## Tags and own types
+
+Objects and entries carry free-form tags, and a person can define their own object types
+(name, icon, entry categories, default counter unit) beside the nine built-in ones. Both need
+logb **0.8.0 or newer** on the server -- gated by `ServerCapabilities`, so an older server shows
+neither a tag input nor the Settings › Types row, while tags and types created earlier keep
+displaying. Both sync both ways under the same field-level last-write-wins as everything else,
+and both work fully offline: a type minted on the phone gets its object key (`custom:<uuid>`)
+before ever reaching the server, and tags queue like any other field edit.
+
 ## Build
 
 Gradle 9.7 / AGP 9.3 / Kotlin 2.4 on JDK 21. `gradle.properties` pins the JDK path of the

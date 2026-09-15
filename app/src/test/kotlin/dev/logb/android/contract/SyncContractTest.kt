@@ -8,8 +8,11 @@ import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.db.TestDatabase
 import dev.logb.android.core.network.ApiClient
 import dev.logb.android.core.domain.ActivityDraft
+import dev.logb.android.core.domain.CustomTypes
 import dev.logb.android.core.domain.ObjectDraft
 import dev.logb.android.core.domain.ReminderDraft
+import dev.logb.android.core.domain.Tags
+import dev.logb.android.core.domain.TypeInput
 import dev.logb.android.core.sync.LocalWriter
 import dev.logb.android.core.sync.PullEngine
 import dev.logb.android.core.sync.PushEngine
@@ -22,6 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import dev.logb.android.feature.entries.ActivityRepository
 import dev.logb.android.feature.objects.ObjectRepository
 import dev.logb.android.feature.reminders.ReminderRepository
+import dev.logb.android.feature.types.ObjectTypeRepository
+import dev.logb.android.feature.types.TypeSave
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -267,5 +272,48 @@ class SyncContractTest {
         assertEquals(serverThumb.size.toLong(), storeB.thumb(sha).length(), "the thumbnail is the server's, byte for byte")
         assertEquals(jpeg.size.toLong(), storeB.original(sha).length())
         db.close(); dbB.close()
+    }
+
+    @Test
+    fun tagsAndOwnTypesTravelBothWays() = runBlocking {
+        call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
+        val sessions = SessionRepository(FakeServerStore(), FakeTokenStore(), ApiFactory { b, t, j -> ApiClient.create(b, t, j) })
+        check(sessions.signIn(base, "ben", "correct horse").isSuccess)
+        val token = (sessions.session.value as Session.SignedIn).token
+        val api = ApiClient.create(base, { token })
+        val db = TestDatabase.inMemory()
+        val pull = PullEngine(db, api, deviceId = "contract-phone")
+        val push = PushEngine(db, api)
+        pull.run() // empty bootstrap; the device id and clock land
+
+        // Offline: an own type, an object of that type carrying a tag, and an entry carrying its own tag.
+        val writer = LocalWriter(db)
+        val types = ObjectTypeRepository(db, writer)
+        val objects = ObjectRepository(db, writer)
+        val activities = ActivityRepository(db, writer)
+        val typeSave = types.create(TypeInput("Boat", "tool", listOf("repair"), "h"))
+        val typeUuid = (typeSave as TypeSave.Saved).uuid
+        val objectUuid = objects.create(ObjectDraft(name = "Sailboat", type = CustomTypes.key(typeUuid), counterUnit = "h", tags = listOf("Summer")))
+        activities.create(objectUuid, ActivityDraft(date = "2026-06-01", category = "repair", title = "Hull", tags = listOf("Winter")))
+
+        push.run(); pull.run()
+
+        val serverTypes = call("GET", "/types")
+        check(serverTypes.contains("Boat") && serverTypes.contains("custom:$typeUuid")) { serverTypes }
+        val serverObjects = call("GET", "/objects?all=true")
+        check(serverObjects.contains("custom:$typeUuid") && serverObjects.contains("Summer")) { serverObjects }
+        val objectId = db.objectDao().serverIdFor(objectUuid)!!
+        val serverActivities = call("GET", "/objects/$objectId/activities")
+        check(serverActivities.contains("Winter")) { serverActivities }
+
+        // The browser edits: renames the type, and adds a tag to the object.
+        val typeId = db.objectTypeDao().serverIdFor(typeUuid)!!
+        call("PATCH", "/types/$typeId", """{"name":"Yacht","icon":"tool","categories":["repair"],"counter_unit":"h"}""")
+        call("PATCH", "/objects/$objectId", """{"name":"Sailboat","type":"custom:$typeUuid","counter_unit":"h","tags":["Summer","Lease"]}""")
+        pull.run()
+
+        assertEquals("Yacht", db.objectTypeDao().get(typeUuid)!!.name)
+        assertEquals(listOf("Summer", "Lease"), Tags.fromJson(db.objectDao().get(objectUuid)!!.tags))
+        db.close()
     }
 }

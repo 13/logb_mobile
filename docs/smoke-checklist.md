@@ -74,3 +74,11 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › About › Updates: *Download* shows progress, *Install* hands over to Android's confirmation, the app restarts as the new version.
 - [ ] *Check once a day* off: no request to api.github.com at start (check with the network inspector or a proxy).
 - [ ] A debug build shows no Updates section.
+
+## Release 0.8.0 (tags and own types)
+
+- [ ] Object and entry forms: type "winter, lease," — two chips; a 33-character tag is refused with the web's sentence; suggestions offer tags used elsewhere.
+- [ ] Objects list: tap a tag chip — only carriers at every depth remain, "Tag: …" with clear; the timeline filters by an entry tag the same way.
+- [ ] Settings › Types: add "Boat" (tool icon, repair + fuel, h); an object of type Boat shows the icon, the unit and only Boat's categories; delete is refused while an object uses it.
+- [ ] The web shows the same tags, colours and the Boat type after a sync, and edits made there arrive on the phone.
+- [ ] Against a server older than 0.8.0: no tag input, no Types row; existing data unaffected.
