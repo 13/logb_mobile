@@ -6,6 +6,7 @@ import androidx.room.Upsert
 import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.db.model.Ancestor
 import dev.logb.android.core.db.model.ObjectStats
+import dev.logb.android.core.db.model.ObjectStatsRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -41,6 +42,20 @@ interface ObjectDao {
            FROM activities WHERE object_uuid = :uuid AND deleted_at IS NULL""",
     )
     suspend fun stats(uuid: String): ObjectStats
+
+    /** `stats(uuid)` for every live object at once: the objects list, due list and digest read this instead of looping. */
+    @Query(
+        """SELECT o.uuid AS objectUuid,
+                  COALESCE(SUM(a.cost_cents), 0) AS totalCostCents,
+                  COUNT(a.uuid) AS activityCount,
+                  MAX(a.counter_value) AS currentCounter,
+                  MAX(a.date) AS lastActivityDate,
+                  MAX(CASE WHEN a.counter_value IS NOT NULL THEN a.date END) AS lastReadingDate
+           FROM objects o LEFT JOIN activities a ON a.object_uuid = o.uuid AND a.deleted_at IS NULL
+           WHERE o.deleted_at IS NULL
+           GROUP BY o.uuid""",
+    )
+    suspend fun statsForAll(): List<ObjectStatsRow>
 
     /** Root first, nearest ancestor last, the object itself excluded. */
     @Query(

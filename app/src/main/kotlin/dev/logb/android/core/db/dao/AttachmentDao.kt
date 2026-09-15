@@ -6,6 +6,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import dev.logb.android.core.db.entity.AttachmentEntity
 import dev.logb.android.core.db.model.AttachmentWithFile
+import dev.logb.android.core.db.model.CoverRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -44,4 +45,17 @@ interface AttachmentDao {
     @Query("UPDATE attachments SET file_uuid = :to WHERE file_uuid = :from") suspend fun repointFile(from: String, to: String)
 
     @Query("DELETE FROM attachments WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
+
+    /**
+     * Every live object's cover sha at once, matching the per-object lookup
+     * (`attachmentDao().get()?.takeIf { deletedAt == null }` then `fileDao().get()?.sha256?.takeIf { isNotBlank() }`):
+     * an object with no cover, a deleted cover attachment, or a blank sha is simply absent.
+     */
+    @Query(
+        """SELECT o.uuid AS objectUuid, f.sha256 AS sha256 FROM objects o
+           JOIN attachments t ON t.uuid = o.cover_attachment_uuid AND t.deleted_at IS NULL
+           JOIN files f ON f.uuid = t.file_uuid
+           WHERE o.deleted_at IS NULL AND f.sha256 != ''""",
+    )
+    suspend fun coverShas(): List<CoverRow>
 }

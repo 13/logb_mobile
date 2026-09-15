@@ -74,15 +74,24 @@ class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalD
     @OptIn(ExperimentalCoroutinesApi::class)
     fun allCards(): Flow<List<ObjectCard>> = db.objectDao().all().flatMapLatest { cardsFor(it) }
 
-    /** Cards for a given set of objects, re-evaluated whenever their reminders or entries change. */
+    /**
+     * Cards for a given set of objects, re-evaluated whenever their reminders or entries change.
+     * Stats, readings and covers are fetched once for every live object rather than per card, so
+     * the query count does not grow with how many objects there are.
+     */
     fun cardsFor(objects: List<ObjectEntity>): Flow<List<ObjectCard>> = combine(db.reminderDao().allOpen(), db.activityDao().version()) { open, _ -> open }.map { open ->
+        val t = today()
+        val stats = db.objectDao().statsForAll().associateBy { it.objectUuid }
+        val readings = db.activityDao().readingRowsForAll(t.plusDays(1).toString()).groupBy { it.objectUuid }
+        val covers = db.attachmentDao().coverShas().associate { it.objectUuid to it.sha256 }
         objects.map { o ->
-            val stats = db.objectDao().stats(o.uuid)
-            val due = dueCount(open.filter { it.objectUuid == o.uuid }, stats.currentCounter, stats.lastReadingDate)
-            val cover = o.coverAttachmentUuid?.let { db.attachmentDao().get(it) }?.takeIf { it.deletedAt == null }?.let { db.fileDao().get(it.fileUuid) }?.sha256?.takeIf { it.isNotBlank() }
-            val rate = if (o.counterUnit != null) insights.usage(o.uuid)?.rateMilli else null
+            // An object with no row (none today, since `statsForAll` is a LEFT JOIN GROUP BY) gets zero stats, as `stats(uuid)` returns.
+            val s = stats[o.uuid]
+            val due = dueCount(open.filter { it.objectUuid == o.uuid }, s?.currentCounter, s?.lastReadingDate)
+            val cover = covers[o.uuid]
+            val rate = if (o.counterUnit != null) insights.usageFrom(readings[o.uuid].orEmpty(), t)?.rateMilli else null
             ObjectCard(
-                o.uuid, o.name, o.type, stats.currentCounter, o.counterUnit, stats.totalCostCents, stats.lastActivityDate, due, cover,
+                o.uuid, o.name, o.type, s?.currentCounter, o.counterUnit, s?.totalCostCents ?: 0, s?.lastActivityDate, due, cover,
                 parentUuid = o.parentUuid, archived = o.archivedAt != null, description = o.description, updatedAt = o.updatedAt, counterPerDayMilli = rate,
                 tags = Tags.fromJson(o.tags),
             )
@@ -91,9 +100,10 @@ class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalD
 
     /** Every due reminder across every object, for the banner. */
     fun totalDue(): Flow<Int> = db.reminderDao().allOpen().map { open ->
+        val stats = db.objectDao().statsForAll().associateBy { it.objectUuid }
         open.groupBy { it.objectUuid }.entries.sumOf { (objectUuid, rs) ->
-            val stats = db.objectDao().stats(objectUuid)
-            dueCount(rs, stats.currentCounter, stats.lastReadingDate)
+            val s = stats[objectUuid]
+            dueCount(rs, s?.currentCounter, s?.lastReadingDate)
         }
     }
 

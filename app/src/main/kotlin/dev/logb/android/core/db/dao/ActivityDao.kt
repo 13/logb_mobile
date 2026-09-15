@@ -8,6 +8,7 @@ import dev.logb.android.core.db.model.Bucket
 import dev.logb.android.core.db.model.CounterSpan
 import dev.logb.android.core.db.model.FillRow
 import dev.logb.android.core.db.model.MonthTotal
+import dev.logb.android.core.db.model.ObjectReadingRow
 import dev.logb.android.core.db.model.ReadingRow
 import dev.logb.android.core.db.model.SpendRow
 import kotlinx.coroutines.flow.Flow
@@ -116,4 +117,12 @@ interface ActivityDao {
            WHERE object_uuid = :uuid AND deleted_at IS NULL AND counter_value IS NOT NULL AND date <= :upTo ORDER BY date, counter_value""",
     )
     suspend fun readingRows(uuid: String, upTo: String): List<ReadingRow>
+
+    /** Every reading up to `upTo`, across every object: the objects list, due list and digest read this instead of looping. */
+    @Query(
+        """SELECT object_uuid AS objectUuid, date, counter_value AS counterValue FROM activities
+           WHERE deleted_at IS NULL AND counter_value IS NOT NULL AND date <= :upTo
+           ORDER BY object_uuid, date, counter_value""",
+    )
+    suspend fun readingRowsForAll(upTo: String): List<ObjectReadingRow>
 }

@@ -17,6 +17,22 @@ data class ObjectStats(
 /** One link of a breadcrumb. */
 data class Ancestor(val uuid: String, val name: String)
 
+/** `ObjectStats`, batched: one row per live object, for the objects list and the due list. */
+data class ObjectStatsRow(
+    val objectUuid: String,
+    val totalCostCents: Long,
+    val activityCount: Int,
+    val currentCounter: Long?,
+    val lastActivityDate: String?,
+    val lastReadingDate: String?,
+)
+
+/** `ReadingRow`, batched across every object. */
+data class ObjectReadingRow(val objectUuid: String, val date: String, val counterValue: Long)
+
+/** An object's cover sha, batched: only objects with a live, non-blank cover appear. */
+data class CoverRow(val objectUuid: String, val sha256: String)
+
 /** An attachment with the file row it references, as every screen wants it. */
 data class AttachmentWithFile(
     @Embedded val attachment: AttachmentEntity,

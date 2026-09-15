@@ -2,6 +2,7 @@ package dev.logb.android.feature.stats
 
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.model.Bucket
+import dev.logb.android.core.db.model.ObjectReadingRow
 import dev.logb.android.core.domain.Insights
 import dev.logb.android.core.domain.SpendStats
 import kotlinx.coroutines.flow.first
@@ -97,8 +98,13 @@ class InsightsModel(private val db: LogbDatabase, private val today: () -> Local
     /** `api::insights::usage` for one object: the latest reading and daily rate, or null without enough history. */
     suspend fun usage(uuid: String): Insights.Usage? {
         val t = today()
-        return Insights.usage(readings(uuid, t), t)
+        val rows = db.activityDao().readingRows(uuid, t.plusDays(1).toString()).map { ObjectReadingRow(uuid, it.date, it.counterValue) }
+        return usageFrom(rows, t)
     }
+
+    /** Same rule as [usage], from rows already fetched (batched across objects): one source of truth. */
+    fun usageFrom(rows: List<ObjectReadingRow>, today: LocalDate): Insights.Usage? =
+        Insights.usage(rows.mapNotNull { r -> runCatching { LocalDate.parse(r.date) }.getOrNull()?.let { Insights.Reading(it, r.counterValue) } }, today)
 
     private suspend fun readings(uuid: String, today: LocalDate): List<Insights.Reading> =
         db.activityDao().readingRows(uuid, today.plusDays(1).toString()).mapNotNull { row ->

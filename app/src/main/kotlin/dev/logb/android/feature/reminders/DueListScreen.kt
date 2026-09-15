@@ -39,6 +39,7 @@ import dev.logb.android.feature.objects.tabs.reminderSubtitle
 import dev.logb.android.feature.stats.InsightsModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -52,15 +53,22 @@ data class DueItem(val view: ReminderView, val objectUuid: String, val objectNam
 class DueListModel(private val db: LogbDatabase, private val today: () -> LocalDate = { LocalDate.now() }) {
     private val insights = InsightsModel(db, today)
 
-    /** As the server's lookahead: a mileage-only service shows up once its usage estimate is near. */
+    /**
+     * As the server's lookahead: a mileage-only service shows up once its usage estimate is near.
+     * Objects, stats and readings are fetched once, not once per reminder's object, so the query
+     * count does not grow with how many objects or reminders there are.
+     */
     fun items(withinDays: Long = 30): Flow<List<DueItem>> = db.reminderDao().allOpen().map { open ->
         val t = today()
+        val objects = db.objectDao().all().first().associateBy { it.uuid }
+        val stats = db.objectDao().statsForAll().associateBy { it.objectUuid }
+        val readings = db.activityDao().readingRowsForAll(t.plusDays(1).toString()).groupBy { it.objectUuid }
         open.groupBy { it.objectUuid }.flatMap { (objectUuid, rs) ->
-            val obj = db.objectDao().get(objectUuid)?.takeIf { it.deletedAt == null } ?: return@flatMap emptyList()
-            val stats = db.objectDao().stats(objectUuid)
-            val lastReading = ReminderPresenter.clampLastReading(stats.lastReadingDate, t)
-            val usage = insights.usage(objectUuid)
-            rs.map { ReminderPresenter.present(it, stats.currentCounter, lastReading, t, usage) }
+            val obj = objects[objectUuid] ?: return@flatMap emptyList()
+            val s = stats[objectUuid]
+            val lastReading = ReminderPresenter.clampLastReading(s?.lastReadingDate, t)
+            val usage = insights.usageFrom(readings[objectUuid].orEmpty(), t)
+            rs.map { ReminderPresenter.present(it, s?.currentCounter, lastReading, t, usage) }
                 .filter { ReminderRules.isUpcoming(t, it.due, it.soonestDays, withinDays, ReminderRules.parseDate(it.reminder.snoozedUntil)) }
                 .map { DueItem(it, obj.uuid, obj.name, obj.type, obj.counterUnit) }
         }.sortedWith(compareByDescending<DueItem> { it.view.due }.thenBy { it.view.soonestDays ?: Long.MAX_VALUE }.thenBy { it.objectName })
