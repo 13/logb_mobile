@@ -31,14 +31,19 @@ class ApkInstaller @Inject constructor(@ApplicationContext private val context: 
             setSize(file.length())
         }
         val sessionId = installer.createSession(params)
-        installer.openSession(sessionId).use { session ->
-            file.inputStream().use { input ->
-                session.openWrite(WRITE_NAME, 0, file.length()).use { output ->
-                    input.copyTo(output)
-                    session.fsync(output)
+        try {
+            installer.openSession(sessionId).use { session ->
+                file.inputStream().use { input ->
+                    session.openWrite(WRITE_NAME, 0, file.length()).use { output ->
+                        input.copyTo(output)
+                        session.fsync(output)
+                    }
                 }
+                session.commit(statusSender(sessionId))
             }
-            session.commit(statusSender(sessionId))
+        } catch (e: Exception) {
+            installer.abandonSession(sessionId)
+            throw e
         }
     }
 
