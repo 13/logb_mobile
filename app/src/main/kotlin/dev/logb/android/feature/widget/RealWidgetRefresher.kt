@@ -15,9 +15,23 @@ import javax.inject.Singleton
  * syncs into one redraw on [scope] (the app-wide scope from `SyncModule.appScope`, so a refresh
  * outlives whichever screen asked for it). The privacy-sensitive callers skip that wait through
  * [requestImmediateRefresh].
+ *
+ * [anyPlaced] and [update] are seams: the real ones read Glance's own manager and tell every
+ * placed widget to redraw, and a test can substitute them to see whether the update happened.
  */
 @Singleton
-class RealWidgetRefresher @Inject constructor(@ApplicationContext private val context: Context, scope: CoroutineScope) : WidgetRefresher {
+class RealWidgetRefresher(
+    scope: CoroutineScope,
+    private val anyPlaced: suspend () -> Boolean,
+    private val update: suspend () -> Unit,
+) : WidgetRefresher {
+    @Inject
+    constructor(@ApplicationContext context: Context, scope: CoroutineScope) : this(
+        scope,
+        anyPlaced = { GlanceAppWidgetManager(context).getGlanceIds(DueWidget::class.java).isNotEmpty() },
+        update = { WidgetUpdater.refresh(context) },
+    )
+
     private val debouncer = Debouncer(scope, DEBOUNCE_MS, ::refreshIfPlaced)
 
     override fun requestRefresh() = debouncer.request()
@@ -25,8 +39,8 @@ class RealWidgetRefresher @Inject constructor(@ApplicationContext private val co
     override fun requestImmediateRefresh() = debouncer.requestNow()
 
     private suspend fun refreshIfPlaced() {
-        if (GlanceAppWidgetManager(context).getGlanceIds(DueWidget::class.java).isEmpty()) return
-        WidgetUpdater.refresh(context)
+        if (!anyPlaced()) return
+        update()
     }
 
     companion object {
