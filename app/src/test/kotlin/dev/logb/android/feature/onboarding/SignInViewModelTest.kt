@@ -88,4 +88,53 @@ class SignInViewModelTest {
 
         assertEquals("/api/auth/login", serverB.takeRequest().url.encodedPath)
     }
+
+    /**
+     * A submitted sign-in against A can still be in flight when the session moves to a
+     * different SignedOut server (a race the disabled "Change" button closes at the UI level,
+     * but `submit()` guards against independently, in case the session changes some other way
+     * while a request is outstanding).
+     */
+    @Test
+    fun `A's sign-in outcome, arriving after the session already moved to B, does not touch B's screen`() = runTest(dispatcher) {
+        val serverA = MockWebServer()
+        serverA.start()
+        val releaseA = java.util.concurrent.CountDownLatch(1)
+        serverA.dispatcher = object : mockwebserver3.Dispatcher() {
+            override fun dispatch(request: mockwebserver3.RecordedRequest): MockResponse {
+                releaseA.await()
+                return json("""{"error":"unauthorized","message":"wrong username or password"}""", 401)
+            }
+        }
+
+        serverStore.write(ServerRecord(serverA.url("/").toString(), username = "ben"))
+        sessions.restore()
+        val vm = SignInViewModel(sessions, capabilities)
+        drain()
+        vm.onUsernameChange("ben")
+        vm.onPasswordChange("secret")
+        vm.submit()
+        drain()
+        assertEquals(true, vm.state.value.busy, "the request against A is still in flight")
+
+        // The session moves to a different server while A's request is outstanding.
+        val baseB = serverB.url("/").toString()
+        serverStore.write(ServerRecord(baseB))
+        sessions.restore()
+        drain()
+        assertEquals(baseB, vm.state.value.serverUrl)
+        assertEquals(false, vm.state.value.busy, "a session moving to a different server is a clean screen")
+        assertEquals(null, vm.state.value.error)
+
+        // Now A's request is allowed to finish (with a failure).
+        releaseA.countDown()
+        Thread.sleep(500)
+        drain()
+
+        assertEquals(baseB, vm.state.value.serverUrl, "still on B")
+        assertEquals(false, vm.state.value.busy, "A's outcome must not leave B's screen stuck busy")
+        assertEquals(null, vm.state.value.error, "A's error must not appear on B's screen")
+
+        serverA.close()
+    }
 }

@@ -57,7 +57,10 @@ class SignInViewModel @Inject constructor(private val sessions: SessionRepositor
         // server change (sign out, then a different address) reaches an already-built instance.
         viewModelScope.launch {
             sessions.session.collect { s ->
-                if (s is Session.SignedOut) _state.update { it.copy(serverUrl = s.serverUrl, username = s.username ?: "", error = s.reason?.let { "unauthorized" }) }
+                // A fresh SignInUiState, not a copy: a session moving to a different SignedOut
+                // server is a clean screen, not a continuation of whatever was in flight for the
+                // old one (busy/password from a stale submit() must not carry over).
+                if (s is Session.SignedOut) _state.update { SignInUiState(serverUrl = s.serverUrl, username = s.username ?: "", error = s.reason?.let { "unauthorized" }) }
             }
         }
     }
@@ -75,7 +78,11 @@ class SignInViewModel @Inject constructor(private val sessions: SessionRepositor
         viewModelScope.launch {
             val result = sessions.signIn(s.serverUrl, s.username.trim(), s.password)
             if (result.isSuccess) capabilities.load()
-            _state.update { it.copy(busy = false, password = if (result.isSuccess) "" else it.password, error = result.exceptionOrNull()?.message) }
+            // The server may have changed (sign-in against A, then switched to B) while this
+            // request was in flight: A's outcome must not touch B's screen.
+            if (_state.value.serverUrl == s.serverUrl) {
+                _state.update { it.copy(busy = false, password = if (result.isSuccess) "" else it.password, error = result.exceptionOrNull()?.message) }
+            }
         }
     }
 }

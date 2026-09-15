@@ -95,7 +95,7 @@ fun SignInScreen(viewModel: SignInViewModel = hiltViewModel()) {
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             Text(state.serverUrl.removeSuffix("/"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = viewModel::changeServer) { Text(stringResource(R.string.change_server)) }
+            TextButton(onClick = viewModel::changeServer, enabled = !state.busy) { Text(stringResource(R.string.change_server)) }
         }
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
