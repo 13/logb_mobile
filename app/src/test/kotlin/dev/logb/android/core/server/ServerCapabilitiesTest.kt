@@ -47,4 +47,23 @@ class ServerCapabilitiesTest {
         assertEquals(Capabilities.NONE, caps.current.value)
         assertFalse(caps.refresh { "0.9.0" }, "nothing to store the version in")
     }
+
+    @Test fun `store cleared during the fetch is left cleared and refresh reports no gain`() = runBlocking {
+        val store = FakeServerStore(record)
+        val caps = ServerCapabilities(store)
+        caps.load()
+        assertFalse(caps.refresh { store.clear(); "0.8.0" })
+        assertEquals(null, store.read())
+        assertEquals("0.7.1", caps.version.value, "in-memory value untouched")
+    }
+
+    @Test fun `server url changed during the fetch is not overwritten with the new version`() = runBlocking {
+        val store = FakeServerStore(record)
+        val caps = ServerCapabilities(store)
+        caps.load()
+        val other = ServerRecord("https://other.example/", userId = 2, username = "ann", serverVersion = null)
+        assertFalse(caps.refresh { store.write(other); "0.8.0" })
+        assertEquals(other, store.read(), "the other server's record is untouched")
+        assertEquals("0.7.1", caps.version.value, "in-memory value untouched")
+    }
 }

@@ -26,9 +26,12 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
      */
     suspend fun refresh(fetchVersion: suspend () -> String?): Boolean {
         val record = serverStore.read() ?: return false
+        val url = record.serverUrl
         val fetched = fetchVersion() ?: return false
+        val stillSameServer = serverStore.read()?.serverUrl == url
+        if (!stillSameServer) return false
         val before = Capabilities.of(record.serverVersion)
-        if (fetched != record.serverVersion) serverStore.write(record.copy(serverVersion = fetched))
+        if (fetched != record.serverVersion) serverStore.setVersion(url, fetched)
         set(fetched)
         val after = Capabilities.of(fetched)
         return (after.tags && !before.tags) || (after.ownTypes && !before.ownTypes)

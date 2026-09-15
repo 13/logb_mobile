@@ -27,6 +27,9 @@ interface ServerStore {
     suspend fun read(): ServerRecord?
     suspend fun write(record: ServerRecord)
     suspend fun clear()
+
+    /** Writes only the version, and only while the stored server is still [serverUrl]. */
+    suspend fun setVersion(serverUrl: String, version: String?)
 }
 
 private val Context.serverDataStore: DataStore<Preferences> by preferencesDataStore(name = "server")
@@ -59,5 +62,13 @@ class DataStoreServerStore @Inject constructor(@ApplicationContext private val c
 
     override suspend fun clear() {
         context.serverDataStore.edit { it.clear() }
+    }
+
+    override suspend fun setVersion(serverUrl: String, version: String?) {
+        context.serverDataStore.edit { p ->
+            if (p[url] == serverUrl) {
+                version?.let { p[serverVersion] = it } ?: p.remove(serverVersion)
+            }
+        }
     }
 }
