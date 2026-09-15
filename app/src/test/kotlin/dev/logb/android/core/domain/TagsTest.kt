@@ -29,6 +29,12 @@ class TagsTest {
         assertEquals(AddResult.Added(listOf("Winter", "Garage 2")), Tags.addTag(listOf("Winter"), " Garage   2 "))
     }
 
+    /** `\s` on the JVM is ASCII-only unless told otherwise; the web's `/\s+/g` collapses NBSP and other Unicode spaces too. */
+    @Test fun `add collapses Unicode whitespace like the web`() {
+        assertEquals(AddResult.Added(listOf("A B")), Tags.addTag(emptyList(), "A  B"))
+        assertEquals(AddResult.Added(listOf("A B")), Tags.addTag(listOf("A B"), "a b"))
+    }
+
     @Test fun `add refuses empty, too long and too many`() {
         assertEquals(AddResult.Refused(TagError.EMPTY), Tags.addTag(emptyList(), "   "))
         assertEquals(AddResult.Refused(TagError.TOO_LONG), Tags.addTag(emptyList(), "x".repeat(33)))
@@ -70,7 +76,13 @@ class TagsTest {
 
     @Test fun `count by folded tag, most used spelling wins, ties alphabetical`() {
         val columns = listOf("""["Winter","Lease"]""", """["winter"]""", """["Winter"]""", "not json", "[]")
-        assertEquals(listOf(TagCount("Lease", 1), TagCount("Winter", 3)), Tags.count(columns).sortedBy { it.tag })
+        assertEquals(listOf(TagCount("Winter", 3), TagCount("Lease", 1)), Tags.count(columns))
+    }
+
+    /** Parity with `api::tags::count` (src/api/tags.rs): sorted by count descending, ties alphabetical. */
+    @Test fun `count comes back sorted by count then tag, like the server`() {
+        val columns = listOf("""["b"]""", """["a"]""", """["c","c2"]""", """["c"]""")
+        assertEquals(listOf(TagCount("c", 2), TagCount("a", 1), TagCount("b", 1), TagCount("c2", 1)), Tags.count(columns))
     }
 
     @Test fun `json round trips and bad text reads empty`() {

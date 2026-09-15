@@ -26,7 +26,9 @@ object Tags {
     const val PALETTE_SIZE = 8
 
     private val marks = Regex("\\p{M}")
-    private val spaces = Regex("\\s+")
+
+    /** `(?U)`: Unicode character classes, so this collapses NBSP and other Unicode spaces too, like the web's `/\s+/g`. */
+    private val spaces = Regex("(?U)\\s+")
 
     /** Not the device locale: Turkish "INFO" must still fold to "info", as on the server. */
     fun fold(tag: String): String = marks.replace(Normalizer.normalize(tag, Normalizer.Form.NFD), "").lowercase(Locale.ROOT)
@@ -100,7 +102,7 @@ object Tags {
         return byFold.values.map { spellings ->
             val best = spellings.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key }).first()
             TagCount(best.key, spellings.values.sum())
-        }
+        }.sortedWith(compareByDescending<TagCount> { it.count }.thenBy { it.tag })
     }
 
     private val listSerializer = ListSerializer(String.serializer())
