@@ -37,6 +37,7 @@ import dev.logb.android.feature.settings.NotificationsScreen
 import dev.logb.android.feature.settings.SettingsHubScreen
 import dev.logb.android.feature.settings.SettingsPage
 import dev.logb.android.feature.settings.SyncScreen
+import dev.logb.android.feature.settings.data.DataScreen
 import dev.logb.android.feature.settings.tokens.TokensScreen
 import dev.logb.android.feature.types.TypesScreen
 
@@ -125,6 +126,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                                 SettingsPage.Sync -> SyncSettings
                                 SettingsPage.Notifications -> Notifications
                                 SettingsPage.Types -> TypesSettings
+                                SettingsPage.Data -> DataSettings
                                 SettingsPage.ApiAccess -> ApiAccessSettings
                                 SettingsPage.About -> About
                             },
@@ -137,6 +139,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                 composable<About> { AboutScreen(onBack = { nav.popBackStack() }) }
                 composable<Notifications> { NotificationsScreen(onBack = { nav.popBackStack() }) }
                 composable<TypesSettings> { TypesScreen(onBack = { nav.popBackStack() }) }
+                composable<DataSettings> { DataScreen(onBack = { nav.popBackStack() }) }
                 composable<ApiAccessSettings> { TokensScreen(onBack = { nav.popBackStack() }) }
             }
         }

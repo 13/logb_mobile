@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">LogB</string>
     <string name="back">Back</string>
     <plurals name="due_count">
@@ -444,6 +444,20 @@
     <string name="update_auto">Check once a day</string>
     <string name="update_auto_hint">Asks api.github.com, the only request that does not go to your LogB server</string>
     <string name="update_hub_available">%1$s · %2$s available</string>
+
+    <!-- Data (web: settings.data, settings.export*, settings.import*) -->
+    <string name="settings_data">Data</string>
+    <string name="settings_export">Export everything (zip)</string>
+    <string name="settings_export_not_backup">The export archive is not a database backup. It is portable and self-contained and imports into any LogB, but it is written only when you ask for one.</string>
+    <string name="settings_import">Import zip</string>
+    <!-- Six counts in one summary sentence: not a single-quantity plural, so lint's PluralsCandidate is a false positive here. -->
+    <string name="settings_import_done" tools:ignore="PluralsCandidate">Imported %1$d objects, %2$d activities, %3$d files, %4$d reminders, %5$d types (%6$d merged with existing ones)</string>
+    <string name="data_import_warning">Import adds everything in the archive to your account. Importing the same archive twice duplicates its objects and entries.</string>
+    <string name="data_import_confirm">Import</string>
+    <string name="data_exporting">Exporting…</string>
+    <string name="data_exported">Export saved.</string>
+    <string name="data_importing">Importing…</string>
+    <string name="data_too_large">The archive is larger than this server accepts.</string>
 
     <!-- API access (web: tokens.*) -->
     <string name="tokens_title">API access</string>

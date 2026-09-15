@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">LogB</string>
     <string name="back">Zurück</string>
     <plurals name="due_count">
@@ -444,6 +444,19 @@
     <string name="update_auto">Einmal täglich prüfen</string>
     <string name="update_auto_hint">Fragt api.github.com, die einzige Anfrage, die nicht an deinen LogB-Server geht</string>
     <string name="update_hub_available">%1$s · %2$s verfügbar</string>
+
+    <!-- Daten (web: settings.data, settings.export*, settings.import*) -->
+    <string name="settings_data">Daten</string>
+    <string name="settings_export">Alles exportieren (zip)</string>
+    <string name="settings_export_not_backup">Das Export-Archiv ist keine Datenbanksicherung. Es ist portabel, in sich geschlossen und lässt sich in jedes LogB importieren — aber es entsteht nur, wenn du es anstößt.</string>
+    <string name="settings_import">Zip importieren</string>
+    <string name="settings_import_done" tools:ignore="PluralsCandidate">%1$d Objekte, %2$d Aktivitäten, %3$d Dateien, %4$d Erinnerungen, %5$d Typen (%6$d mit vorhandenen zusammengeführt) importiert</string>
+    <string name="data_import_warning">Der Import fügt alles aus dem Archiv deinem Konto hinzu. Wer dasselbe Archiv zweimal importiert, hat dessen Objekte und Einträge doppelt.</string>
+    <string name="data_import_confirm">Importieren</string>
+    <string name="data_exporting">Exportiere…</string>
+    <string name="data_exported">Export gespeichert.</string>
+    <string name="data_importing">Importiere…</string>
+    <string name="data_too_large">Das Archiv ist größer, als dieser Server annimmt.</string>
 
     <!-- API-Zugriff (web: tokens.*) -->
     <string name="tokens_title">API-Zugriff</string>

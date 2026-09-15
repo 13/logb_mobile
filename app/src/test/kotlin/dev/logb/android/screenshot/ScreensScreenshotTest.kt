@@ -31,8 +31,11 @@ import dev.logb.android.feature.reminders.DueItem
 import dev.logb.android.feature.reminders.DueListContent
 import dev.logb.android.feature.settings.AboutContent
 import dev.logb.android.feature.settings.AboutInfo
+import dev.logb.android.core.network.dto.ImportCounts
 import dev.logb.android.feature.settings.SettingsHubContent
 import dev.logb.android.feature.settings.SettingsUiState
+import dev.logb.android.feature.settings.data.DataContent
+import dev.logb.android.feature.settings.data.DataUiState
 import dev.logb.android.feature.settings.tokens.TokenRow
 import dev.logb.android.feature.settings.tokens.TokensContent
 import dev.logb.android.feature.settings.tokens.TokensUiState
@@ -182,6 +185,17 @@ class ScreensScreenshotTest {
                 fresh = "logb_pat_ef56_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c",
             ),
             onBack = {}, onName = {}, onCreate = {}, onRevoke = {}, onConfirm = {}, onDismiss = {}, onCopy = {},
+        )
+    }
+
+    @Test fun data() = capture("data") {
+        DataContent(DataUiState(), onBack = {}, onExport = {}, onImport = {}, onConfirmImport = {}, onCancelImport = {})
+    }
+
+    @Test fun dataImported() = capture("data_imported") {
+        DataContent(
+            DataUiState(imported = ImportCounts(objects = 12, activities = 48, attachments = 6, reminders = 3, typesCreated = 2, typesMerged = 1)),
+            onBack = {}, onExport = {}, onImport = {}, onConfirmImport = {}, onCancelImport = {},
         )
     }
 }

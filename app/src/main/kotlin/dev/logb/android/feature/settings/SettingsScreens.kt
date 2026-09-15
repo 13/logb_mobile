@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
@@ -111,6 +112,7 @@ fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit, u
                 SettingsPage.Sync -> R.string.settings_sync to Icons.Outlined.Sync
                 SettingsPage.Notifications -> R.string.settings_notifications to Icons.Outlined.Notifications
                 SettingsPage.Types -> R.string.settings_types to Icons.Outlined.Category
+                SettingsPage.Data -> R.string.settings_data to Icons.Outlined.Archive
                 SettingsPage.ApiAccess -> R.string.tokens_title to Icons.Outlined.Key
                 SettingsPage.About -> R.string.settings_about to Icons.Outlined.Info
             }

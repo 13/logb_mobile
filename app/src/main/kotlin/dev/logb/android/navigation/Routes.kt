@@ -20,6 +20,7 @@ import kotlinx.serialization.Serializable
 @Serializable object About
 @Serializable object Notifications
 @Serializable object TypesSettings
+@Serializable object DataSettings
 @Serializable object ApiAccessSettings
 
 /** The three destinations the bottom bar shows; everything else is a drill-down from one of them. */
@@ -35,7 +36,7 @@ fun activeDestination(route: String?): Destination? {
     return when (name) {
         "Objects", "ObjectDetail", "ObjectForm", "ActivityForm", "ReadingForm", "ReminderForm", "DueList", "Viewer", "ShareTarget", "Stats" -> Destination.Objects
         "Search" -> Destination.Search
-        "Settings", "Appearance", "Account", "SyncSettings", "About", "Notifications", "TypesSettings", "ApiAccessSettings" -> Destination.Settings
+        "Settings", "Appearance", "Account", "SyncSettings", "About", "Notifications", "TypesSettings", "DataSettings", "ApiAccessSettings" -> Destination.Settings
         else -> null
     }
 }
