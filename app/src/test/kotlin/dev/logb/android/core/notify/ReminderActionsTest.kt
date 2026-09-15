@@ -107,4 +107,66 @@ class ReminderActionsTest {
         assertNotNull(db.reminderDao().get(r)!!.doneAt)
         assertEquals(listOf(r), cancelled)
     }
+
+    @Test fun `done refreshes the widget inside the action, after the write and the cancel`() = runBlocking {
+        val objectUuid = ObjectRepository(db, writer).create(ObjectDraft(name = "Golf"))
+        val r = reminders.create(objectUuid, ReminderDraft(title = "Oil", dueDate = "2026-09-01"), LocalDate.parse("2026-09-15"))
+        val order = mutableListOf<String>()
+        val acting = ReminderActions(
+            ensureSignedIn = { true },
+            done = { uuid -> reminders.done(uuid, null); order += "write" },
+            snooze = { reminders.snooze(it, 7) },
+            cancel = { order += "cancel" },
+            refreshWidget = { order += "refresh" },
+        )
+
+        acting.done(r)
+
+        assertEquals(listOf("write", "cancel", "refresh"), order)
+    }
+
+    @Test fun `snooze refreshes the widget too`() = runBlocking {
+        val order = mutableListOf<String>()
+        val acting = ReminderActions(
+            ensureSignedIn = { true },
+            done = {},
+            snooze = { order += "write" },
+            cancel = { order += "cancel" },
+            refreshWidget = { order += "refresh" },
+        )
+
+        acting.snooze("r-1")
+
+        assertEquals(listOf("write", "cancel", "refresh"), order)
+    }
+
+    @Test fun `signed out still refreshes, so a stale row cannot survive the tap`() = runBlocking {
+        val order = mutableListOf<String>()
+        val acting = ReminderActions(
+            ensureSignedIn = { false },
+            done = { order += "write" },
+            snooze = {},
+            cancel = { order += "cancel" },
+            refreshWidget = { order += "refresh" },
+        )
+
+        acting.done("r-1")
+
+        assertEquals(listOf("cancel", "refresh"), order)
+    }
+
+    @Test fun `a failed write refreshes nothing, leaving the notification and the widget as they were`() = runBlocking {
+        val order = mutableListOf<String>()
+        val acting = ReminderActions(
+            ensureSignedIn = { true },
+            done = { throw IllegalStateException("boom") },
+            snooze = {},
+            cancel = { order += "cancel" },
+            refreshWidget = { order += "refresh" },
+        )
+
+        acting.done("r-1")
+
+        assertEquals(emptyList(), order)
+    }
 }
