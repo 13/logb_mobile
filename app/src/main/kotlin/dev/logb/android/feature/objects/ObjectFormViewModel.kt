@@ -51,6 +51,8 @@ data class ObjectFormState(
     val savedUuid: String? = null,
     val activityCount: Int = 0,
     val registry: TypeRegistry = TypeRegistry.EMPTY,
+    /** Whether the person has picked a counter unit themselves this session: an own type must not override it. */
+    val counterUnitTouched: Boolean = false,
 ) {
     val draft: ObjectDraft
         get() = ObjectDraft(name, type, counterUnit, fuelUnit, description, purchaseDate, Parse.cents(price), parent?.uuid, tags)
@@ -89,13 +91,11 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
 
     fun onName(v: String) = _state.update { it.copy(name = v, errors = it.errors - "name") }
 
-    /** Selecting an own type also adopts its counter unit, but only while the form still shows the default one. */
+    /** Selecting an own type also adopts its counter unit, but only while the form has none chosen yet. */
     fun onType(v: String) = _state.update {
-        val own = it.registry.find(v)
-        val counterUnit = if (own != null && it.counterUnit == DEFAULT_COUNTER_UNIT) own.counterUnit else it.counterUnit
-        it.copy(type = v, counterUnit = counterUnit, fuelUnit = if ("fuel" in it.registry.categoriesFor(v)) it.fuelUnit else null).withTemplates()
+        it.copy(type = v, counterUnit = adoptedCounterUnit(it, v), fuelUnit = if ("fuel" in it.registry.categoriesFor(v)) it.fuelUnit else null).withTemplates()
     }
-    fun onCounterUnit(v: String?) = _state.update { it.copy(counterUnit = v).withTemplates() }
+    fun onCounterUnit(v: String?) = _state.update { it.copy(counterUnit = v, counterUnitTouched = true).withTemplates() }
     fun onFuelUnit(v: String?) = _state.update { it.copy(fuelUnit = v) }
     fun onDescription(v: String) = _state.update { it.copy(description = v) }
     fun onPurchaseDate(v: String?) = _state.update { it.copy(purchaseDate = v, errors = it.errors - "purchaseDate") }
@@ -132,9 +132,16 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
         route.uuid?.let { repos.objectRepository.delete(it) }
         onDone()
     }
+}
 
-    private companion object {
-        /** Matches [ObjectFormState]'s default: a fresh form has not been touched. */
-        const val DEFAULT_COUNTER_UNIT = "km"
-    }
+/**
+ * What `onType(type)` should leave the counter unit as. An own type's unit is adopted only when the
+ * form has no unit chosen yet: never after the person has picked one this session, and -- for an
+ * object being edited -- only when it has no stored unit at all (a "km" the object already carries
+ * is not the form's default, it is that object's unit).
+ */
+internal fun adoptedCounterUnit(state: ObjectFormState, type: String): String? {
+    val own = state.registry.find(type)
+    val untouched = !state.counterUnitTouched && (!state.editing || state.counterUnit == null)
+    return if (own != null && untouched) own.counterUnit else state.counterUnit
 }
