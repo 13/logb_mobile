@@ -3,8 +3,10 @@ package dev.logb.android.feature.objects
 import dev.logb.android.core.db.T0
 import dev.logb.android.core.db.TestDatabase
 import dev.logb.android.core.db.act
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.obj
 import dev.logb.android.core.db.rem
+import dev.logb.android.core.domain.TypeRegistry
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -47,5 +49,20 @@ class ObjectsModelTest {
         db.objectDao().upsert(obj("golf", "Golf"), obj("old", "Old bike", archived = T0))
         val cards = model.allCards().first()
         assertEquals(mapOf("Golf" to false, "Old bike" to true), cards.associate { it.name to it.archived })
+    }
+}
+
+class SearchTypeLabelTest {
+    private val boat = ObjectTypeEntity("u1", 1, "Boat", "tool", """["repair","other"]""", "h", "t", "t", null)
+    private val registry = TypeRegistry(listOf(boat))
+    private val builtIn: (String) -> String = { it.replaceFirstChar(Char::uppercase) }
+
+    @Test fun `a built-in key gets its label, a known own type its name`() {
+        assertEquals("Car", searchTypeLabel("car", registry, builtIn, "Unknown type"))
+        assertEquals("Boat", searchTypeLabel(dev.logb.android.core.domain.CustomTypes.key("u1"), registry, builtIn, "Unknown type"))
+    }
+
+    @Test fun `a key that is neither built-in nor a known own type is Unknown type, not the built-in fallback`() {
+        assertEquals("Unknown type", searchTypeLabel(dev.logb.android.core.domain.CustomTypes.key("gone"), registry, builtIn, "Unknown type"))
     }
 }

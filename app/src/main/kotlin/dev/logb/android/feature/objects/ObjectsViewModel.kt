@@ -3,11 +3,13 @@ package dev.logb.android.feature.objects
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.logb.android.R
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.ReminderEntity
+import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.TypeRegistry
@@ -102,6 +104,15 @@ class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalD
     }
 }
 
+/**
+ * The label a type key shows in the search-friendly listing label (matched against by
+ * [ObjectListing.matchesQuery]). A key that is neither a built-in type nor a known own type is
+ * one whose own type was deleted on the web: it reads "Unknown type", not the built-in fallback
+ * "Other" that [typeLabelRes] would otherwise give any unrecognised key.
+ */
+fun searchTypeLabel(key: String, registry: TypeRegistry, builtInLabel: (String) -> String, unknownLabel: String): String =
+    registry.find(key)?.name ?: if (key in ObjectTypes.ALL) builtInLabel(key) else unknownLabel
+
 @HiltViewModel
 class ObjectsViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
@@ -124,7 +135,7 @@ class ObjectsViewModel @Inject constructor(
             val tag = values[4] as String?
             @Suppress("UNCHECKED_CAST") val registry = TypeRegistry(values[5] as List<ObjectTypeEntity>)
             val locale = context.resources.configuration.locales[0]
-            val label = { key: String -> registry.find(key)?.name ?: context.getString(typeLabelRes(key)) }
+            val label = { key: String -> searchTypeLabel(key, registry, { k -> context.getString(typeLabelRes(k)) }, context.getString(R.string.types_unknown)) }
             val rows = ObjectListing.visibleRows(cards.filter { !it.archived }, cards.filter { it.archived }, arch, q, sort, label, locale, tag)
             ObjectsUiState(rows.map { it.card }, rows.mapNotNull { r -> r.parentName?.let { r.card.uuid to it } }.toMap(), q, sort, arch, tag)
         },
