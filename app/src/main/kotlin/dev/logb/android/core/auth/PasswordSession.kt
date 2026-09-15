@@ -2,6 +2,9 @@ package dev.logb.android.core.auth
 
 import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.network.dto.Credentials
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -11,14 +14,25 @@ import javax.inject.Inject
  * never sent on these calls.
  */
 class PasswordSession @Inject constructor(private val sessions: SessionRepository, private val apiFactory: ApiFactory) {
-    suspend fun <T> run(password: String, block: suspend (LogbApi) -> T): Result<T> = runCatching {
+    /**
+     * `runCatching` alone would also wrap a [CancellationException] -- leaving the screen mid-call
+     * -- into a failed [Result], which stops the coroutine from actually cancelling. That is caught
+     * and rethrown before the general case. Either way out, [LogbApi.logout] still runs, in
+     * [NonCancellable] so a cancellation in flight cannot cut it short: the cookie session must not
+     * outlive the screen that opened it.
+     */
+    suspend fun <T> run(password: String, block: suspend (LogbApi) -> T): Result<T> = try {
         val signedIn = sessions.session.value as? Session.SignedIn ?: error("signed out")
         val api = apiFactory.create(signedIn.serverUrl, { null }, InMemoryCookieJar())
         api.login(Credentials(signedIn.user.username, password))
         try {
-            block(api)
+            Result.success(block(api))
         } finally {
-            runCatching { api.logout() }
+            withContext(NonCancellable) { runCatching { api.logout() } }
         }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }

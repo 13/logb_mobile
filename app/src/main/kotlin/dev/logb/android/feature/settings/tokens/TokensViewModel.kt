@@ -62,6 +62,9 @@ data class TokensUiState(
     val asking: PasswordAction? = null,
     val busy: Boolean = false,
     val error: String? = null,
+    /** Same idea as [offline], but scoped to the password dialog: a connection failure mid-[confirm]
+     * shows the "needs a connection" text there instead of the raw exception message. */
+    val askOffline: Boolean = false,
 )
 
 @HiltViewModel
@@ -104,9 +107,9 @@ class TokensViewModel @Inject constructor(
 
     fun onName(v: String) = _state.update { it.copy(name = v) }
 
-    fun askCreate() { TokenRows.validName(_state.value.name)?.let { n -> _state.update { it.copy(asking = PasswordAction.Create(n), error = null) } } }
+    fun askCreate() { TokenRows.validName(_state.value.name)?.let { n -> _state.update { it.copy(asking = PasswordAction.Create(n), error = null, askOffline = false) } } }
 
-    fun askRevoke(token: ApiToken) = _state.update { it.copy(asking = PasswordAction.Revoke(token), error = null) }
+    fun askRevoke(token: ApiToken) = _state.update { it.copy(asking = PasswordAction.Revoke(token), error = null, askOffline = false) }
 
     fun dismiss() = _state.update { it.copy(asking = null) }
 
@@ -117,7 +120,7 @@ class TokensViewModel @Inject constructor(
             val asking = s.asking
             if (s.busy || asking == null) return@update s
             action = asking
-            s.copy(busy = true, error = null)
+            s.copy(busy = true, error = null, askOffline = false)
         }
         val confirmed = action ?: return@launch
         val result = passwordSession.run(password) { api ->
@@ -129,6 +132,15 @@ class TokensViewModel @Inject constructor(
         result.onSuccess { plaintext ->
             _state.update { it.copy(busy = false, asking = null, fresh = plaintext ?: it.fresh, name = if (plaintext != null) "" else it.name) }
             load()
-        }.onFailure { e -> _state.update { it.copy(busy = false, error = e.message) } }
+        }.onFailure { e ->
+            // A server-shaped failure (wrong password, an ApiException) keeps its own message; a
+            // real connectivity failure -- the login itself never reached the server -- shows the
+            // same offline outcome the rest of the screen uses, not the raw exception text.
+            if (e is IOException && e !is ApiException) {
+                _state.update { it.copy(busy = false, askOffline = true) }
+            } else {
+                _state.update { it.copy(busy = false, error = e.message) }
+            }
+        }
     }
 }

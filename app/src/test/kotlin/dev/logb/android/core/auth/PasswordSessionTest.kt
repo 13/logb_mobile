@@ -2,12 +2,19 @@ package dev.logb.android.core.auth
 
 import dev.logb.android.core.network.ApiClient
 import dev.logb.android.core.network.dto.NewToken
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -57,5 +64,38 @@ class PasswordSessionTest {
         assertTrue(result.isFailure)
         assertEquals(false, ran)
         assertEquals(1, server.requestCount)
+    }
+
+    /**
+     * Old code ran the whole body through `kotlin.runCatching`, which also wraps a
+     * [CancellationException] into a failed [Result] -- the coroutine never actually cancels. With
+     * the fix, `run` rethrows it, and [caught] below only ever holds it because that `catch` block
+     * ran at all. The [AtomicReference] is needed because the block's suspension and the server's
+     * real HTTP handling happen on different threads, not the test dispatcher's virtual time.
+     */
+    @Test fun `cancelling the caller while the block is suspended rethrows CancellationException and still logs out`() = runTest {
+        signedIn()
+        server.enqueue(json("""{"id":1,"username":"ben"}""", headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("{}")) // the logout the NonCancellable finally sends once cancellation unwinds
+
+        val entered = CompletableDeferred<Unit>()
+        val caught = AtomicReference<Throwable>()
+        val job = launch {
+            try {
+                PasswordSession(sessions, factory).run("correct horse") { _ ->
+                    entered.complete(Unit)
+                    awaitCancellation()
+                }
+            } catch (e: Throwable) {
+                caught.set(e)
+            }
+        }
+        entered.await()
+        job.cancelAndJoin()
+
+        assertTrue(caught.get() is CancellationException, "run must rethrow cancellation rather than wrap it in a failed Result")
+        assertEquals("/api/auth/login", server.takeRequest(2, TimeUnit.SECONDS)?.url?.encodedPath)
+        val logout = server.takeRequest(2, TimeUnit.SECONDS)
+        assertEquals("/api/auth/logout", logout?.url?.encodedPath, "logout must still run even though the caller was cancelled mid-call")
     }
 }

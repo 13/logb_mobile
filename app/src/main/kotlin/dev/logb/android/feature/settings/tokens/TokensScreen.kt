@@ -166,7 +166,7 @@ fun TokensContent(
         )
     }
     if (state.asking != null) {
-        PasswordDialog(busy = state.busy, error = state.error, onConfirm = onConfirm, onDismiss = onDismiss)
+        PasswordDialog(busy = state.busy, error = state.error, offline = state.askOffline, onConfirm = onConfirm, onDismiss = onDismiss)
     }
 }
 
@@ -176,7 +176,7 @@ fun TokensContent(
  * (or the dialog closing) forgets it rather than persisting it anywhere.
  */
 @Composable
-private fun PasswordDialog(busy: Boolean, error: String?, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+private fun PasswordDialog(busy: Boolean, error: String?, offline: Boolean, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var password by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -194,7 +194,10 @@ private fun PasswordDialog(busy: Boolean, error: String?, onConfirm: (String) ->
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
                 )
-                if (error != null) {
+                if (offline) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.needs_connection), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                } else if (error != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }

@@ -131,6 +131,15 @@ class TokensViewModelTest {
         }
     }
 
+    /** Same idea as [awaitLoaded], for [TokensViewModel.confirm]'s real round trip through [PasswordSession]. */
+    private fun TestScope.awaitNotBusy(vm: TokensViewModel, timeoutMs: Long = 5_000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (vm.state.value.busy && System.currentTimeMillis() < deadline) {
+            Thread.sleep(20)
+            drain()
+        }
+    }
+
     @Test fun `an unauthorized response signs the phone out, not offline and no error text`() = runTest(dispatcher) {
         signedIn()
         server.enqueue(json("""{"error":"unauthorized","message":"gone"}""", code = 401))
@@ -158,6 +167,23 @@ class TokensViewModelTest {
         awaitLoaded(vm)
         assertEquals(true, vm.state.value.offline)
         assertEquals(null, vm.state.value.error)
+    }
+
+    @Test fun `a connection failure on login shows the offline outcome in the password dialog, not raw text`() = runTest(dispatcher) {
+        signedIn()
+        server.enqueue(json("[]")) // the initial load()
+        val vm = TokensViewModel(accounts, serverStore, tokenStore, sessions, passwordSession)
+        awaitLoaded(vm)
+        server.close() // nothing is listening at this URL any more: login itself never reaches the server
+
+        vm.onName("script")
+        vm.askCreate()
+        vm.confirm("correct horse")
+        awaitNotBusy(vm)
+
+        assertEquals(false, vm.state.value.busy)
+        assertEquals(true, vm.state.value.askOffline, "a connection failure must show the same offline outcome as the rest of the screen")
+        assertEquals(null, vm.state.value.error, "not the raw exception text")
     }
 
     @Test fun `a fast double confirm runs the block once`() = runTest(dispatcher) {
