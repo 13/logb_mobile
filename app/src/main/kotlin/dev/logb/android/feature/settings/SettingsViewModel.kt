@@ -146,9 +146,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** The server's version, fetched when the Account screen asks; null offline. */
-    val serverVersion: StateFlow<String?> = kotlinx.coroutines.flow.flow { emit(runCatching { accounts.api.healthInfo().version }.getOrNull()) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** The server's stored version -- the same one About and the capabilities use; known offline. */
+    val serverVersion: StateFlow<String?> = serverCapabilities.version
 
     val capabilities: StateFlow<Capabilities> = serverCapabilities.current
 

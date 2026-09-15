@@ -178,8 +178,8 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
         Column(Modifier.padding(16.dp)) {
             Text(stringResource(R.string.server_url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(s?.serverUrl?.removeSuffix("/") ?: "", style = MaterialTheme.typography.bodyLarge)
-            serverVersion?.let { Text(stringResource(R.string.server_version, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            if (serverVersion != null && !capabilities.tags) {
+            serverVersion?.takeIf { it.isNotBlank() }?.let { Text(stringResource(R.string.server_version, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (!serverVersion.isNullOrBlank() && !(capabilities.tags && capabilities.ownTypes)) {
                 Text(stringResource(R.string.server_needs_update), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(12.dp))
