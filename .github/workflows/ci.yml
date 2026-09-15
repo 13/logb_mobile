@@ -124,3 +124,81 @@ jobs:
           name: contract-test-report
           path: logb_mobile/app/build/reports/tests/testDebugUnitTest
           if-no-files-found: warn
+
+  instrumented:
+    name: Device tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Use the runner's JDK
+        run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      # KVM is present on the standard Ubuntu runner but not readable by default.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # minSdk is 28, but API 31 is the oldest google_apis x86_64 image the emulator runner boots reliably on CI.
+      - name: Instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./gradlew :app:connectedDebugAndroidTest --console=plain
+      - name: Upload device test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: device-test-report
+          path: app/build/reports/androidTests/connected
+          if-no-files-found: warn
+
+  # The device tests run the debug build; this runs the minified release APK, where a missing keep
+  # rule for kotlinx-serialization, Hilt, Room or the updater's receiver shows up and nowhere else.
+  release-smoke:
+    name: Release APK on a device
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Use the runner's JDK
+        run: sed -i '/^org\.gradle\.java\.home=/d' gradle.properties
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Assemble release
+        run: ./gradlew :app:assembleRelease --console=plain
+      - name: Smoke the release build
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: ./tools/release-smoke.sh emulator-5554
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-smoke
+          path: build/release-smoke
+          if-no-files-found: warn
