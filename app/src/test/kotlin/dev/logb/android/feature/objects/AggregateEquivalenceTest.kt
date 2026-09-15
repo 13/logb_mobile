@@ -10,6 +10,7 @@ import dev.logb.android.core.db.act
 import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.db.entity.AttachmentEntity
 import dev.logb.android.core.db.entity.FileEntity
+import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.db.obj
@@ -88,6 +89,38 @@ class AggregateEquivalenceTest {
         val expected = legacyTotalDue(db, today) // the pre-change ObjectsModel.totalDue body, copied into this test verbatim
         assertEquals(expected, ObjectsModel(db) { today }.totalDue().first())
     }
+
+    // --- A leaf object's page (no children) must not scan the database at all ---
+
+    @Test
+    fun `cardsFor with no objects issues no aggregate queries`() = runBlocking {
+        val count = countQueries { seed(it, objects = 5); ObjectsModel(it).cardsFor(emptyList()).first() }
+        assertEquals(0, count, "cardsFor(emptyList()) ran $count queries")
+    }
+
+    @Test
+    fun `cardsFor query count does not grow with the number of children`() = runBlocking {
+        val small = countQueries { val objs = seed(it, objects = 5); ObjectsModel(it).cardsFor(objs).first() }
+        val large = countQueries { val objs = seed(it, objects = 200); ObjectsModel(it).cardsFor(objs).first() }
+        assertEquals(small, large)
+    }
+
+    @Test
+    fun `cardsFor on a subset equals the legacy reference, with and without counter units`() = runBlocking {
+        val objs = seed(db, objects = 30)
+        // Every sixth seeded object loses its counter unit, so the subset below covers both branches.
+        val withoutUnit = objs.filterIndexed { i, _ -> i % 6 == 0 }.map { it.copy(counterUnit = null) }
+        db.objectDao().upsert(*withoutUnit.toTypedArray())
+        val today = LocalDate.parse("2026-09-15")
+        val all = db.objectDao().all().first()
+        val subsetUuids = setOf("obj-0", "obj-1", "obj-3", "obj-5", "obj-6", "obj-12", "obj-18", "obj-24")
+        val subset = all.filter { it.uuid in subsetUuids }
+        check(subset.any { it.counterUnit == null }) { "subset must include an object without a counter unit" }
+        check(subset.any { it.counterUnit != null }) { "subset must include an object with a counter unit" }
+        val expected = legacyCards(db, today).filter { it.uuid in subsetUuids }
+        val actual = ObjectsModel(db) { today }.cardsFor(subset).first()
+        assertEquals(expected.sortedBy { it.uuid }, actual.sortedBy { it.uuid })
+    }
 }
 
 // --- Seed: a tree of objects with every edge the equivalence test must cover ---
@@ -99,7 +132,7 @@ class AggregateEquivalenceTest {
  * present) has no entries at all. Covers: one valid, one pointing at a deleted attachment, one
  * whose file has a blank sha. Reminders: open, snoozed, done and reading, per object.
  */
-private suspend fun seed(db: LogbDatabase, objects: Int) {
+private suspend fun seed(db: LogbDatabase, objects: Int): List<ObjectEntity> {
     db.objectTypeDao().upsert(ObjectTypeEntity("type-boat", null, "Boat", "car", """["repair","other"]""", "km", T0, T0, null))
     val ownType = CustomTypes.key("type-boat")
 
@@ -168,6 +201,7 @@ private suspend fun seed(db: LogbDatabase, objects: Int) {
     // When called from countQueries, zero the counter now: only the queries the model itself
     // issues while computing its one emission should count, not the seed's own inserts/upserts.
     queryCounter.get()?.set(0)
+    return objs
 }
 
 // --- The reference: production code as it stood before this task, pasted verbatim ---

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -78,23 +79,32 @@ class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalD
      * Cards for a given set of objects, re-evaluated whenever their reminders or entries change.
      * Stats, readings and covers are fetched once for every live object rather than per card, so
      * the query count does not grow with how many objects there are.
+     *
+     * An empty set (a leaf object's page, which has no children) issues no queries at all: there
+     * is nothing to combine or scan. A set where nothing carries a `counterUnit` skips the
+     * readings scan too, since `counterPerDayMilli` is only ever read for a card whose object has
+     * one (see `o.counterUnit != null` below, and `ObjectsScreen`'s `takeIf { counterUnit != null }`).
      */
-    fun cardsFor(objects: List<ObjectEntity>): Flow<List<ObjectCard>> = combine(db.reminderDao().allOpen(), db.activityDao().version()) { open, _ -> open }.map { open ->
-        val t = today()
-        val stats = db.objectDao().statsForAll().associateBy { it.objectUuid }
-        val readings = db.activityDao().readingRowsForAll(t.plusDays(1).toString()).groupBy { it.objectUuid }
-        val covers = db.attachmentDao().coverShas().associate { it.objectUuid to it.sha256 }
-        objects.map { o ->
-            // An object with no row (none today, since `statsForAll` is a LEFT JOIN GROUP BY) gets zero stats, as `stats(uuid)` returns.
-            val s = stats[o.uuid]
-            val due = dueCount(open.filter { it.objectUuid == o.uuid }, s?.currentCounter, s?.lastReadingDate)
-            val cover = covers[o.uuid]
-            val rate = if (o.counterUnit != null) insights.usageFrom(readings[o.uuid].orEmpty(), t)?.rateMilli else null
-            ObjectCard(
-                o.uuid, o.name, o.type, s?.currentCounter, o.counterUnit, s?.totalCostCents ?: 0, s?.lastActivityDate, due, cover,
-                parentUuid = o.parentUuid, archived = o.archivedAt != null, description = o.description, updatedAt = o.updatedAt, counterPerDayMilli = rate,
-                tags = Tags.fromJson(o.tags),
-            )
+    fun cardsFor(objects: List<ObjectEntity>): Flow<List<ObjectCard>> {
+        if (objects.isEmpty()) return flowOf(emptyList())
+        val needsReadings = objects.any { it.counterUnit != null }
+        return combine(db.reminderDao().allOpen(), db.activityDao().version()) { open, _ -> open }.map { open ->
+            val t = today()
+            val stats = db.objectDao().statsForAll().associateBy { it.objectUuid }
+            val readings = if (needsReadings) db.activityDao().readingRowsForAll(t.plusDays(1).toString()).groupBy { it.objectUuid } else emptyMap()
+            val covers = db.attachmentDao().coverShas().associate { it.objectUuid to it.sha256 }
+            objects.map { o ->
+                // An object with no row (none today, since `statsForAll` is a LEFT JOIN GROUP BY) gets zero stats, as `stats(uuid)` returns.
+                val s = stats[o.uuid]
+                val due = dueCount(open.filter { it.objectUuid == o.uuid }, s?.currentCounter, s?.lastReadingDate)
+                val cover = covers[o.uuid]
+                val rate = if (o.counterUnit != null) insights.usageFrom(readings[o.uuid].orEmpty(), t)?.rateMilli else null
+                ObjectCard(
+                    o.uuid, o.name, o.type, s?.currentCounter, o.counterUnit, s?.totalCostCents ?: 0, s?.lastActivityDate, due, cover,
+                    parentUuid = o.parentUuid, archived = o.archivedAt != null, description = o.description, updatedAt = o.updatedAt, counterPerDayMilli = rate,
+                    tags = Tags.fromJson(o.tags),
+                )
+            }
         }
     }
 
