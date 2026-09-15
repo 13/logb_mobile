@@ -1,11 +1,14 @@
 package dev.logb.android.core.network
 
 import dev.logb.android.core.network.dto.ActivityDto
+import dev.logb.android.core.network.dto.ApiToken
 import dev.logb.android.core.network.dto.AttachmentDto
 import dev.logb.android.core.network.dto.ActivityInput
 import dev.logb.android.core.network.dto.BootstrapResult
 import dev.logb.android.core.network.dto.Credentials
 import dev.logb.android.core.network.dto.HealthInfo
+import dev.logb.android.core.network.dto.ImportCounts
+import dev.logb.android.core.network.dto.NotificationTest
 import dev.logb.android.core.network.dto.UserPatch
 import dev.logb.android.core.network.dto.NewApiToken
 import dev.logb.android.core.network.dto.NewToken
@@ -16,6 +19,8 @@ import dev.logb.android.core.network.dto.PushBody
 import dev.logb.android.core.network.dto.PushResult
 import dev.logb.android.core.network.dto.ReminderDto
 import dev.logb.android.core.network.dto.ReminderInput
+import dev.logb.android.core.network.dto.ServerNotifications
+import dev.logb.android.core.network.dto.ServerNotificationsIn
 import dev.logb.android.core.network.dto.Settings
 import dev.logb.android.core.network.dto.TypeBody
 import dev.logb.android.core.network.dto.TypeDto
@@ -33,6 +38,7 @@ import retrofit2.http.Part
 import retrofit2.http.PartMap
 import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -87,4 +93,16 @@ interface LogbApi {
     @Multipart
     @POST("api/objects/{id}/attachments")
     suspend fun upload(@Path("id") objectId: Long, @Part file: MultipartBody.Part, @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>): AttachmentDto
+
+    @GET("api/auth/tokens") suspend fun listTokens(): List<ApiToken>
+
+    @Streaming @GET("api/export") suspend fun exportAll(): ResponseBody
+
+    @POST("api/import") suspend fun importZip(@Body body: RequestBody): ImportCounts
+
+    @GET("api/me/notifications") suspend fun notifications(): ServerNotifications
+
+    @PUT("api/me/notifications") suspend fun saveNotifications(@Body body: ServerNotificationsIn): ServerNotifications
+
+    @POST("api/me/notifications/test") suspend fun testNotifications(): NotificationTest
 }
