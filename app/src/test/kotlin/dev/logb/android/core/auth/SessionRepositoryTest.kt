@@ -1,6 +1,8 @@
 package dev.logb.android.core.auth
 
 import dev.logb.android.core.network.ApiClient
+import dev.logb.android.core.alerts.ReminderNotificationsClearer
+import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -19,6 +21,11 @@ class SessionRepositoryTest {
         var immediate = 0
         override fun requestRefresh() { debounced++ }
         override fun requestImmediateRefresh() { immediate++ }
+    }
+
+    private class FakeNotificationsClearer : ReminderNotificationsClearer {
+        var cleared = 0
+        override fun clearAll() { cleared++ }
     }
 
     private val server = MockWebServer()
@@ -263,5 +270,34 @@ class SessionRepositoryTest {
         assertEquals("/api/health", server.takeRequest().url.encodedPath)
         assertEquals(server.url("/").toString(), serverStore.read()!!.serverUrl)
         assertIs<Session.SignedOut>(repo.session.value)
+    }
+
+    @Test
+    fun `sign out clears every posted reminder notification`() = runTest {
+        val notifications = FakeNotificationsClearer()
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, NoopWidgetRefresher, notifications)
+        serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        server.enqueue(json("{}", code = 204))
+
+        repo.signOut()
+
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertEquals(1, notifications.cleared)
+    }
+
+    @Test
+    fun `onUnauthorized clears every posted reminder notification`() = runTest {
+        val notifications = FakeNotificationsClearer()
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, NoopWidgetRefresher, notifications)
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+
+        repo.onUnauthorized()
+
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertEquals(1, notifications.cleared)
     }
 }

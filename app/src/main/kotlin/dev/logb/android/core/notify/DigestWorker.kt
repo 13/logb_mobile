@@ -39,7 +39,8 @@ class DigestWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         if (!prefs.current().enabled) return Result.success()
         if (sessions.session.value is Session.Loading) sessions.restore()
-        if (sessions.session.value !is Session.SignedIn) return Result.success()
+        // Signed out: whatever is still posted names an account this phone no longer has.
+        if (sessions.session.value !is Session.SignedIn) { notifier.cancelAll(); return Result.success() }
         val items = DueListModel(accounts.db).items(withinDays = WITHIN_DAYS).first()
         val res = context.resources
         val plan = DigestPlan.plan(
