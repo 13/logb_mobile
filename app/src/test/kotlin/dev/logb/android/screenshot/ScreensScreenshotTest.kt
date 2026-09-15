@@ -174,9 +174,9 @@ class ScreensScreenshotTest {
         TokensContent(
             TokensUiState(
                 rows = listOf(
-                    TokenRow(ApiToken(1, "This phone", "logb_pat_ab12", "2026-08-01T00:00:00Z", "2026-09-10T08:00:00Z"), isThisPhone = true),
-                    TokenRow(ApiToken(2, "Backup script", "logb_pat_cd34", "2026-07-15T00:00:00Z", "2026-09-01T00:00:00Z"), isThisPhone = false),
-                    TokenRow(ApiToken(3, "CI pipeline", "logb_pat_ef56", "2026-09-12T00:00:00Z", null), isThisPhone = false),
+                    TokenRow(ApiToken(1, "This phone", "logb_pat_ab12", "2026-08-01T00:00:00Z", "2026-09-10T08:00:00Z"), isThisPhone = true, canRevoke = false),
+                    TokenRow(ApiToken(2, "Backup script", "logb_pat_cd34", "2026-07-15T00:00:00Z", "2026-09-01T00:00:00Z"), isThisPhone = false, canRevoke = true),
+                    TokenRow(ApiToken(3, "CI pipeline", "logb_pat_ef56", "2026-09-12T00:00:00Z", null), isThisPhone = false, canRevoke = true),
                 ),
                 loaded = true,
                 fresh = "logb_pat_ef56_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c",

@@ -6,6 +6,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.auth.PasswordSession
 import dev.logb.android.core.auth.ServerStore
+import dev.logb.android.core.auth.SessionRepository
+import dev.logb.android.core.auth.TokenStore
+import dev.logb.android.core.network.ApiException
+import dev.logb.android.core.network.UnauthorizedException
 import dev.logb.android.core.network.dto.ApiToken
 import dev.logb.android.core.network.dto.NewToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,12 +17,32 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
-data class TokenRow(val token: ApiToken, val isThisPhone: Boolean)
+data class TokenRow(val token: ApiToken, val isThisPhone: Boolean, val canRevoke: Boolean)
 
 object TokenRows {
-    fun of(tokens: List<ApiToken>, phoneTokenId: Long?): List<TokenRow> = tokens.map { TokenRow(it, it.id == phoneTokenId) }
+    /**
+     * How much of the plaintext the server keeps alongside the hash (`token_prefix` in
+     * `src/auth.rs`): `TOKEN_PREFIX.len()` (9, for `"logb_pat_"`) + 6.
+     */
+    const val SERVER_PREFIX_KEPT: Int = 15
+
+    /**
+     * The phone recognises its own row two ways: the token id `ServerStore` remembers, and --
+     * when that is unknown -- the prefix computed from the phone's own decrypted token (never
+     * the plaintext itself, see [TokensViewModel.load]). When *neither* is known, no row can be
+     * trusted as "this phone", so every row's `canRevoke` is false rather than risk revoking the
+     * token the app is using to ask the question.
+     */
+    fun of(tokens: List<ApiToken>, phoneTokenId: Long?, phonePrefix: String?): List<TokenRow> {
+        val identifiable = phoneTokenId != null || phonePrefix != null
+        return tokens.map { t ->
+            val isThisPhone = t.id == phoneTokenId || (phonePrefix != null && t.prefix == phonePrefix)
+            TokenRow(t, isThisPhone, canRevoke = identifiable && !isThisPhone)
+        }
+    }
 
     fun validName(raw: String): String? = raw.trim().takeIf { it.isNotEmpty() && it.codePointCount(0, it.length) <= 64 }
 }
@@ -44,6 +68,8 @@ data class TokensUiState(
 class TokensViewModel @Inject constructor(
     private val accounts: ActiveAccount,
     private val serverStore: ServerStore,
+    private val tokenStore: TokenStore,
+    private val sessions: SessionRepository,
     private val passwordSession: PasswordSession,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TokensUiState())
@@ -51,10 +77,29 @@ class TokensViewModel @Inject constructor(
 
     init { load() }
 
+    /**
+     * Mirrors `SyncManager.syncNow()`'s three-way split: a 401 means this phone's own token was
+     * revoked elsewhere, so the session is asked to sign out; any other server-shaped failure is
+     * an [ApiException] whose message the screen can show; anything else is a real connectivity
+     * failure. `UnauthorizedException` is checked first because it *is* an `ApiException`, which
+     * *is* an `IOException`.
+     */
     fun load() = viewModelScope.launch {
-        runCatching { TokenRows.of(accounts.api.listTokens(), serverStore.read()?.tokenId) }
-            .onSuccess { rows -> _state.update { it.copy(rows = rows, loaded = true, offline = false, error = null) } }
-            .onFailure { e -> _state.update { it.copy(loaded = true, offline = e is java.io.IOException, error = e.message.takeUnless { e is java.io.IOException }) } }
+        try {
+            // The plaintext is read once, held only in this local `val`, and never leaves this
+            // function: only its prefix -- the same few characters the server itself keeps --
+            // is passed on to `TokenRows.of`.
+            val phonePrefix = tokenStore.read()?.take(TokenRows.SERVER_PREFIX_KEPT)
+            val rows = TokenRows.of(accounts.api.listTokens(), serverStore.read()?.tokenId, phonePrefix)
+            _state.update { it.copy(rows = rows, loaded = true, offline = false, error = null) }
+        } catch (e: UnauthorizedException) {
+            sessions.onUnauthorized()
+            _state.update { it.copy(loaded = true, offline = false, error = null) }
+        } catch (e: ApiException) {
+            _state.update { it.copy(loaded = true, offline = false, error = e.message) }
+        } catch (e: IOException) {
+            _state.update { it.copy(loaded = true, offline = true, error = null) }
+        }
     }
 
     fun onName(v: String) = _state.update { it.copy(name = v) }
@@ -65,13 +110,20 @@ class TokensViewModel @Inject constructor(
 
     fun dismiss() = _state.update { it.copy(asking = null) }
 
+    /** A fast double tap must not run the block twice: `busy` is read and set in the same atomic update. */
     fun confirm(password: String) = viewModelScope.launch {
-        val action = _state.value.asking ?: return@launch
-        _state.update { it.copy(busy = true, error = null) }
+        var action: PasswordAction? = null
+        _state.update { s ->
+            val asking = s.asking
+            if (s.busy || asking == null) return@update s
+            action = asking
+            s.copy(busy = true, error = null)
+        }
+        val confirmed = action ?: return@launch
         val result = passwordSession.run(password) { api ->
-            when (action) {
-                is PasswordAction.Create -> api.createToken(NewToken(action.name)).token
-                is PasswordAction.Revoke -> { api.revokeToken(action.token.id); null }
+            when (confirmed) {
+                is PasswordAction.Create -> api.createToken(NewToken(confirmed.name)).token
+                is PasswordAction.Revoke -> { api.revokeToken(confirmed.token.id); null }
             }
         }
         result.onSuccess { plaintext ->

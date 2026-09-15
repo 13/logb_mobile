@@ -17,8 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -107,7 +107,7 @@ fun TokensContent(
                             Spacer(Modifier.height(8.dp))
                             SelectionContainer { Text(state.fresh, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium) }
                             Spacer(Modifier.height(8.dp))
-                            OutlinedButton(onClick = { onCopy(state.fresh); copied = true }) {
+                            FilledTonalButton(onClick = { onCopy(state.fresh); copied = true }) {
                                 Text(stringResource(if (copied) R.string.tokens_copied else R.string.tokens_copy))
                             }
                         }
@@ -127,10 +127,13 @@ fun TokensContent(
                                 val used = row.token.lastUsedAt?.let { stringResource(R.string.tokens_last_used, formatDate(it.take(10), locale)) } ?: stringResource(R.string.tokens_never_used)
                                 Text("${row.token.prefix}… · $used", style = MaterialTheme.typography.bodySmall, color = muted)
                             }
-                            if (row.isThisPhone) {
-                                Text(stringResource(R.string.tokens_this_phone), style = MaterialTheme.typography.bodySmall, color = muted)
-                            } else {
-                                TextButton(onClick = { revoking = row.token }) { Text(stringResource(R.string.tokens_revoke), color = MaterialTheme.colorScheme.error) }
+                            // A row can be revoked only once the phone's own row is positively
+                            // identified (by id, or -- if the id is unknown -- by prefix); when
+                            // neither is known, no row shows Revoke, this one included, rather
+                            // than risk offering to revoke the token the app is using right now.
+                            when {
+                                row.isThisPhone -> Text(stringResource(R.string.tokens_this_phone), style = MaterialTheme.typography.bodySmall, color = muted)
+                                row.canRevoke -> TextButton(onClick = { revoking = row.token }) { Text(stringResource(R.string.tokens_revoke), color = MaterialTheme.colorScheme.error) }
                             }
                         }
                     }
