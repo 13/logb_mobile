@@ -13,7 +13,6 @@ data class DigestNotifications(val summary: DigestText?, val children: List<Chil
 object DigestPlan {
     const val MAX_CHILDREN = 5
     const val SUMMARY_ID = 1
-    private const val ID_BASE = 1_000
 
     fun plan(items: List<DueItem>, dueWord: String, upcomingWord: (Long) -> String, more: (Int) -> String): DigestNotifications {
         if (items.isEmpty()) return DigestNotifications(null, emptyList())
@@ -22,14 +21,29 @@ object DigestPlan {
             ChildNotification(
                 id = idFor(r.uuid), reminderUuid = r.uuid, objectUuid = item.objectUuid,
                 title = "${item.objectName}: ${r.title}",
-                text = if (item.view.due) dueWord else upcomingWord(item.view.soonestDays ?: 0),
+                text = state(item, dueWord, upcomingWord),
                 actions = if (r.kind == ReminderRules.KIND_READING) listOf(NotificationAction.LogReading) else listOf(NotificationAction.Done, NotificationAction.Snooze),
             )
         }
-        val summary = if (items.size > 1) Digest.text(items, dueWord, upcomingWord, more) else null
+        // On Android the group summary sits above its visible children, which already show every
+        // item up to MAX_CHILDREN: the summary names only the first and, when some are hidden, how
+        // many more -- it never repeats every child the way Digest.text's single-notification body does.
+        val summary = items.firstOrNull()?.takeIf { items.size > 1 }?.let { first ->
+            val hidden = items.size - MAX_CHILDREN
+            val line = "${first.objectName}: ${first.view.reminder.title} ${state(first, dueWord, upcomingWord)}"
+            val title = if (hidden > 0) "$line · ${more(hidden)}" else line
+            DigestText(title, null)
+        }
         return DigestNotifications(summary, children)
     }
 
-    /** Stable per reminder and clear of the summary's id. */
-    fun idFor(reminderUuid: String): Int = ID_BASE + (reminderUuid.hashCode() and 0x7FFFFFFF) % 1_000_000
+    /** Due now, or how soon. `?: 0` guards a directly-constructed view; `DueListModel` always sets `soonestDays` for the upcoming items this reaches. */
+    private fun state(item: DueItem, dueWord: String, upcomingWord: (Long) -> String): String =
+        if (item.view.due) dueWord else upcomingWord(item.view.soonestDays ?: 0)
+
+    /** Stable per reminder and clear of the summary's id: the whole positive hash space, nudged past 1 rather than folded into a narrow range that would collide often. */
+    fun idFor(reminderUuid: String): Int {
+        val h = reminderUuid.hashCode() and 0x7FFFFFFF
+        return if (h <= SUMMARY_ID) h + 2 else h
+    }
 }

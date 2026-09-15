@@ -29,13 +29,38 @@ class DigestPlanTest {
         val p = plan(items)
         assertEquals(5, p.children.size)
         assertEquals(listOf("r1", "r2", "r3", "r4", "r5"), p.children.map { it.reminderUuid })
+        // 7 items, 5 shown as children: 2 hidden.
         assertTrue(p.summary!!.title.startsWith("Object 1: Task 1"))
-        assertTrue(p.summary!!.title.contains("and 6 more"))
+        assertTrue(p.summary!!.title.contains("and 2 more"))
+    }
+
+    @Test fun `a summary that shows every item names only the first, with no more and no body`() {
+        val items = (1..3).map { DueFixtures.service("r$it", "Object $it", "Task $it", due = it <= 1, soonestDays = it.toLong()) }
+        val p = plan(items)
+        assertEquals(3, p.children.size)
+        assertEquals("Object 1: Task 1 due", p.summary!!.title)
+        assertNull(p.summary!!.body)
+    }
+
+    @Test fun `a summary with one hidden item says so`() {
+        val items = (1..6).map { DueFixtures.service("r$it", "Object $it", "Task $it", due = it <= 1, soonestDays = it.toLong()) }
+        val p = plan(items)
+        assertEquals("Object 1: Task 1 due · and 1 more", p.summary!!.title)
     }
 
     @Test fun `ids are stable, positive and never the summary id`() {
         val ids = (1..500).map { DigestPlan.idFor("uuid-$it") }
         assertEquals(ids, (1..500).map { DigestPlan.idFor("uuid-$it") })
         assertTrue(ids.all { it > DigestPlan.SUMMARY_ID })
+    }
+
+    @Test fun `idFor stays clear of the summary id even when the masked hash is 0 or 1`() {
+        // A length-1 string hashes to its own code point: pick the two whose masked hash is 0 or 1.
+        val zero = 0.toChar().toString()
+        val one = 1.toChar().toString()
+        assertEquals(0, zero.hashCode())
+        assertEquals(1, one.hashCode())
+        assertEquals(2, DigestPlan.idFor(zero))
+        assertEquals(3, DigestPlan.idFor(one))
     }
 }
