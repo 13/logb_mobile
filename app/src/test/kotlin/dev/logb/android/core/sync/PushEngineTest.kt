@@ -2,9 +2,12 @@ package dev.logb.android.core.sync
 
 import dev.logb.android.core.db.TestDatabase
 import dev.logb.android.core.db.act
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.SyncStateEntity
 import dev.logb.android.core.db.obj
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.network.ApiClient
+import dev.logb.android.core.server.Capabilities
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -87,6 +90,34 @@ class PushEngineTest {
         val dead = db.opDao().dead()
         assertEquals(1, dead.first().size)
         assertEquals("unknown entity_uuid", dead.first().single().lastError)
+    }
+
+    @Test
+    fun `an old server without tags or own types gets only the ops it understands, the rest stay pending`() = runTest {
+        val oldServerEngine = PushEngine(db, ApiClient.create(server.url("/").toString(), { "t" }), store, Capabilities.NONE)
+        db.objectDao().upsert(obj("u1", "Golf", serverId = 4))
+        writer.create("object_type", "t1") { db.objectTypeDao().upsert(ObjectTypeEntity("t1", null, "Boat", "tool", "[\"repair\",\"other\"]", "h", "t", "t", null)) }
+        writer.set("object", "u1", mapOf("name" to "Golf VII")) { }
+        writer.set("object", "u1", mapOf("tags" to Tags.toJson(listOf("Summer")))) { }
+        assertEquals(listOf("create", "set", "set"), db.opDao().pending().map { it.kind })
+
+        server.dispatcher = object : mockwebserver3.Dispatcher() {
+            override fun dispatch(request: mockwebserver3.RecordedRequest): MockResponse {
+                val ids = Regex("\"client_op_id\":\"([^\"]+)\"").findAll(request.body?.utf8() ?: "").map { it.groupValues[1] }.toList()
+                return json("""{"results":[${ids.joinToString(",") { "{\"client_op_id\":\"$it\",\"outcome\":\"accepted\"}" }}],"server_time":"2026-09-14T10:00:00.000Z","ids":{}}""")
+            }
+        }
+        oldServerEngine.run()
+
+        val push = server.takeRequest()
+        assertEquals("/api/sync/push", push.url.encodedPath)
+        assertTrue(push.body!!.utf8().contains("\"field\":\"name\""), push.body!!.utf8())
+        assertTrue(!push.body!!.utf8().contains("\"field\":\"tags\""), "the tags set must not be pushed to an old server: ${push.body!!.utf8()}")
+        assertEquals(1, server.requestCount, "no /api/types request: an object_type create must not be pushed either")
+
+        val pending = db.opDao().pending()
+        assertEquals(listOf("create", "set"), pending.map { it.kind }, "the object_type create and the tags set stay pending, not dead")
+        assertTrue(db.opDao().dead().first().isEmpty(), "held-back ops are pending, never dead")
     }
 
     @Test

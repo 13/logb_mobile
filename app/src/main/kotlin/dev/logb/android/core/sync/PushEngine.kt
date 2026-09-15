@@ -14,6 +14,7 @@ import dev.logb.android.core.network.dto.Op
 import dev.logb.android.core.network.dto.PushBody
 import dev.logb.android.core.network.dto.ReminderInput
 import dev.logb.android.core.network.dto.TypeBody
+import dev.logb.android.core.server.Capabilities
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -27,17 +28,27 @@ import dev.logb.android.core.db.inTransaction
  * ops is one `/sync/push` batch. A reference the server does not know yet stops the run at that
  * op; FIFO order means the target's own create is earlier in the queue and usually already
  * done, and a stop is retried on the next run.
+ *
+ * [capabilities] is a snapshot, not live: an old server (`ownTypes`/`tags` false) never receives
+ * an `object_type` create or a `tags` field set -- those ops are left pending rather than pushed
+ * or failed, so the rest of the queue still goes through; the next run re-checks once the server
+ * (or the person's account on it) is upgraded.
  */
-class PushEngine(private val db: LogbDatabase, private val api: LogbApi, private val blobs: dev.logb.android.core.blobs.BlobStore? = null) {
+class PushEngine(private val db: LogbDatabase, private val api: LogbApi, private val blobs: dev.logb.android.core.blobs.BlobStore? = null, private val capabilities: Capabilities = Capabilities.NONE) {
     /** Thrown internally when an op refers to a row the server has not confirmed yet. */
     private class NotYet : Exception()
+
+    /** An op an old server cannot take yet: left alone, neither pushed nor marked dead. */
+    private fun heldBack(op: OpEntity): Boolean =
+        (op.kind == "create" && op.entity == "object_type" && !capabilities.ownTypes) ||
+            (op.kind == "set" && op.field == "tags" && !capabilities.tags)
 
     suspend fun run() {
         // A pass works through a snapshot of the queue; a create can append follow-up sets (see
         // `pushCreate`), so another pass runs while a pass made progress and left work behind.
         var passes = 0
         while (passes++ < MAX_PASSES) {
-            val ops = db.opDao().pending()
+            val ops = db.opDao().pending().filterNot(::heldBack)
             if (ops.isEmpty()) return
             var i = 0
             var progressed = false

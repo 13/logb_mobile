@@ -55,7 +55,7 @@ object SyncModule {
                         // the Room v2 migration in release 0.8.0.
                         capabilities.refresh { runCatching { accounts.api.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() } }
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
-                        PushEngine(db, accounts.api, blobs).run()
+                        PushEngine(db, accounts.api, blobs, capabilities.current.value).run()
                         PullEngine(db, accounts.api, deviceId).run()
                         BlobDownloader(db, accounts.api, blobs, connectivity) { blobPrefs.current() }.runAfterPull()
                     }
