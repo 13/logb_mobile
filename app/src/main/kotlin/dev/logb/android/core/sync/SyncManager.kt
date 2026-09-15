@@ -31,6 +31,7 @@ class SyncManager(
     private val scope: CoroutineScope,
     private val pendingCount: suspend () -> Int = { 0 },
     private val debounceMs: Long = 2_000,
+    private val widgetRefresh: suspend () -> Unit = {},
 ) {
     private val mutex = Mutex()
     private val _status = MutableStateFlow<SyncStatus>(SyncStatus.None)
@@ -68,6 +69,9 @@ class SyncManager(
         try {
             runner.run()
             _status.value = SyncStatus.Idle(Clock.nowIso(), pending = pendingCount())
+            // Only on success: a widget's staleness past a failed or offline attempt is handled by
+            // the next write, the next successful sync, or the midnight worker, not by this run.
+            scope.launch { widgetRefresh() }
             Result.success(Unit)
         } catch (e: UnauthorizedException) {
             sessions.onUnauthorized()

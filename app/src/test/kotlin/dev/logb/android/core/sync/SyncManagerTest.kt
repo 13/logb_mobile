@@ -13,6 +13,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.io.IOException
@@ -87,5 +88,26 @@ class SyncManagerTest {
         val m2 = SyncManager(sessions, FakeConnectivity(true), { null }, backgroundScope)
         assertTrue(m2.syncNow().isFailure)
         assertIs<SyncStatus.SignedOut>(m2.status.value)
+    }
+
+    @Test fun `a successful run refreshes the widget`() = runTest {
+        sessions.restore()
+        var calls = 0
+        val m = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { } }, backgroundScope, widgetRefresh = { calls++ })
+        m.syncNow()
+        runCurrent()
+        assertEquals(1, calls)
+    }
+
+    @Test fun `a failed, offline, or signed-out run does not refresh the widget`() = runTest {
+        sessions.restore()
+        var calls = 0
+        val onWidgetRefresh: suspend () -> Unit = { calls++ }
+        SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw ApiException(500, "internal", "boom") } }, backgroundScope, widgetRefresh = onWidgetRefresh).syncNow()
+        SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw IOException("reset") } }, backgroundScope, widgetRefresh = onWidgetRefresh).syncNow()
+        SyncManager(sessions, FakeConnectivity(false), { SyncRunner { } }, backgroundScope, widgetRefresh = onWidgetRefresh).syncNow()
+        SyncManager(sessions, FakeConnectivity(true), { null }, backgroundScope, widgetRefresh = onWidgetRefresh).syncNow()
+        runCurrent()
+        assertEquals(0, calls)
     }
 }

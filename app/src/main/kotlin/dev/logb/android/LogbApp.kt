@@ -17,6 +17,7 @@ import dev.logb.android.core.blobs.BlobFetcher
 import dev.logb.android.core.blobs.BlobStore
 import dev.logb.android.core.notify.DigestWorker
 import dev.logb.android.core.notify.NotificationPrefs
+import dev.logb.android.feature.widget.WidgetMidnightWorker
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import dagger.hilt.android.HiltAndroidApp
@@ -54,6 +55,7 @@ class LogbApp : Application(), Configuration.Provider, SingletonImageLoader.Fact
         SyncWorker.schedule(this)
         // Re-asserts the digest schedule after a force-stop or an update; an existing schedule is kept.
         appScope.launch { DigestWorker.schedule(this@LogbApp, notificationPrefs.current(), replace = false) }
+        WidgetMidnightWorker.schedule(this)
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
                 syncManager.requestSync(SyncReason.Foreground)

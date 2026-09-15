@@ -1,6 +1,7 @@
 package dev.logb.android.core.auth
 
 import dev.logb.android.core.network.ApiClient
+import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -13,6 +14,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SessionRepositoryTest {
+    private class FakeWidgetRefresher : WidgetRefresher {
+        var debounced = 0
+        var immediate = 0
+        override fun requestRefresh() { debounced++ }
+        override fun requestImmediateRefresh() { immediate++ }
+    }
+
     private val server = MockWebServer()
     private val serverStore = FakeServerStore()
     private val tokenStore = FakeTokenStore()
@@ -158,6 +166,19 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `onUnauthorized refreshes the widget immediately, after the session is signed out`() = runTest {
+        val refresher = FakeWidgetRefresher()
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, refresher)
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        repo.onUnauthorized()
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertEquals(1, refresher.immediate)
+        assertEquals(0, refresher.debounced)
+    }
+
+    @Test
     fun `sign out revokes the token by id and keeps the server`() = runTest {
         serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9))
         tokenStore.write("logb_pat_x")
@@ -169,6 +190,20 @@ class SessionRepositoryTest {
         assertEquals("DELETE", revoke.method)
         assertIs<Session.SignedOut>(repo.session.value)
         assertNull(tokenStore.read())
+    }
+
+    @Test
+    fun `sign out refreshes the widget immediately, after the session is signed out`() = runTest {
+        val refresher = FakeWidgetRefresher()
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, refresher)
+        serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        server.enqueue(json("{}", code = 204))
+        repo.signOut()
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertEquals(1, refresher.immediate)
+        assertEquals(0, refresher.debounced)
     }
 
     @Test

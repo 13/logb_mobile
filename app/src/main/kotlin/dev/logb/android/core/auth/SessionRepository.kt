@@ -8,6 +8,8 @@ import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.network.dto.Credentials
 import dev.logb.android.core.network.dto.NewToken
 import dev.logb.android.core.network.dto.User
+import dev.logb.android.core.widget.NoopWidgetRefresher
+import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +31,7 @@ class SessionRepository @Inject constructor(
     private val serverStore: ServerStore,
     private val tokenStore: TokenStore,
     private val apiFactory: ApiFactory,
+    private val widgetRefresher: WidgetRefresher = NoopWidgetRefresher,
 ) {
     private val _session = MutableStateFlow<Session>(Session.Loading)
     val session: StateFlow<Session> = _session.asStateFlow()
@@ -84,6 +87,8 @@ class SessionRepository @Inject constructor(
         tokenStore.clear()
         if (record != null) serverStore.write(record.copy(tokenId = null))
         _session.value = Session.SignedOut(record?.serverUrl ?: (current as? Session.SignedIn)?.serverUrl ?: "", record?.username)
+        // A placed widget must not keep showing the account's data past the moment it signs out.
+        widgetRefresher.requestImmediateRefresh()
     }
 
     /**
@@ -111,6 +116,7 @@ class SessionRepository @Inject constructor(
         tokenStore.clear()
         if (record != null) serverStore.write(record.copy(tokenId = null))
         _session.value = Session.SignedOut(record?.serverUrl ?: "", record?.username, reason = "unauthorized")
+        widgetRefresher.requestImmediateRefresh()
     }
 
     /** Forget the server too: back to the first-run screen. */

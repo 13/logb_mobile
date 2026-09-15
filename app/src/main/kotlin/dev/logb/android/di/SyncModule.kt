@@ -16,6 +16,7 @@ import dev.logb.android.core.sync.PullEngine
 import dev.logb.android.core.sync.PushEngine
 import dev.logb.android.core.sync.SyncManager
 import dev.logb.android.core.sync.SyncRunner
+import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,7 +43,16 @@ object SyncModule {
 
     @Provides
     @Singleton
-    fun syncManager(sessions: SessionRepository, connectivity: ConnectivityMonitor, accounts: ActiveAccount, scope: CoroutineScope, blobs: BlobStore, blobPrefs: BlobPrefs, capabilities: ServerCapabilities): SyncManager =
+    fun syncManager(
+        sessions: SessionRepository,
+        connectivity: ConnectivityMonitor,
+        accounts: ActiveAccount,
+        scope: CoroutineScope,
+        blobs: BlobStore,
+        blobPrefs: BlobPrefs,
+        capabilities: ServerCapabilities,
+        widgetRefresher: WidgetRefresher,
+    ): SyncManager =
         SyncManager(
             sessions = sessions,
             connectivity = connectivity,
@@ -63,5 +73,6 @@ object SyncModule {
             },
             scope = scope,
             pendingCount = { accounts.signedIn?.let { accounts.db.opDao().pending().size } ?: 0 },
+            widgetRefresh = { widgetRefresher.requestRefresh() },
         )
 }
