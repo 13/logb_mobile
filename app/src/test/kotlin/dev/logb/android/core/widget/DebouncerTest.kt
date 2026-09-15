@@ -55,4 +55,18 @@ class DebouncerTest {
         advanceTimeBy(600)
         assertEquals(1, runs, "the cancelled debounced request must never fire, even once its delay elapses")
     }
+
+    @Test
+    fun `a request right behind requestNow never cancels the immediate run`() = runTest {
+        var runs = 0
+        val d = Debouncer(backgroundScope, 500) { runs++ }
+
+        d.requestNow()
+        d.request() // the privacy-sensitive immediate run must not be cancelled by this
+        runCurrent()
+        assertEquals(1, runs, "the immediate run must still have happened")
+
+        advanceTimeBy(501)
+        assertEquals(2, runs, "and the debounced one follows on its own delay")
+    }
 }
