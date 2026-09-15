@@ -124,6 +124,19 @@ class UpdateRepositoryTest {
         assertArrayEquals(payload, (repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last() as DownloadProgress.Done).file.readBytes())
     }
 
+    @Test fun `a release asset name cannot steer the download outside the cache directory`() = runTest {
+        val escapee = GitHubRelease(
+            tagName = "v0.8.0",
+            htmlUrl = "https://github.com/13/logb_mobile/releases/tag/v0.8.0",
+            assets = listOf(GitHubAsset("../escape.apk", payload.size.toLong(), "https://example.invalid/a.apk", "sha256:$payloadSha")),
+        )
+        val repo = repository(FakeGitHub { escapee })
+        val done = repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last() as DownloadProgress.Done
+        val target = File(context.cacheDir, "updates/update.apk")
+        assertEquals(target.canonicalPath, done.file.canonicalPath)
+        assertFalse(File(context.cacheDir, "escape.apk").exists())
+    }
+
     @Test fun `a download that cannot reach the server fails`() = runTest {
         val repo = repository(FakeGitHub { release("v0.8.0") }, httpServing(body = null))
         assertEquals(DownloadProgress.Failed(UpdateFailure.NETWORK), repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last())

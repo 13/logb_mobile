@@ -95,7 +95,7 @@ class UpdateRepository @Inject constructor(
      * not match its checksum, is deleted rather than offered.
      */
     fun download(update: UpdateCheck.Available): Flow<DownloadProgress> = flow {
-        val target = File(cacheDir, update.asset.name)
+        val target = File(cacheDir, APK_NAME)
         if (!cacheDir.isDirectory && !cacheDir.mkdirs()) {
             emit(DownloadProgress.Failed(UpdateFailure.STORAGE))
             return@flow
@@ -185,6 +185,7 @@ class UpdateRepository @Inject constructor(
 
     private companion object {
         const val DIR_NAME = "updates"
+        const val APK_NAME = "update.apk"
         const val BUFFER_BYTES = 64 * 1024
         const val PROGRESS_STEP_BYTES = 128 * 1024L
     }
