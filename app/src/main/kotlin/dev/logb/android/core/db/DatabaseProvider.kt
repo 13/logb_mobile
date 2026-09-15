@@ -21,6 +21,7 @@ class DatabaseProvider @Inject constructor(@ApplicationContext private val conte
         Room.databaseBuilder(context, LogbDatabase::class.java, fileName(serverUrl, userId))
             .setDriver(BundledSQLiteDriver())
             .setQueryCoroutineContext(Dispatchers.IO)
+            .addMigrations(*Migrations.ALL)
             .build()
 
     fun delete(serverUrl: String, userId: Long): Boolean = context.deleteDatabase(fileName(serverUrl, userId))

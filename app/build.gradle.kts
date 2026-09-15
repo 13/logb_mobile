@@ -12,8 +12,8 @@ plugins {
 }
 
 // The release workflow stamps the git tag in with -PversionName / -PversionCode.
-val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.7.1")
-val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(701)
+val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.8.0")
+val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(800)
 
 // A real signing key, when one exists: the user's global ANDROID_KEYSTORE* variables (CI exports
 // the same names from secrets), or an untracked keystore/keystore.properties. Without either,
@@ -120,6 +120,11 @@ android {
     packaging {
         resources.excludes += setOf("META-INF/AL2.0", "META-INF/LGPL2.1")
     }
+
+    // The migration test reads the exported schemas as assets. AGP 9's local (Robolectric) unit
+    // tests read assets through the "debug" variant's merged assets, not a "test" source set
+    // (there is no separate merged-assets output for unit tests) — so the schemas go on "debug".
+    sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
 }
 
 kotlin {

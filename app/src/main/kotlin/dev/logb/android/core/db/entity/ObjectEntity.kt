@@ -30,4 +30,6 @@ data class ObjectEntity(
     @ColumnInfo(name = "created_at") val createdAt: String,
     @ColumnInfo(name = "updated_at") val updatedAt: String,
     @ColumnInfo(name = "deleted_at") val deletedAt: String?,
+    /** JSON array text, as the server stores it (`domain::tags`). */
+    @ColumnInfo(name = "tags", defaultValue = "[]") val tags: String = "[]",
 )

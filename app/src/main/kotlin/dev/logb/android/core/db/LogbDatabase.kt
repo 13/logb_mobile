@@ -8,6 +8,7 @@ import dev.logb.android.core.db.dao.BlobDao
 import dev.logb.android.core.db.dao.FieldClockDao
 import dev.logb.android.core.db.dao.FileDao
 import dev.logb.android.core.db.dao.ObjectDao
+import dev.logb.android.core.db.dao.ObjectTypeDao
 import dev.logb.android.core.db.dao.OpDao
 import dev.logb.android.core.db.dao.ReminderDao
 import dev.logb.android.core.db.dao.SearchDao
@@ -18,6 +19,7 @@ import dev.logb.android.core.db.entity.BlobEntity
 import dev.logb.android.core.db.entity.FieldClockEntity
 import dev.logb.android.core.db.entity.FileEntity
 import dev.logb.android.core.db.entity.ObjectEntity
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.OpEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.db.entity.SyncStateEntity
@@ -26,9 +28,9 @@ import dev.logb.android.core.db.entity.SyncStateEntity
 @Database(
     entities = [
         ObjectEntity::class, ActivityEntity::class, AttachmentEntity::class, FileEntity::class, ReminderEntity::class,
-        OpEntity::class, SyncStateEntity::class, FieldClockEntity::class, BlobEntity::class,
+        OpEntity::class, SyncStateEntity::class, FieldClockEntity::class, BlobEntity::class, ObjectTypeEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class LogbDatabase : RoomDatabase() {
@@ -42,4 +44,5 @@ abstract class LogbDatabase : RoomDatabase() {
     abstract fun fieldClockDao(): FieldClockDao
     abstract fun blobDao(): BlobDao
     abstract fun searchDao(): SearchDao
+    abstract fun objectTypeDao(): ObjectTypeDao
 }
