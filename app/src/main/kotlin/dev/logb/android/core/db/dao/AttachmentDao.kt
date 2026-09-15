@@ -49,13 +49,14 @@ interface AttachmentDao {
     /**
      * Every live object's cover sha at once, matching the per-object lookup
      * (`attachmentDao().get()?.takeIf { deletedAt == null }` then `fileDao().get()?.sha256?.takeIf { isNotBlank() }`):
-     * an object with no cover, a deleted cover attachment, or a blank sha is simply absent.
+     * an object with no cover, a deleted cover attachment, or a blank (including whitespace-only,
+     * as Kotlin's `isNotBlank()` treats it) sha is simply absent.
      */
     @Query(
         """SELECT o.uuid AS objectUuid, f.sha256 AS sha256 FROM objects o
            JOIN attachments t ON t.uuid = o.cover_attachment_uuid AND t.deleted_at IS NULL
            JOIN files f ON f.uuid = t.file_uuid
-           WHERE o.deleted_at IS NULL AND f.sha256 != ''""",
+           WHERE o.deleted_at IS NULL AND TRIM(f.sha256) != ''""",
     )
     suspend fun coverShas(): List<CoverRow>
 }

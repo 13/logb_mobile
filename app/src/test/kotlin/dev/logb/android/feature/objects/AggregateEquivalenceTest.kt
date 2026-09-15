@@ -71,6 +71,23 @@ class AggregateEquivalenceTest {
         // what this asserts is that the count is fixed, not that it is small.
         assertEquals(6, large, "allCards ran $large queries")
     }
+
+    @Test
+    fun `due list query count does not grow with the number of objects`() = runBlocking {
+        val small = countQueries { seed(it, objects = 5); DueListModel(it).items().first() }
+        val large = countQueries { seed(it, objects = 200); DueListModel(it).items().first() }
+        assertEquals(small, large)
+        // allOpen() (the source flow) + objectDao().all() + statsForAll() + readingRowsForAll() = 4.
+        assertEquals(4, large, "items ran $large queries")
+    }
+
+    @Test
+    fun `totalDue from the aggregate equals the sum of the per-object due counts`() = runBlocking {
+        seed(db, objects = 30)
+        val today = LocalDate.parse("2026-09-15")
+        val expected = legacyTotalDue(db, today) // the pre-change ObjectsModel.totalDue body, copied into this test verbatim
+        assertEquals(expected, ObjectsModel(db) { today }.totalDue().first())
+    }
 }
 
 // --- Seed: a tree of objects with every edge the equivalence test must cover ---
@@ -99,10 +116,12 @@ private suspend fun seed(db: LogbDatabase, objects: Int) {
     }
     db.objectDao().upsert(*objs.toTypedArray())
 
-    if (objects >= 3) {
+    if (objects >= 4) {
         db.fileDao().upsert(
             FileEntity("file-good", null, "sha-good", "photo.jpg", "image/jpeg", 100, null, null, null, T0, null),
             FileEntity("file-blank", null, "", "photo2.jpg", "image/jpeg", 100, null, null, null, T0, null),
+            // whitespace-only, not the empty string: `isNotBlank()` (and now `TRIM(...) != ''`) treat it as blank too
+            FileEntity("file-whitespace", null, "   ", "photo3.jpg", "image/jpeg", 100, null, null, null, T0, null),
         )
         db.attachmentDao().upsert(
             AttachmentEntity("att-good", null, "obj-0", null, "file-good", "photo", "", T0, null),
@@ -110,11 +129,14 @@ private suspend fun seed(db: LogbDatabase, objects: Int) {
             AttachmentEntity("att-deleted", null, "obj-1", null, "file-good", "photo", "", T0, T0),
             // a cover whose file has a blank sha
             AttachmentEntity("att-blank", null, "obj-2", null, "file-blank", "photo", "", T0, null),
+            // a cover whose file has a whitespace-only sha
+            AttachmentEntity("att-whitespace", null, "obj-3", null, "file-whitespace", "photo", "", T0, null),
         )
         db.objectDao().upsert(
             objs[0].copy(coverAttachmentUuid = "att-good"),
             objs[1].copy(coverAttachmentUuid = "att-deleted"),
             objs[2].copy(coverAttachmentUuid = "att-blank"),
+            objs[3].copy(coverAttachmentUuid = "att-whitespace"),
         )
     }
 
@@ -138,6 +160,9 @@ private suspend fun seed(db: LogbDatabase, objects: Int) {
         reminders += rem("rem-$i-snoozed", id, dueDate = "2026-09-16").copy(snoozedUntil = "2026-10-01")
         reminders += rem("rem-$i-done", id, dueDate = "2020-01-01", doneAt = T0)
         reminders += rem("rem-$i-reading", id, dueDate = "2026-01-01").copy(kind = "reading", everyN = 1, everyUnit = "month")
+        // genuinely due (by date, already past), on every object -- including those with readings --
+        // so a due count actually depends on the batched stats, not just structurally passes on zeros
+        reminders += rem("rem-$i-due-now", id, dueDate = "2026-09-01")
     }
     db.reminderDao().upsert(*reminders.toTypedArray())
     // When called from countQueries, zero the counter now: only the queries the model itself
@@ -167,6 +192,15 @@ private suspend fun legacyCards(db: LogbDatabase, today: LocalDate): List<Object
 private fun legacyDueCount(open: List<ReminderEntity>, currentCounter: Long?, lastReadingDate: String?, today: LocalDate): Int {
     val lastReading = ReminderPresenter.clampLastReading(lastReadingDate, today)
     return open.count { ReminderPresenter.present(it, currentCounter, lastReading, today).due }
+}
+
+/** The pre-change `ObjectsModel.totalDue` body, verbatim. */
+private suspend fun legacyTotalDue(db: LogbDatabase, today: LocalDate): Int {
+    val open = db.reminderDao().allOpen().first()
+    return open.groupBy { it.objectUuid }.entries.sumOf { (objectUuid, rs) ->
+        val stats = db.objectDao().stats(objectUuid)
+        legacyDueCount(rs, stats.currentCounter, stats.lastReadingDate, today)
+    }
 }
 
 private suspend fun legacyDue(db: LogbDatabase, today: LocalDate, withinDays: Long): List<DueItem> {
