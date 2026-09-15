@@ -8,8 +8,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -58,10 +61,16 @@ sealed interface UpdateUiState {
 class UpdateViewModel @Inject constructor(
     private val repository: UpdateRepository,
     private val installer: ApkInstaller,
+    private val prefs: UpdatePrefsStore,
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
     val state: StateFlow<UpdateUiState> = mutableState.asStateFlow()
+
+    val autoCheck: StateFlow<Boolean> = prefs.settings.map { it.autoCheck }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setAutoCheck(enabled: Boolean) { viewModelScope.launch { prefs.setAutoCheck(enabled) } }
 
     /** What the last check found, kept so the download does not have to rebuild it from the UI. */
     private var available: UpdateCheck.Available? = null
@@ -90,7 +99,9 @@ class UpdateViewModel @Inject constructor(
         ready = null
         mutableState.value = UpdateUiState.Checking
         work = viewModelScope.launch {
-            mutableState.value = when (val result = repository.check()) {
+            val result = repository.check()
+            prefs.record(result, System.currentTimeMillis())
+            mutableState.value = when (result) {
                 UpdateCheck.UpToDate -> UpdateUiState.UpToDate
                 is UpdateCheck.Failed -> UpdateUiState.Failed(result.failure, result.releaseUrl)
                 is UpdateCheck.Available -> {

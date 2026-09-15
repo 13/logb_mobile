@@ -47,4 +47,7 @@ object UpdateModule {
 
     @Provides
     fun apkSignatures(impl: PackageManagerApkSignatures): ApkSignatures = impl
+
+    @Provides
+    fun updatePrefs(impl: UpdatePrefs): UpdatePrefsStore = impl
 }

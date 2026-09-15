@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -61,6 +62,7 @@ class SettingsViewModel @Inject constructor(
     private val notificationPrefs: NotificationPrefs,
     private val lockPrefs: LockPrefs,
     private val serverCapabilities: ServerCapabilities,
+    private val updatePrefs: dev.logb.android.feature.update.UpdatePrefsStore,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
 ) : ViewModel() {
     private val usage = kotlinx.coroutines.flow.MutableStateFlow(0L)
@@ -90,6 +92,11 @@ class SettingsViewModel @Inject constructor(
             serverUrl = (s.session as? Session.SignedIn)?.serverUrl, serverVersion = version, capabilities = caps,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AboutInfo(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_DATE, BuildConfig.GIT_HASH, BuildConfig.DEBUG, releaseKey, null, null, Capabilities.NONE))
+
+    /** A newer release the last check found, as a version name; null when none or already installed. */
+    val updateAvailable: StateFlow<String?> = updatePrefs.settings
+        .map { dev.logb.android.feature.update.UpdateAutoCheck.newerThanInstalled(it.available, BuildConfig.VERSION_NAME) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { prefs.setTheme(mode) }
 

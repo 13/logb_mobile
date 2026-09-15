@@ -405,4 +405,7 @@
     <string name="update_install_failed">Install failed: %1$s</string>
     <string name="update_install_failed_unknown">Install failed</string>
     <string name="update_retry">Try again</string>
+    <string name="update_auto">Check once a day</string>
+    <string name="update_auto_hint">Asks api.github.com, the only request that does not go to your LogB server</string>
+    <string name="update_hub_available">%1$s · %2$s available</string>
 </resources>

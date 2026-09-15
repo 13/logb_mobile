@@ -3,18 +3,24 @@ package dev.logb.android.feature.update
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -29,6 +35,7 @@ import java.util.Locale
 @Composable
 fun UpdateSection(modifier: Modifier = Modifier, viewModel: UpdateViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val autoCheck by viewModel.autoCheck.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // The install permission is granted in the system's settings, so the row has to look again
     // once the app is back in front of the user.
@@ -36,16 +43,28 @@ fun UpdateSection(modifier: Modifier = Modifier, viewModel: UpdateViewModel = hi
         viewModel.onResumed()
         onPauseOrDispose {}
     }
-    UpdateRow(
-        state = state,
-        onCheck = viewModel::check,
-        onDownload = viewModel::download,
-        onInstall = viewModel::install,
-        onGrantPermission = { context.startActivity(viewModel.unknownSourcesIntent()) },
-        onRetryInstall = viewModel::retryInstall,
-        onOpenReleasePage = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
-        modifier = modifier,
-    )
+    Column(modifier) {
+        Row(
+            Modifier.fillMaxWidth().toggleable(value = autoCheck, role = Role.Switch, onValueChange = viewModel::setAutoCheck).padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.update_auto), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.update_auto_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // The row is the toggle (Modifier.toggleable); the switch only shows the state.
+            Switch(checked = autoCheck, onCheckedChange = null)
+        }
+        UpdateRow(
+            state = state,
+            onCheck = viewModel::check,
+            onDownload = viewModel::download,
+            onInstall = viewModel::install,
+            onGrantPermission = { context.startActivity(viewModel.unknownSourcesIntent()) },
+            onRetryInstall = viewModel::retryInstall,
+            onOpenReleasePage = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
+        )
+    }
 }
 
 /** The row itself, with every decision hoisted out, so its states can be driven from a test. */

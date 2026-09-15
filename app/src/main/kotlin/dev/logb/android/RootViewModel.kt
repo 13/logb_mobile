@@ -24,7 +24,7 @@ import javax.inject.Inject
 /** Restores the session once at start-up and exposes it, plus whether the mirror still needs its first snapshot. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class RootViewModel @Inject constructor(private val sessions: SessionRepository, private val accounts: ActiveAccount, prefs: AppearancePrefs, private val lockPrefs: LockPrefs, private val capabilities: dev.logb.android.core.server.ServerCapabilities) : ViewModel() {
+class RootViewModel @Inject constructor(private val sessions: SessionRepository, private val accounts: ActiveAccount, prefs: AppearancePrefs, private val lockPrefs: LockPrefs, private val capabilities: dev.logb.android.core.server.ServerCapabilities, private val updateAutoCheck: dev.logb.android.feature.update.UpdateAutoCheck) : ViewModel() {
     val session: StateFlow<Session> = sessions.session
     val appearance: StateFlow<Appearance> = prefs.appearance.stateIn(viewModelScope, SharingStarted.Eagerly, Appearance())
 
@@ -56,6 +56,8 @@ class RootViewModel @Inject constructor(private val sessions: SessionRepository,
 
     init {
         viewModelScope.launch { sessions.restore(); capabilities.load() }
+        // Independent of the restore above, so a slow GitHub never delays it.
+        viewModelScope.launch { updateAutoCheck.runIfDue() }
     }
 
     fun signOut() = viewModelScope.launch { sessions.signOut() }

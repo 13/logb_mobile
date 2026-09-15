@@ -90,12 +90,13 @@ private fun syncValueLabel(status: SyncStatus): String? = when (status) {
 @Composable
 fun SettingsHubScreen(onOpen: (SettingsPage) -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    SettingsHubContent(state, onOpen)
+    val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
+    SettingsHubContent(state, onOpen, updateAvailable)
 }
 
 /** The hub without its view model. */
 @Composable
-fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit) {
+fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit, updateAvailable: String? = null) {
     val language = currentLocale().language
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_settings))
@@ -112,6 +113,7 @@ fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit) {
                 SettingsPage.Appearance -> "${themeLabel(state.appearance.theme)} · ${language.uppercase()}"
                 SettingsPage.Sync -> if (state.deadOps.isNotEmpty()) pluralStringResource(R.plurals.sync_could_not_save, state.deadOps.size, state.deadOps.size) else syncValueLabel(state.sync)
                 SettingsPage.Notifications -> if (state.notifications.enabled) stringResource(R.string.notify_daily_at, state.notifications.time) else stringResource(R.string.off)
+                SettingsPage.About -> updateAvailable?.let { stringResource(R.string.update_hub_available, row.value.orEmpty(), it) } ?: row.value
                 else -> row.value
             }
             HubRow(icon, stringResource(title), value) { onOpen(row.page) }
