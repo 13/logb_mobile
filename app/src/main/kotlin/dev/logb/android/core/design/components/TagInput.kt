@@ -18,7 +18,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,8 +34,8 @@ import dev.logb.android.core.domain.Tags
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TagInput(tags: List<String>, onTags: (List<String>) -> Unit, suggestions: List<TagCount>, modifier: Modifier = Modifier) {
-    var text by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<TagError?>(null) }
+    var text by rememberSaveable { mutableStateOf("") }
+    var error by rememberSaveable { mutableStateOf<TagError?>(null) }
     fun add(raw: String) {
         when (val r = Tags.addTag(tags, raw)) {
             is AddResult.Added -> { onTags(r.tags); text = ""; error = null }
