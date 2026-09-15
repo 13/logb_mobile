@@ -169,8 +169,12 @@ class UpdateRepository @Inject constructor(
         }
         // After the checksum, before the installer: a wrong key would otherwise surface as the
         // platform's INSTALL_FAILED_UPDATE_INCOMPATIBLE after the user has already confirmed.
-        val signers = signatures.ofArchive(target)
-        if (signers == null || signers != signatures.installed()) {
+        // Either reader can throw (a corrupt archive, a PackageManager hiccup); a signer that
+        // cannot be read is treated the same as one that does not match, never as a crash.
+        val signers = runCatching { signatures.ofArchive(target) }.getOrNull()
+        val installedSigners = runCatching { signatures.installed() }.getOrNull()
+        if (signers == null || installedSigners == null || signers != installedSigners) {
+            currentCoroutineContext().ensureActive()
             target.delete()
             emit(DownloadProgress.Failed(UpdateFailure.SIGNATURE_MISMATCH))
             return@flow

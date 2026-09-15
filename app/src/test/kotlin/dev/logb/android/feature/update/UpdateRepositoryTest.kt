@@ -42,6 +42,16 @@ class UpdateRepositoryTest {
         override fun ofArchive(file: File): Set<String>? = archive
     }
 
+    private class ThrowingArchiveSignatures(private val installed: Set<String>) : ApkSignatures {
+        override fun installed(): Set<String> = installed
+        override fun ofArchive(file: File): Set<String>? = throw RuntimeException("cannot read archive signers")
+    }
+
+    private class ThrowingInstalledSignatures(private val archive: Set<String>?) : ApkSignatures {
+        override fun installed(): Set<String> = throw RuntimeException("cannot read installed signers")
+        override fun ofArchive(file: File): Set<String>? = archive
+    }
+
     private fun release(tag: String, digest: String? = "sha256:$payloadSha", withApk: Boolean = true, size: Long = payload.size.toLong()) =
         GitHubRelease(
             tagName = tag,
@@ -106,6 +116,19 @@ class UpdateRepositoryTest {
     @Test fun `a download whose signers cannot be read fails as a signature mismatch`() = runTest {
         val repo = repository(FakeGitHub { release("v0.8.0") }, archiveSigners = null)
         assertEquals(DownloadProgress.Failed(UpdateFailure.SIGNATURE_MISMATCH), repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last())
+        assertTrue(cacheFiles().isEmpty())
+    }
+
+    @Test fun `a download whose archive signature reader throws fails as a signature mismatch`() = runTest {
+        val repo = UpdateRepository(FakeGitHub { release("v0.8.0") }, httpServing(), context, ThrowingArchiveSignatures(releaseKey))
+        assertEquals(DownloadProgress.Failed(UpdateFailure.SIGNATURE_MISMATCH), repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last())
+        assertTrue(cacheFiles().isEmpty())
+    }
+
+    @Test fun `a download whose installed signature reader throws fails as a signature mismatch`() = runTest {
+        val repo = UpdateRepository(FakeGitHub { release("v0.8.0") }, httpServing(), context, ThrowingInstalledSignatures(releaseKey))
+        assertEquals(DownloadProgress.Failed(UpdateFailure.SIGNATURE_MISMATCH), repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last())
+        assertTrue(cacheFiles().isEmpty())
     }
 
     @Test fun `a release without a checksum downloads unverified`() = runTest {
