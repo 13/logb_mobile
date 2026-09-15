@@ -87,6 +87,36 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `a failed health check at sign-in keeps the known server version`() = runTest {
+        val base = server.url("/").toString()
+        serverStore.write(ServerRecord(base, serverVersion = "0.8.0"))
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("", code = 500))
+
+        assertTrue(repo.signIn(base, "ben", "correct horse").isSuccess)
+
+        assertEquals("0.8.0", serverStore.read()!!.serverVersion)
+    }
+
+    @Test
+    fun `a blank health version with no prior record stores null`() = runTest {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("""{"status":"ok","version":""}"""))
+
+        assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
+
+        assertNull(serverStore.read()!!.serverVersion)
+    }
+
+    @Test
     fun `a wrong password surfaces the servers message and stores nothing`() = runTest {
         server.enqueue(json("""{"error":"unauthorized","message":"wrong username or password"}""", code = 401))
         val r = repo.signIn(server.url("/").toString(), "ben", "nope")

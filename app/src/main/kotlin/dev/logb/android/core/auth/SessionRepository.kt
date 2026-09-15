@@ -64,7 +64,8 @@ class SessionRepository @Inject constructor(
         val bearerApi = apiFactory.create(base, { minted.token }, null)
         val me = bearerApi.me()
         val currency = runCatching { bearerApi.settings().currency }.getOrDefault("EUR")
-        val serverVersion = runCatching { bearerApi.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() }
+        val fetchedVersion = runCatching { bearerApi.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() }
+        val serverVersion = fetchedVersion ?: serverStore.read()?.takeIf { it.serverUrl == base }?.serverVersion
         tokenStore.write(minted.token)
         serverStore.write(ServerRecord(base, me.id, me.username, minted.id, currency, serverVersion))
         _session.value = Session.SignedIn(base, me, minted.token, currency)
