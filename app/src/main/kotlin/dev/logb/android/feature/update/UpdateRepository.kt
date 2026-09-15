@@ -139,8 +139,10 @@ class UpdateRepository @Inject constructor(
                     }
                 }
             }.getOrElse { error ->
-                currentCoroutineContext().ensureActive()
+                // Deleted before the cancellation check rethrows: a partial file must never
+                // survive a cancelled download any more than a failed one.
                 target.delete()
+                currentCoroutineContext().ensureActive()
                 emit(DownloadProgress.Failed(if (error is java.io.IOException && error !is java.io.FileNotFoundException) UpdateFailure.NETWORK else UpdateFailure.STORAGE))
                 return@flow
             }

@@ -1,13 +1,22 @@
 package dev.logb.android.feature.update
 
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okio.Buffer
+import okio.Source
+import okio.Timeout
+import okio.buffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,6 +40,27 @@ class UpdateRepositoryTest {
             if (body == null) throw IOException("no route to host")
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("ok")
                 .body(body.toResponseBody("application/vnd.android.package-archive".toMediaType())).build()
+        }.build()
+
+    /** A source that hands over a few kilobytes at a time with a short sleep between reads, so a
+     * download of it can be cancelled mid-stream instead of finishing before the test reacts. */
+    private class SlowSource(private val delegate: Buffer, private val delayMs: Long) : Source {
+        override fun read(sink: Buffer, byteCount: Long): Long {
+            Thread.sleep(delayMs)
+            return delegate.read(sink, byteCount.coerceAtMost(8 * 1024L))
+        }
+        override fun timeout(): Timeout = Timeout.NONE
+        override fun close() {}
+    }
+
+    private fun httpServingSlowly(body: ByteArray, delayMs: Long = 2): OkHttpClient =
+        OkHttpClient.Builder().addInterceptor { chain ->
+            val slowBody = object : ResponseBody() {
+                override fun contentType() = "application/vnd.android.package-archive".toMediaType()
+                override fun contentLength() = body.size.toLong()
+                override fun source() = SlowSource(Buffer().apply { write(body) }, delayMs).buffer()
+            }
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("ok").body(slowBody).build()
         }.build()
 
     private class FakeGitHub(private val answer: () -> GitHubRelease) : GitHubApi {
@@ -163,6 +193,21 @@ class UpdateRepositoryTest {
     @Test fun `a download that cannot reach the server fails`() = runTest {
         val repo = repository(FakeGitHub { release("v0.8.0") }, httpServing(body = null))
         assertEquals(DownloadProgress.Failed(UpdateFailure.NETWORK), repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last())
+    }
+
+    @Test fun `a cancelled download removes its partial file`() = runTest {
+        val big = ByteArray(2_000_000) { (it % 251).toByte() }
+        val repo = repository(FakeGitHub { release("v0.8.0", digest = null, size = big.size.toLong()) }, httpServingSlowly(big))
+        val available = repo.check("0.7.1") as UpdateCheck.Available
+        val startedDownloading = CompletableDeferred<Unit>()
+        val job = launch(Dispatchers.IO) {
+            repo.download(available).collect {
+                if (it is DownloadProgress.Running && it.bytes > 0) startedDownloading.complete(Unit)
+            }
+        }
+        startedDownloading.await()
+        job.cancelAndJoin()
+        assertTrue(cacheFiles().isEmpty())
     }
 
     @Test fun `checking clears whatever the last attempt left behind`() = runTest {
