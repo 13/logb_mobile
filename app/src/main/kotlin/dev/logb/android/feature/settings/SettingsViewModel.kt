@@ -158,6 +158,10 @@ class SettingsViewModel @Inject constructor(
 
     val capabilities: StateFlow<Capabilities> = serverCapabilities.current
 
+    /** Whether Settings › Types should show, per the signed-in server's capabilities. */
+    val showTypes: StateFlow<Boolean> = serverCapabilities.current.map { it.ownTypes }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Null on success, else the server's reason. */
     fun changePassword(newPassword: String, onResult: (String?) -> Unit) = viewModelScope.launch {
         onResult(sessions.changePassword(newPassword).exceptionOrNull()?.message)

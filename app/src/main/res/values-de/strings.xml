@@ -110,6 +110,7 @@
     <string name="settings_appearance">Darstellung</string>
     <string name="settings_account">Konto</string>
     <string name="settings_sync">Synchronisation</string>
+    <string name="settings_types">Typen</string>
     <string name="settings_about">Über</string>
     <string name="theme">Design</string>
     <string name="theme_system">System</string>
@@ -209,6 +210,32 @@
     <string name="type_body">Körper</string>
     <string name="type_other">Sonstiges</string>
     <string name="types_unknown">Unbekannter Typ</string>
+    <!-- Own types (web: settings.types, types.*, icon.*) -->
+    <string name="types_built_in">Eingebaute Typen</string>
+    <string name="types_yours">Eigene Typen</string>
+    <string name="types_add">Typ hinzufügen</string>
+    <string name="types_name">Name</string>
+    <string name="types_icon">Symbol</string>
+    <string name="types_categories">Eintragskategorien</string>
+    <string name="types_unit">Standard-Zählereinheit</string>
+    <string name="types_unit_none">Keine</string>
+    <string name="types_save">Typ speichern</string>
+    <string name="types_delete">Löschen</string>
+    <plurals name="types_in_use">
+        <item quantity="one">Von 1 Objekt verwendet — ändere zuerst dessen Typ.</item>
+        <item quantity="other">Von %d Objekten verwendet — ändere zuerst deren Typ.</item>
+    </plurals>
+    <string name="types_edit_named">%1$s bearbeiten</string>
+    <string name="types_delete_named">%1$s löschen</string>
+    <string name="types_error_name_taken">Du hast schon einen Typ mit diesem Namen.</string>
+    <string name="types_error_name_invalid">Ein Name braucht 1 bis 40 Zeichen.</string>
+    <string name="types_error_icon_invalid">Wähle eines der angezeigten Symbole.</string>
+    <string name="types_error_categories_invalid">Wähle mindestens eine der angezeigten Kategorien.</string>
+    <string name="types_error_unit_invalid">Wähle km, mi, h oder keine als Zählereinheit.</string>
+    <string name="types_empty">Du hast noch keine eigenen Typen.</string>
+    <string name="icon_document">Dokument</string>
+    <string name="icon_camera">Kamera</string>
+    <string name="icon_object">Würfel</string>
     <string name="entry_new">Eintrag erfassen</string>
     <string name="entry_edit">Eintrag bearbeiten</string>
     <string name="reading_new">Zählerstand erfassen</string>

@@ -14,6 +14,7 @@ import dev.logb.android.core.network.dto.User
 import dev.logb.android.core.db.model.Bucket
 import dev.logb.android.core.db.rem
 import dev.logb.android.core.design.theme.LogbTheme
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.domain.Insights
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.SpendStats
@@ -36,6 +37,10 @@ import dev.logb.android.feature.stats.InsightsSection
 import dev.logb.android.feature.stats.ObjectInsights
 import dev.logb.android.feature.stats.StatsContent
 import dev.logb.android.feature.stats.StatsUiState
+import dev.logb.android.feature.types.TypeForm
+import dev.logb.android.feature.types.TypeRow
+import dev.logb.android.feature.types.TypesContent
+import dev.logb.android.feature.types.TypesUiState
 import dev.logb.android.feature.update.AppVersion
 import dev.logb.android.feature.update.UpdateRow
 import dev.logb.android.feature.update.UpdateUiState
@@ -144,6 +149,20 @@ class ScreensScreenshotTest {
                     onCheck = {}, onDownload = {}, onInstall = {}, onGrantPermission = {}, onRetryInstall = {}, onOpenReleasePage = {},
                 )
             },
+        )
+    }
+
+    @Test fun types() = capture("types") {
+        TypesContent(TypesUiState(rows = listOf(TypeRow(ObjectTypeEntity("u1", 1, "Boat", "tool", """["repair","fuel","other"]""", "h", "t", "t", null), 0))), onEdit = {}, onNew = {}, onSave = {}, onCancel = {}, onDelete = {}, onFormChange = {}, onBack = {})
+    }
+
+    @Test fun typesForm() = capture("types_form") {
+        TypesContent(
+            TypesUiState(
+                rows = listOf(TypeRow(ObjectTypeEntity("u1", 1, "Boat", "tool", """["repair","fuel","other"]""", "h", "t", "t", null), 0)),
+                form = TypeForm("u1", "Boat", "tool", listOf("repair", "fuel", "other"), "h"),
+            ),
+            onEdit = {}, onNew = {}, onSave = {}, onCancel = {}, onDelete = {}, onFormChange = {}, onBack = {},
         )
     }
 }

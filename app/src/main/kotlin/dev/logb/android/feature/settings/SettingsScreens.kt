@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
@@ -91,22 +92,24 @@ private fun syncValueLabel(status: SyncStatus): String? = when (status) {
 fun SettingsHubScreen(onOpen: (SettingsPage) -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
-    SettingsHubContent(state, onOpen, updateAvailable)
+    val showTypes by viewModel.showTypes.collectAsStateWithLifecycle()
+    SettingsHubContent(state, onOpen, updateAvailable, showTypes)
 }
 
 /** The hub without its view model. */
 @Composable
-fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit, updateAvailable: String? = null) {
+fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit, updateAvailable: String? = null, showTypes: Boolean = false) {
     val language = currentLocale().language
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_settings))
-        val rows = settingsRows(state.session, state.appearance, state.sync, language, state.version, failed = state.deadOps.size)
+        val rows = settingsRows(state.session, state.appearance, state.sync, language, state.version, failed = state.deadOps.size, showTypes = showTypes)
         rows.forEach { row ->
             val (title, icon) = when (row.page) {
                 SettingsPage.Appearance -> R.string.settings_appearance to Icons.Outlined.Palette
                 SettingsPage.Account -> R.string.settings_account to Icons.Outlined.Person
                 SettingsPage.Sync -> R.string.settings_sync to Icons.Outlined.Sync
                 SettingsPage.Notifications -> R.string.settings_notifications to Icons.Outlined.Notifications
+                SettingsPage.Types -> R.string.settings_types to Icons.Outlined.Category
                 SettingsPage.About -> R.string.settings_about to Icons.Outlined.Info
             }
             val value = when (row.page) {

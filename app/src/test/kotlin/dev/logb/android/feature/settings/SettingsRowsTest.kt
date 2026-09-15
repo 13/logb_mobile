@@ -34,4 +34,10 @@ class SettingsRowsTest {
         assertNull(rows[1].value)
         assertNull(rows[2].value)
     }
+
+    @Test fun `the types row appears only when the server supports own types`() {
+        val base = settingsRows(Session.Loading, Appearance(), SyncStatus.None, "en", "0.8.0")
+        assertEquals(false, base.any { it.page == SettingsPage.Types })
+        assertEquals(true, settingsRows(Session.Loading, Appearance(), SyncStatus.None, "en", "0.8.0", showTypes = true).any { it.page == SettingsPage.Types })
+    }
 }

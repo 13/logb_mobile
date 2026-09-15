@@ -110,6 +110,7 @@
     <string name="settings_appearance">Appearance</string>
     <string name="settings_account">Account</string>
     <string name="settings_sync">Sync</string>
+    <string name="settings_types">Types</string>
     <string name="settings_about">About</string>
     <string name="theme">Theme</string>
     <string name="theme_system">System</string>
@@ -209,6 +210,32 @@
     <string name="type_body">Body</string>
     <string name="type_other">Other</string>
     <string name="types_unknown">Unknown type</string>
+    <!-- Own types (web: settings.types, types.*, icon.*) -->
+    <string name="types_built_in">Built-in types</string>
+    <string name="types_yours">Your types</string>
+    <string name="types_add">Add type</string>
+    <string name="types_name">Name</string>
+    <string name="types_icon">Icon</string>
+    <string name="types_categories">Entry categories</string>
+    <string name="types_unit">Default counter unit</string>
+    <string name="types_unit_none">None</string>
+    <string name="types_save">Save type</string>
+    <string name="types_delete">Delete</string>
+    <plurals name="types_in_use">
+        <item quantity="one">Used by 1 object — change its type first.</item>
+        <item quantity="other">Used by %d objects — change their type first.</item>
+    </plurals>
+    <string name="types_edit_named">Edit %1$s</string>
+    <string name="types_delete_named">Delete %1$s</string>
+    <string name="types_error_name_taken">You already have a type with this name.</string>
+    <string name="types_error_name_invalid">A name needs 1 to 40 characters.</string>
+    <string name="types_error_icon_invalid">Choose one of the icons shown.</string>
+    <string name="types_error_categories_invalid">Choose at least one of the categories shown.</string>
+    <string name="types_error_unit_invalid">Choose km, mi, h or none as the counter unit.</string>
+    <string name="types_empty">You have no types of your own yet.</string>
+    <string name="icon_document">Document</string>
+    <string name="icon_camera">Camera</string>
+    <string name="icon_object">Cube</string>
     <string name="entry_new">Log entry</string>
     <string name="entry_edit">Edit entry</string>
     <string name="reading_new">Log reading</string>
