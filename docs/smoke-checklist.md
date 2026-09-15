@@ -97,3 +97,14 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] `tools/release-smoke.sh <emulator serial>` passes locally on the release APK.
 - [ ] An update from 0.9.0 installs in-app.
 - [ ] Settings › About shows 0.10.0.
+
+## Release 0.11.0 (reminders outside the app)
+
+- [ ] Airplane mode on: a service reminder's notification actions still work — *Done* completes it in the app, *Snooze 7 days* hides it for a week — and the write shows as a pending change in Settings › Sync until the radio comes back.
+- [ ] A reading reminder's notification offers only *Log reading*, never *Done*; tapping it opens that object's reading form.
+- [ ] Several reminders due at once collapse into one grouped notification: a child per reminder (up to five, in digest order) plus a summary; tapping a child's body opens that object's Reminders tab.
+- [ ] Place the LogB widget on the home screen: it lists up to five due or soon-due reminders (object, title, when); tapping a row opens that reminder's object.
+- [ ] The widget's check button marks a service reminder done and the row disappears; a reading row has no check button.
+- [ ] Settings › Account: turn on *Lock with biometrics or screen lock* — the placed widget immediately drops to a bare count, with no object or reminder names visible.
+- [ ] The widget refreshes on its own right after a sync, a local write, the daily digest, midnight, toggling the lock, and signing out (no manual refresh needed); signing out shows "Open LogB to sign in" instead of stale rows.
+- [ ] With `animator_duration_scale`/`transition_animation_scale`/`window_animation_scale` at 10x: leaving an entry form slides the two screens past each other with no double exposure of the old screen, and tapping a bottom-bar tab from a screen pushed deep in a stack switches instantly, without a slide.

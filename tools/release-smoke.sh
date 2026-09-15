@@ -172,6 +172,19 @@ fi
 "${ADB[@]}" shell am broadcast -n "$PKG/$PKG.feature.update.InstallResultReceiver" -a "$PKG.INSTALL_RESULT" >/dev/null 2>&1 || true
 sleep 2
 
+echo "== checking the widget provider survived"
+# `dumpsys appwidget` lists every provider on the device as `cmp:ComponentInfo{pkg/pkg.Class}` —
+# the fully-qualified class name, not the manifest's shorthand `.feature.widget.DueWidgetReceiver` —
+# so the match has to spell the package out twice, exactly as dumpsys prints it. This is a static
+# manifest declaration (like InstallResultReceiver above): it shows up whether or not anyone has
+# ever placed the widget on a home screen, so a fresh AVD with nothing pinned still passes.
+if "${ADB[@]}" shell dumpsys appwidget 2>/dev/null | grep -q "cmp:ComponentInfo{$PKG/$PKG.feature.widget.DueWidgetReceiver}"; then
+    echo "  DueWidgetReceiver is declared"
+else
+    echo "FAIL: DueWidgetReceiver is not declared; the manifest or the provider lost it"
+    FAILED=1
+fi
+
 echo "== checking the log"
 if ! "${ADB[@]}" shell pidof "$PKG" >/dev/null; then
     echo "FAIL: the app is not running any more"

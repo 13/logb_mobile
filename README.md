@@ -53,6 +53,20 @@ displaying. Both sync both ways under the same field-level last-write-wins as ev
 and both work fully offline: a type minted on the phone gets its object key (`custom:<uuid>`)
 before ever reaching the server, and tags queue like any other field edit.
 
+## Reminders outside the app
+
+The daily notification for what is due now acts, not just informs: a service reminder's
+notification carries *Done* and *Snooze 7 days*, a reading reminder's carries *Log reading*
+only, and several due at once collapse into one grouped notification (a child per reminder, a
+summary on top). Every action works offline and queues like any other write; tapping a child's
+body opens that object's Reminders tab, and *Log reading* opens the reading form directly. A
+home-screen widget mirrors the due list -- up to five rows with a one-tap check for service
+reminders -- and refreshes itself after every sync, local write, the daily digest, midnight, and
+whenever the lock or the signed-in account changes. With the app lock enabled the widget shows
+only a count, never a name, title or object -- the same privacy the lock screen promises stays
+true for anything glanceable from the home screen -- and it says so plainly ("Open LogB to sign
+in") rather than showing stale data once signed out.
+
 ## Account settings
 
 **Settings › API access** lists every personal access token on the account, including this
