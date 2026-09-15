@@ -50,7 +50,9 @@ object Validation {
 
     fun objectDraft(d: ObjectDraft): Map<String, String> = buildMap {
         if (d.name.isBlank()) put("name", "error_required")
-        if (d.type !in ObjectTypes.ALL) put("type", "error_invalid")
+        // A local registry lookup would wrongly reject an own type deleted on the web: the
+        // object itself must stay editable, so only the key shape is checked here.
+        if (d.type !in ObjectTypes.ALL && CustomTypes.uuidOf(d.type) == null) put("type", "error_invalid")
         if (d.counterUnit != null && d.counterUnit !in COUNTER_UNITS) put("counterUnit", "error_invalid")
         if (d.fuelUnit != null && d.fuelUnit !in FUEL_UNITS) put("fuelUnit", "error_invalid")
         if (d.purchaseDate != null && !isDate(d.purchaseDate)) put("purchaseDate", "error_date")

@@ -144,6 +144,7 @@ fun ObjectFormScreen(onBack: () -> Unit, onSaved: (String) -> Unit, onDeleted: (
                     }
                 }
             }
+            errorText(state.errors["type"])?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             Text(stringResource(R.string.field_counter_unit), style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (listOf<String?>(null) + Validation.COUNTER_UNITS).forEach { u ->

@@ -17,6 +17,12 @@ class ValidationTest {
         assertEquals(emptyMap(), Validation.objectDraft(ObjectDraft(name = "Golf", fuelUnit = "l", purchaseDate = "2019-03-14")))
     }
 
+    @Test fun `an own type is a valid object type, a bare custom prefix or unknown key is not`() {
+        assertEquals(emptyMap(), Validation.objectDraft(ObjectDraft(name = "Boat", type = "custom:" + java.util.UUID.randomUUID())))
+        assertEquals(mapOf("type" to "error_invalid"), Validation.objectDraft(ObjectDraft(name = "Boat", type = "custom:")))
+        assertEquals(mapOf("type" to "error_invalid"), Validation.objectDraft(ObjectDraft(name = "Boat", type = "boat")))
+    }
+
     @Test fun `entry drafts follow the server's rules`() {
         assertEquals(mapOf("title" to "error_required"), Validation.activityDraft(ActivityDraft(date = "2026-09-14"), car))
         assertEquals(mapOf("counterValue" to "error_no_counter"), Validation.activityDraft(ActivityDraft(date = "2026-09-14", title = "x", counterValue = 5), house))
