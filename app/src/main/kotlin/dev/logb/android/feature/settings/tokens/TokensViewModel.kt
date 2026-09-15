@@ -12,6 +12,7 @@ import dev.logb.android.core.network.ApiException
 import dev.logb.android.core.network.UnauthorizedException
 import dev.logb.android.core.network.dto.ApiToken
 import dev.logb.android.core.network.dto.NewToken
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -102,6 +103,12 @@ class TokensViewModel @Inject constructor(
             _state.update { it.copy(loaded = true, offline = false, error = e.message) }
         } catch (e: IOException) {
             _state.update { it.copy(loaded = true, offline = true, error = null) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Anything not shaped like a server or connectivity failure -- a malformed response
+            // body, say -- still has to land somewhere rather than crash the screen.
+            _state.update { it.copy(loaded = true, offline = false, error = e.message) }
         }
     }
 

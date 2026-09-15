@@ -169,6 +169,16 @@ class TokensViewModelTest {
         assertEquals(null, vm.state.value.error)
     }
 
+    @Test fun `a malformed response body shows an error instead of crashing, and is not offline`() = runTest(dispatcher) {
+        signedIn()
+        server.enqueue(MockResponse.Builder().code(200).addHeader("content-type", "text/html").body("<html>not json</html>").build())
+        val vm = TokensViewModel(accounts, serverStore, tokenStore, sessions, passwordSession)
+        awaitLoaded(vm)
+        assertEquals(false, vm.state.value.offline)
+        assertTrue(vm.state.value.error != null, "an unclassified failure must still surface a message")
+        assertTrue(sessions.session.value is Session.SignedIn, "a parse failure is not a reason to sign out")
+    }
+
     @Test fun `a connection failure on login shows the offline outcome in the password dialog, not raw text`() = runTest(dispatcher) {
         signedIn()
         server.enqueue(json("[]")) // the initial load()

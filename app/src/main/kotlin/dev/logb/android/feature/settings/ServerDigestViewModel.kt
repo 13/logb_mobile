@@ -11,6 +11,7 @@ import dev.logb.android.core.network.ApiException
 import dev.logb.android.core.network.UnauthorizedException
 import dev.logb.android.core.network.dto.NotificationTest
 import dev.logb.android.core.network.dto.ServerNotificationsIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,6 +59,12 @@ class ServerDigestViewModel @Inject constructor(
             _state.update { it.copy(loaded = true, offline = false, error = e.message) }
         } catch (e: IOException) {
             _state.update { it.copy(loaded = true, offline = true, error = null) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Anything not shaped like a server or connectivity failure -- a malformed response
+            // body, say -- still has to land somewhere rather than crash the screen.
+            _state.update { it.copy(loaded = true, offline = false, error = e.message) }
         }
     }
 
@@ -88,6 +95,10 @@ class ServerDigestViewModel @Inject constructor(
             _state.update { it.copy(busy = false, error = e.message) }
         } catch (e: IOException) {
             _state.update { it.copy(busy = false, offline = true) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _state.update { it.copy(busy = false, error = e.message) }
         }
     }
 
@@ -106,6 +117,10 @@ class ServerDigestViewModel @Inject constructor(
             _state.update { it.copy(busy = false, error = e.message) }
         } catch (e: IOException) {
             _state.update { it.copy(busy = false, offline = true) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _state.update { it.copy(busy = false, error = e.message) }
         }
     }
 }
