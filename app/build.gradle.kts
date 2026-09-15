@@ -13,8 +13,8 @@ plugins {
 }
 
 // The release workflow stamps the git tag in with -PversionName / -PversionCode.
-val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.10.0")
-val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(1000)
+val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.11.0")
+val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(1100)
 
 // A real signing key, when one exists: the user's global ANDROID_KEYSTORE* variables (CI exports
 // the same names from secrets), or an untracked keystore/keystore.properties. Without either,
