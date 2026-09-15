@@ -9,9 +9,15 @@
 # screen actually shows.
 #
 # A fresh install has no server configured and no token, so it lands on the server screen without
-# needing a network. From there this types an address nothing answers on and presses Continue,
-# which is enough to run Retrofit + kotlinx-serialization end to end (ApiClient) and exercise the
-# failure path in SessionRepository.checkServer — the same code a real, unreachable server hits.
+# needing a network. From there this types an address nothing answers on and presses Continue. That
+# exercises: Retrofit and OkHttp client construction (ApiClient), the generated Hilt graph wiring
+# it up to SessionRepository.checkServer, the Compose screens surviving R8, and the resulting error
+# path actually rendering.
+#
+# It does NOT exercise kotlinx-serialization under R8: checkServer's health() call returns
+# Response<Unit>, and port 9 refuses the TCP connection before any HTTP response — let alone a body
+# to decode — ever arrives. Serialization under R8 is a real gap this step leaves open; a local stub
+# server that answers with a body is the follow-up.
 # Reaching the sign-in screen is not the point (checkServer is meant to fail here); the app showing
 # the unreachable-server error and staying up is.
 #
