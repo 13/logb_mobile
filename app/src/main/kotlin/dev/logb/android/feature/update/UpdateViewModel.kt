@@ -3,6 +3,7 @@ package dev.logb.android.feature.update
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.logb.android.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -90,6 +91,12 @@ class UpdateViewModel @Inject constructor(
                     is InstallResult.Failed -> UpdateUiState.InstallFailed(result.message, mutableState.value.releaseUrl)
                 }
             }
+        }
+        viewModelScope.launch {
+            // A newer release the daily check already found is offered right away, not after another tap.
+            if (UpdateAutoCheck.newerThanInstalled(prefs.current().available, BuildConfig.VERSION_NAME) != null &&
+                mutableState.value == UpdateUiState.Idle
+            ) check()
         }
     }
 
