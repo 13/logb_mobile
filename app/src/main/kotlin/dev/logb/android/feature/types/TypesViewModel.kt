@@ -3,16 +3,21 @@ package dev.logb.android.feature.types
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.domain.CustomTypes
 import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.TypeInput
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.sync.Repositories
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,15 +29,25 @@ data class TypeRow(val type: ObjectTypeEntity, val usage: Int)
 
 data class TypesUiState(val rows: List<TypeRow> = emptyList(), val form: TypeForm? = null, val deleteError: Pair<String, String>? = null)
 
+/** Pure enough to test on an in-memory mirror: the type rows and their usage counts, from Room flows. */
+class TypesModel(private val db: LogbDatabase) {
+    // Objects change independently of the type rows themselves (a new one created, retyped, or
+    // deleted); combining their flow too keeps "Used by N" from going stale without it.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun rows(): Flow<List<TypeRow>> = db.objectTypeDao().live().flatMapLatest { types ->
+        db.objectDao().all().map { types.map { t -> TypeRow(t, db.objectTypeDao().usage(CustomTypes.key(t.uuid))) } }
+    }
+}
+
 @HiltViewModel
 class TypesViewModel @Inject constructor(accounts: ActiveAccount, private val repos: Repositories) : ViewModel() {
-    private val db = accounts.db
+    private val model = TypesModel(accounts.db)
     private val repo get() = repos.objectTypeRepository
     private val form = MutableStateFlow<TypeForm?>(null)
     private val deleteError = MutableStateFlow<Pair<String, String>?>(null)
 
-    val state: StateFlow<TypesUiState> = combine(db.objectTypeDao().live(), form, deleteError) { types, f, d ->
-        TypesUiState(types.map { TypeRow(it, db.objectTypeDao().usage(CustomTypes.key(it.uuid))) }, f, d)
+    val state: StateFlow<TypesUiState> = combine(model.rows(), form, deleteError) { types, f, d ->
+        TypesUiState(types, f, d)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TypesUiState())
 
     fun newType() { deleteError.value = null; form.value = TypeForm(null, "", "object", listOf("maintenance", "repair", "inspection", "purchase", "other"), null) }
