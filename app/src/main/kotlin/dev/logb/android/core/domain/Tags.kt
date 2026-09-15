@@ -27,8 +27,15 @@ object Tags {
 
     private val marks = Regex("\\p{M}")
 
-    /** `(?U)`: Unicode character classes, so this collapses NBSP and other Unicode spaces too, like the web's `/\s+/g`. */
-    private val spaces = Regex("(?U)\\s+")
+    /**
+     * Not `Regex("(?U)\\s+")`: Android's on-device ICU-backed regex engine rejects the `(?U)`
+     * inline flag (`PatternSyntaxException`), even though the JVM's own `java.util.regex` (and so
+     * Robolectric, which runs unit tests on the host JVM) accepts it -- a class of bug unit tests
+     * cannot catch. This explicit class matches the same characters on both engines: the web's
+     * `/\s+/g` (JS `\s`, `tags.ts`) plus U+0085 (NEL), which Rust's `split_whitespace` also treats
+     * as whitespace (`src/domain/tags.rs`).
+     */
+    private val spaces = Regex("[\\t\\n\\u000B\\f\\r \\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]+")
 
     /** Not the device locale: Turkish "INFO" must still fold to "info", as on the server. */
     fun fold(tag: String): String = marks.replace(Normalizer.normalize(tag, Normalizer.Form.NFD), "").lowercase(Locale.ROOT)

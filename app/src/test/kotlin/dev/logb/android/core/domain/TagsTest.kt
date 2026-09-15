@@ -35,6 +35,12 @@ class TagsTest {
         assertEquals(AddResult.Added(listOf("A B")), Tags.addTag(listOf("A B"), "a b"))
     }
 
+    /** The ideographic space (U+3000) and the thin space (U+2009) collapse too -- not just NBSP. */
+    @Test fun `add collapses the ideographic and thin spaces`() {
+        assertEquals(AddResult.Added(listOf("A B")), Tags.addTag(emptyList(), "A　B"))
+        assertEquals(AddResult.Added(listOf("A B")), Tags.addTag(listOf("A B"), "a b"))
+    }
+
     @Test fun `add refuses empty, too long and too many`() {
         assertEquals(AddResult.Refused(TagError.EMPTY), Tags.addTag(emptyList(), "   "))
         assertEquals(AddResult.Refused(TagError.TOO_LONG), Tags.addTag(emptyList(), "x".repeat(33)))
