@@ -18,6 +18,7 @@ import dev.logb.android.core.network.dto.ImportCounts
 import dev.logb.android.core.sync.SyncManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,12 +36,39 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.time.LocalDate
 import javax.inject.Inject
+import kotlin.coroutines.coroutineContext
 
 /** Streams, both ways: an export or an import can be hundreds of megabytes; nothing is held whole in memory. */
 object DataTransfer {
     private val ZIP: MediaType = "application/zip".toMediaType()
+    private const val EXPORT_BUFFER_SIZE = 8 * 1024
 
-    suspend fun export(api: LogbApi, out: OutputStream): Long = api.exportAll().use { body -> body.byteStream().use { it.copyTo(out) } }
+    /**
+     * `InputStream.copyTo` reads the whole body in one blocking call with no cancellation check in
+     * between: leaving the screen mid-export would have to wait for hundreds of megabytes to finish
+     * downloading anyway. Copying in [EXPORT_BUFFER_SIZE] chunks with [ensureActive] between each
+     * lets a cancelled export actually stop early, and the response body is closed in `finally`
+     * whichever way the copy ends.
+     */
+    suspend fun export(api: LogbApi, out: OutputStream): Long {
+        val body = api.exportAll()
+        try {
+            var total = 0L
+            val buffer = ByteArray(EXPORT_BUFFER_SIZE)
+            body.byteStream().use { input ->
+                while (true) {
+                    coroutineContext.ensureActive()
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    out.write(buffer, 0, read)
+                    total += read
+                }
+            }
+            return total
+        } finally {
+            body.close()
+        }
+    }
 
     fun zipBody(open: () -> InputStream?, length: Long): RequestBody = object : RequestBody() {
         override fun contentType(): MediaType = ZIP

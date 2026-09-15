@@ -1,6 +1,11 @@
 package dev.logb.android.feature.settings.data
 
 import dev.logb.android.core.network.ApiClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -12,9 +17,11 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.FileNotFoundException
 import java.time.LocalDate
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class DataTransferTest {
     private val server = MockWebServer()
@@ -51,5 +58,27 @@ class DataTransferTest {
 
     @Test fun `a SecurityException from a revoked grant surfaces as FileNotFoundException`() {
         assertFailsWith<FileNotFoundException> { DataTransfer.openOrThrow { throw SecurityException("Permission Denial") } }
+    }
+
+    /**
+     * A real, throttled body: `runBlocking`/`delay` are real wall-clock time here, not the virtual
+     * time `runTest` would give a plain `delay` -- the throttle is enforced by MockWebServer on its
+     * own thread, so the cancellation race needs real time to be meaningful.
+     */
+    @Test fun `cancelling an export stops reading the throttled body early`() = runBlocking {
+        val big = ByteArray(4_000_000) { (it % 251).toByte() }
+        server.enqueue(
+            MockResponse.Builder().code(200).addHeader("content-type", "application/zip")
+                .throttleBody(32 * 1024, 100, TimeUnit.MILLISECONDS)
+                .body(Buffer().write(big)).build(),
+        )
+        val out = ByteArrayOutputStream()
+        val job = launch(Dispatchers.IO) {
+            DataTransfer.export(ApiClient.create(server.url("/").toString(), { "t" }), out)
+        }
+        delay(300) // enough real time for a few throttled chunks, nowhere near the whole body
+        job.cancelAndJoin()
+
+        assertTrue(out.size() in 1 until big.size, "export must have started but not finished reading the throttled body")
     }
 }
