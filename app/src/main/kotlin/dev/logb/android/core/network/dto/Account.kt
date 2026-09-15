@@ -23,6 +23,9 @@ data class ServerNotifications(
     val hour: Int = 8,
 )
 
+/** A null [url] clears the webhook: `LogbJson`'s `explicitNulls = false` omits the key rather than
+ * sending `"url":null`, and logb's `NotificationsIn.url` (`#[serde(default)]`) reads a missing key
+ * the same as an explicit null. */
 @Serializable
 data class ServerNotificationsIn(val url: String?, val format: String)
 
