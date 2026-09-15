@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The in-app updater (feature/update) only. Restricted on the Play Store; the whole feature lives in that package. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!--
       No cloud backup: the mirror is rebuilt from the server on first sign-in, and the token is
       wrapped by a Keystore key that never leaves this device, so a restored copy could use neither.
@@ -42,6 +45,11 @@
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Where the platform installer reports the outcome of an update it was handed. -->
+        <receiver
+            android:name=".feature.update.InstallResultReceiver"
+            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
