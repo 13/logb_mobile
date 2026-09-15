@@ -107,8 +107,9 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
             LaunchTarget.Due -> nav.navigate(DueList) { launchSingleTop = true }
             LaunchTarget.Search -> nav.navigate(Search) { launchSingleTop = true }
             LaunchTarget.NewObject -> nav.navigate(ObjectForm()) { launchSingleTop = true }
-            LaunchTarget.Reminders -> request.objectUuid?.let { nav.navigate(ObjectDetail(it, tab = "reminders")) { launchSingleTop = true } }
-            LaunchTarget.Reading -> request.objectUuid?.let { nav.navigate(ReadingForm(it)) { launchSingleTop = true } }
+            // Never singleTop: that would reuse another object's entry -- see navigateForLaunch.
+            LaunchTarget.Reminders -> request.objectUuid?.let { nav.navigateForLaunch(ObjectDetail(it, tab = "reminders")) }
+            LaunchTarget.Reading -> request.objectUuid?.let { nav.navigateForLaunch(ReadingForm(it)) }
             null -> Unit
         }
     }
