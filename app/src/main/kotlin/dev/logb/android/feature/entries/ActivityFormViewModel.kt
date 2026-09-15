@@ -18,6 +18,7 @@ import dev.logb.android.core.domain.ActivityDraft
 import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.TagCount
 import dev.logb.android.core.domain.Tags
+import dev.logb.android.core.domain.TypeRegistry
 import dev.logb.android.core.domain.Validation
 import dev.logb.android.core.format.Parse
 import dev.logb.android.core.server.ServerCapabilities
@@ -51,9 +52,10 @@ data class ActivityFormState(
     val pending: List<PickedFile> = emptyList(),
     val dateTouched: Boolean = false,
     val tags: List<String> = emptyList(),
+    val registry: TypeRegistry = TypeRegistry.EMPTY,
 ) {
-    val categories: List<String> get() = obj?.let { ObjectTypes.categoriesFor(it.type, category) } ?: ObjectTypes.CATEGORIES
-    val showsQuantity: Boolean get() = category == "fuel" && obj?.let { ObjectTypes.hasFuel(it.type) && it.counterUnit != null } == true
+    val categories: List<String> get() = obj?.let { registry.categoriesFor(it.type, category) } ?: ObjectTypes.CATEGORIES
+    val showsQuantity: Boolean get() = category == "fuel" && obj?.let { "fuel" in registry.categoriesFor(it.type) && it.counterUnit != null } == true
     val counterValue: Long? get() = Parse.long(counter)
     /** The reading typed is lower than the newest one the object has: a typo more often than not. */
     val counterLowerThanCurrent: Boolean get() = counterValue != null && currentCounter != null && counterValue!! < currentCounter
@@ -94,6 +96,7 @@ class ActivityFormViewModel @Inject constructor(@ApplicationContext private val 
             }
             if (route.fromShare) attach(inbox.take())
         }
+        viewModelScope.launch { db.objectTypeDao().live().collect { types -> _state.update { it.copy(registry = TypeRegistry(types)) } } }
     }
 
     fun onDate(v: String?) = _state.update { it.copy(date = v ?: LocalDate.now().toString(), errors = it.errors - "date", dateTouched = true) }

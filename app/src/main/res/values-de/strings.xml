@@ -208,6 +208,7 @@
     <string name="type_tool">Werkzeug</string>
     <string name="type_body">Körper</string>
     <string name="type_other">Sonstiges</string>
+    <string name="types_unknown">Unbekannter Typ</string>
     <string name="entry_new">Eintrag erfassen</string>
     <string name="entry_edit">Eintrag bearbeiten</string>
     <string name="reading_new">Zählerstand erfassen</string>

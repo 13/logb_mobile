@@ -2,13 +2,18 @@ package dev.logb.android.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.logb.android.core.design.components.LocalTypeRegistry
 import dev.logb.android.feature.share.LaunchTarget
 import dev.logb.android.feature.share.ShareInbox
 import dev.logb.android.feature.share.ShareTargetScreen
+import dev.logb.android.feature.types.TypesRootViewModel
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -36,6 +41,8 @@ import dev.logb.android.feature.settings.SyncScreen
 /** The signed-in, bootstrapped app: a bottom bar with three destinations and the screens under them. */
 @Composable
 fun AppNavHost(shareInbox: ShareInbox? = null) {
+    val typesRoot: TypesRootViewModel = hiltViewModel()
+    val registry by typesRoot.registry.collectAsStateWithLifecycle()
     val nav = rememberNavController()
     val shared by (shareInbox?.pending ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsState()
     LaunchedEffect(shared.isNotEmpty()) { if (shared.isNotEmpty()) nav.navigate(ShareTarget) { launchSingleTop = true } }
@@ -50,6 +57,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
     }
     val backStack by nav.currentBackStackEntryAsState()
     val active = activeDestination(backStack?.destination?.route)
+    CompositionLocalProvider(LocalTypeRegistry provides registry) {
     Scaffold(
         bottomBar = {
             BottomBar(active) { destination ->
@@ -125,5 +133,6 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
             composable<About> { AboutScreen(onBack = { nav.popBackStack() }) }
             composable<Notifications> { NotificationsScreen(onBack = { nav.popBackStack() }) }
         }
+    }
     }
 }

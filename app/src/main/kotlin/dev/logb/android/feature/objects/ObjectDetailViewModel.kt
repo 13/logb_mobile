@@ -12,12 +12,12 @@ import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.db.model.Ancestor
 import dev.logb.android.core.db.model.AttachmentWithFile
 import dev.logb.android.core.db.model.ObjectStats
-import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.ReminderView
 import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.TimelineFold
 import dev.logb.android.core.domain.TimelineRow
+import dev.logb.android.core.domain.TypeRegistry
 import dev.logb.android.feature.stats.InsightsModel
 import dev.logb.android.feature.stats.ObjectInsights
 import dev.logb.android.feature.stats.StatsPrefs
@@ -70,7 +70,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
         val attachments = timeline.flatMapLatest { acts -> db.attachmentDao().forActivities(acts.map { it.uuid }) }
         val reminders = combine(db.reminderDao().forObject(uuid), timeline) { rs, _ -> rs }
         val children = db.objectDao().children(uuid).flatMapLatest { kids -> objects.cardsFor(kids) }
-        return combine(db.objectDao().observe(uuid), timeline, attachments, reminders, categoryFilter, db.attachmentDao().forObject(uuid), children, tagFilter) { values ->
+        return combine(db.objectDao().observe(uuid), timeline, attachments, reminders, categoryFilter, db.attachmentDao().forObject(uuid), children, tagFilter, db.objectTypeDao().live()) { values ->
             @Suppress("UNCHECKED_CAST")
             val obj = values[0] as ObjectEntity?
             val acts = values[1] as List<ActivityEntity>
@@ -80,6 +80,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
             val docs = values[5] as List<AttachmentWithFile>
             val kids = values[6] as List<ObjectCard>
             val tag = values[7] as String?
+            val registry = TypeRegistry(values[8] as List<dev.logb.android.core.db.entity.ObjectTypeEntity>)
             if (obj == null) return@combine ObjectDetailUiState(loaded = true, currency = currency)
             val stats = db.objectDao().stats(uuid)
             val t = today()
@@ -93,7 +94,7 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
                 obj = obj, stats = stats, ancestors = db.objectDao().ancestors(uuid), children = kids,
                 years = filtered.groupBy { it.date.take(4) }.entries.sortedByDescending { it.key }.map { (y, list) -> YearGroup(y, TimelineFold.fold(list)) },
                 categoryFilter = filter,
-                categories = ObjectTypes.categoriesFor(obj.type).filter { c -> acts.any { it.category == c } },
+                categories = registry.categoriesFor(obj.type).filter { c -> acts.any { it.category == c } },
                 tagFilter = tag,
                 attachmentsByActivity = atts.groupBy { it.attachment.activityUuid ?: "" },
                 pendingEntryUuids = db.opDao().pending().filter { it.kind == "create" && it.entity == "activity" }.map { it.entityUuid }.toSet(),

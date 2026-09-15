@@ -6,9 +6,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.ObjectEntity
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.Tags
+import dev.logb.android.core.domain.TypeRegistry
 import dev.logb.android.core.sync.SyncManager
 import dev.logb.android.core.sync.SyncReason
 import dev.logb.android.core.sync.SyncStatus
@@ -114,9 +116,16 @@ class ObjectsViewModel @Inject constructor(
     private val currency = accounts.signedIn?.currency ?: "EUR"
 
     val state: StateFlow<ObjectsUiState> = combine(
-        combine(model.allCards(), archived, query, prefs.sort, tagFilter) { cards, arch, q, sort, tag ->
+        combine(model.allCards(), archived, query, prefs.sort, tagFilter, accounts.db.objectTypeDao().live()) { values ->
+            @Suppress("UNCHECKED_CAST") val cards = values[0] as List<ObjectCard>
+            val arch = values[1] as Boolean
+            val q = values[2] as String
+            val sort = values[3] as SortKey
+            val tag = values[4] as String?
+            @Suppress("UNCHECKED_CAST") val registry = TypeRegistry(values[5] as List<ObjectTypeEntity>)
             val locale = context.resources.configuration.locales[0]
-            val rows = ObjectListing.visibleRows(cards.filter { !it.archived }, cards.filter { it.archived }, arch, q, sort, { context.getString(typeLabelRes(it)) }, locale, tag)
+            val label = { key: String -> registry.find(key)?.name ?: context.getString(typeLabelRes(key)) }
+            val rows = ObjectListing.visibleRows(cards.filter { !it.archived }, cards.filter { it.archived }, arch, q, sort, label, locale, tag)
             ObjectsUiState(rows.map { it.card }, rows.mapNotNull { r -> r.parentName?.let { r.card.uuid to it } }.toMap(), q, sort, arch, tag)
         },
         model.totalDue(), syncManager.status, accounts.db.opDao().dead(),

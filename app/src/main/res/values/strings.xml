@@ -208,6 +208,7 @@
     <string name="type_tool">Tool</string>
     <string name="type_body">Body</string>
     <string name="type_other">Other</string>
+    <string name="types_unknown">Unknown type</string>
     <string name="entry_new">Log entry</string>
     <string name="entry_edit">Edit entry</string>
     <string name="reading_new">Log reading</string>

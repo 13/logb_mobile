@@ -8,12 +8,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.domain.ObjectDraft
-import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.ReminderDraft
 import dev.logb.android.core.domain.ReminderTemplate
 import dev.logb.android.core.domain.ReminderTemplates
 import dev.logb.android.core.domain.TagCount
 import dev.logb.android.core.domain.Tags
+import dev.logb.android.core.domain.TypeRegistry
 import dev.logb.android.core.domain.Validation
 import dev.logb.android.core.format.Parse
 import dev.logb.android.core.server.ServerCapabilities
@@ -50,6 +50,7 @@ data class ObjectFormState(
     /** The uuid to navigate to once saved. */
     val savedUuid: String? = null,
     val activityCount: Int = 0,
+    val registry: TypeRegistry = TypeRegistry.EMPTY,
 ) {
     val draft: ObjectDraft
         get() = ObjectDraft(name, type, counterUnit, fuelUnit, description, purchaseDate, Parse.cents(price), parent?.uuid, tags)
@@ -80,13 +81,20 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
                 else s.copy(parent = parent, parentCandidates = candidates).withTemplates()
             }
         }
+        viewModelScope.launch { db.objectTypeDao().live().collect { types -> _state.update { it.copy(registry = TypeRegistry(types)) } } }
     }
 
     private fun ObjectFormState.withTemplates(): ObjectFormState =
         if (editing) this else copy(templates = ReminderTemplates.templatesFor(type, counterUnit), ticked = ticked.filter { id -> ReminderTemplates.templatesFor(type, counterUnit).any { it.id == id } }.toSet())
 
     fun onName(v: String) = _state.update { it.copy(name = v, errors = it.errors - "name") }
-    fun onType(v: String) = _state.update { it.copy(type = v, fuelUnit = if (ObjectTypes.hasFuel(v)) it.fuelUnit else null).withTemplates() }
+
+    /** Selecting an own type also adopts its counter unit, but only while the form still shows the default one. */
+    fun onType(v: String) = _state.update {
+        val own = it.registry.find(v)
+        val counterUnit = if (own != null && it.counterUnit == DEFAULT_COUNTER_UNIT) own.counterUnit else it.counterUnit
+        it.copy(type = v, counterUnit = counterUnit, fuelUnit = if ("fuel" in it.registry.categoriesFor(v)) it.fuelUnit else null).withTemplates()
+    }
     fun onCounterUnit(v: String?) = _state.update { it.copy(counterUnit = v).withTemplates() }
     fun onFuelUnit(v: String?) = _state.update { it.copy(fuelUnit = v) }
     fun onDescription(v: String) = _state.update { it.copy(description = v) }
@@ -98,6 +106,7 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
     fun onTags(v: List<String>) = _state.update { it.copy(tags = v) }
     val tagSuggestions: StateFlow<List<TagCount>> = db.objectDao().tagColumns().map(Tags::count).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val showTags: StateFlow<Boolean> = capabilities.current.map { it.tags }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val showOwnTypes: StateFlow<Boolean> = capabilities.current.map { it.ownTypes }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** `titles` resolves each template's title in the person's language; the view supplies it. */
     fun save(titles: Map<String, String>) {
@@ -122,5 +131,10 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
     fun delete(onDone: () -> Unit) = viewModelScope.launch {
         route.uuid?.let { repos.objectRepository.delete(it) }
         onDone()
+    }
+
+    private companion object {
+        /** Matches [ObjectFormState]'s default: a fresh form has not been touched. */
+        const val DEFAULT_COUNTER_UNIT = "km"
     }
 }

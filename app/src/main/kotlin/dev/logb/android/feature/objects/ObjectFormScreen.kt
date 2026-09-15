@@ -49,11 +49,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.R
+import dev.logb.android.core.design.components.LocalTypeRegistry
 import dev.logb.android.core.design.components.LogbTopBar
 import dev.logb.android.core.design.components.ObjectTypeIcon
 import dev.logb.android.core.design.components.TagInput
 import dev.logb.android.core.design.components.errorText
 import dev.logb.android.core.design.components.templateTitle
+import dev.logb.android.core.domain.CustomTypes
 import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.Validation
 import dev.logb.android.core.format.currentLocale
@@ -68,8 +70,11 @@ fun typeLabelRes(type: String): Int = when (type) {
     else -> R.string.type_other
 }
 
+/** Built-in type: a string resource. Own type (`custom:<uuid>`): its name, or "Unknown type" once deleted. */
 @Composable
-fun typeLabel(type: String): String = stringResource(typeLabelRes(type))
+fun typeLabel(type: String): String =
+    if (type in ObjectTypes.ALL) stringResource(typeLabelRes(type))
+    else LocalTypeRegistry.current.find(type)?.name ?: stringResource(R.string.types_unknown)
 
 /** A field label plus the shared date-picker dialog: the value is an ISO date or null. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,9 +132,16 @@ fun ObjectFormScreen(onBack: () -> Unit, onSaved: (String) -> Unit, onDeleted: (
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(state.name, viewModel::onName, label = { Text(stringResource(R.string.field_name)) }, singleLine = true, isError = "name" in state.errors, supportingText = errorText(state.errors["name"])?.let { { Text(it) } }, modifier = Modifier.fillMaxWidth())
             Text(stringResource(R.string.field_type), style = MaterialTheme.typography.labelLarge)
+            val showOwnTypes by viewModel.showOwnTypes.collectAsStateWithLifecycle()
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ObjectTypes.ALL.forEach { t ->
                     FilterChip(selected = state.type == t, onClick = { viewModel.onType(t) }, label = { Text(typeLabel(t)) }, leadingIcon = { ObjectTypeIcon(t, size = 18.dp) })
+                }
+                if (showOwnTypes) {
+                    state.registry.custom.forEach { own ->
+                        val key = CustomTypes.key(own.uuid)
+                        FilterChip(selected = state.type == key, onClick = { viewModel.onType(key) }, label = { Text(own.name) }, leadingIcon = { ObjectTypeIcon(key, size = 18.dp) })
+                    }
                 }
             }
             Text(stringResource(R.string.field_counter_unit), style = MaterialTheme.typography.labelLarge)
@@ -138,7 +150,7 @@ fun ObjectFormScreen(onBack: () -> Unit, onSaved: (String) -> Unit, onDeleted: (
                     FilterChip(selected = state.counterUnit == u, onClick = { viewModel.onCounterUnit(u) }, label = { Text(u ?: stringResource(R.string.none)) })
                 }
             }
-            if (ObjectTypes.hasFuel(state.type)) {
+            if ("fuel" in state.registry.categoriesFor(state.type)) {
                 Text(stringResource(R.string.field_fuel_unit), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (listOf<String?>(null) + Validation.FUEL_UNITS).forEach { u ->

@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.logb.android.core.design.LogbIcons
 
-/** The glyph for an object type. Decorative beside the name, so no content description by default. */
+/** The glyph for an object type, built-in or own: `LocalTypeRegistry` knows which icon each key means. */
 @Composable
 fun ObjectTypeIcon(
     type: String,
@@ -21,7 +21,7 @@ fun ObjectTypeIcon(
     contentDescription: String? = null,
 ) {
     Icon(
-        painter = painterResource(LogbIcons.forType(type)),
+        painter = painterResource(LogbIcons.forIcon(LocalTypeRegistry.current.icon(type))),
         contentDescription = contentDescription,
         tint = tint,
         modifier = modifier.size(size),
