@@ -51,6 +51,11 @@
             android:name=".feature.update.InstallResultReceiver"
             android:exported="false" />
 
+        <!-- Done / Snooze tapped on a reminder notification. -->
+        <receiver
+            android:name=".core.notify.ReminderActionReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

@@ -10,15 +10,25 @@ import javax.inject.Singleton
 
 /** Where a launcher shortcut or a notification tap wants to land. */
 enum class LaunchTarget {
-    Due, Search, NewObject;
+    Due, Search, NewObject, Reminders, Reading;
 
     companion object {
         const val ACTION = "dev.logb.android.action.OPEN"
         const val EXTRA = "target"
 
+        /** Which object a `Reminders` or `Reading` target opens; unused by the other targets. */
+        const val EXTRA_OBJECT = "object"
+
         /** The target named by an intent, or null for any other intent (a plain launch, a share). */
         fun from(intent: Intent?): LaunchTarget? =
             if (intent?.action == ACTION) intent.getStringExtra(EXTRA)?.let { name -> entries.firstOrNull { it.name == name } } else null
+    }
+}
+
+/** A launch target plus the object it names, for `Reminders` and `Reading` (null for the others). */
+data class LaunchRequest(val target: LaunchTarget, val objectUuid: String?) {
+    companion object {
+        fun from(intent: Intent?): LaunchRequest? = LaunchTarget.from(intent)?.let { LaunchRequest(it, intent?.getStringExtra(LaunchTarget.EXTRA_OBJECT)) }
     }
 }
 
@@ -28,11 +38,11 @@ class ShareInbox @Inject constructor() {
     private val _pending = MutableStateFlow<List<Uri>>(emptyList())
     val pending: StateFlow<List<Uri>> = _pending
 
-    private val _target = MutableStateFlow<LaunchTarget?>(null)
-    val target: StateFlow<LaunchTarget?> = _target
+    private val _target = MutableStateFlow<LaunchRequest?>(null)
+    val target: StateFlow<LaunchRequest?> = _target
 
     fun offer(intent: Intent?): Boolean {
-        LaunchTarget.from(intent)?.let { _target.value = it; return true }
+        LaunchRequest.from(intent)?.let { _target.value = it; return true }
         val uris: List<Uri> = when (intent?.action) {
             Intent.ACTION_SEND -> listOfNotNull(extra(intent))
             Intent.ACTION_SEND_MULTIPLE -> extras(intent)
@@ -43,8 +53,8 @@ class ShareInbox @Inject constructor() {
         return true
     }
 
-    /** The launch target, once. */
-    fun takeTarget(): LaunchTarget? = _target.value.also { _target.value = null }
+    /** The launch request, once. */
+    fun takeTarget(): LaunchRequest? = _target.value.also { _target.value = null }
 
     /** Hands the files over to whoever attaches them, once. */
     fun take(): List<Uri> = _pending.value.also { _pending.value = emptyList() }

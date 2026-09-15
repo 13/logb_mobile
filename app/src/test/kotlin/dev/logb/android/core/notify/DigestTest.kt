@@ -46,4 +46,21 @@ class LaunchTargetTest {
         assertNull(dev.logb.android.feature.share.LaunchTarget.from(android.content.Intent(android.content.Intent.ACTION_MAIN)))
         assertNull(dev.logb.android.feature.share.LaunchTarget.from(null))
     }
+
+    @Test fun `a request carries the object an intent names`() {
+        val intent = android.content.Intent(dev.logb.android.feature.share.LaunchTarget.ACTION)
+            .putExtra(dev.logb.android.feature.share.LaunchTarget.EXTRA, "Reminders")
+            .putExtra(dev.logb.android.feature.share.LaunchTarget.EXTRA_OBJECT, "obj-1")
+        assertEquals(
+            dev.logb.android.feature.share.LaunchRequest(dev.logb.android.feature.share.LaunchTarget.Reminders, "obj-1"),
+            dev.logb.android.feature.share.LaunchRequest.from(intent),
+        )
+    }
+
+    @Test fun `a request without an object still names its target`() {
+        val intent = android.content.Intent(dev.logb.android.feature.share.LaunchTarget.ACTION).putExtra(dev.logb.android.feature.share.LaunchTarget.EXTRA, "Due")
+        assertEquals(dev.logb.android.feature.share.LaunchRequest(dev.logb.android.feature.share.LaunchTarget.Due, null), dev.logb.android.feature.share.LaunchRequest.from(intent))
+        assertNull(dev.logb.android.feature.share.LaunchRequest.from(android.content.Intent(android.content.Intent.ACTION_MAIN)))
+        assertNull(dev.logb.android.feature.share.LaunchRequest.from(null))
+    }
 }

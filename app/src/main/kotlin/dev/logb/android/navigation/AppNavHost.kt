@@ -51,10 +51,13 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
     LaunchedEffect(shared.isNotEmpty()) { if (shared.isNotEmpty()) nav.navigate(ShareTarget) { launchSingleTop = true } }
     val target by (shareInbox?.target ?: kotlinx.coroutines.flow.MutableStateFlow(null)).collectAsState()
     LaunchedEffect(target) {
-        when (shareInbox?.takeTarget()) {
+        val request = shareInbox?.takeTarget()
+        when (request?.target) {
             LaunchTarget.Due -> nav.navigate(DueList) { launchSingleTop = true }
             LaunchTarget.Search -> nav.navigate(Search) { launchSingleTop = true }
             LaunchTarget.NewObject -> nav.navigate(ObjectForm()) { launchSingleTop = true }
+            LaunchTarget.Reminders -> request.objectUuid?.let { nav.navigate(ObjectDetail(it, tab = "reminders")) { launchSingleTop = true } }
+            LaunchTarget.Reading -> request.objectUuid?.let { nav.navigate(ReadingForm(it)) { launchSingleTop = true } }
             null -> Unit
         }
     }

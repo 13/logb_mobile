@@ -362,6 +362,9 @@
         <item quantity="one">%d more</item>
         <item quantity="other">%d more</item>
     </plurals>
+    <string name="notify_action_done">Done</string>
+    <string name="notify_action_snooze">Snooze 7 days</string>
+    <string name="notify_action_log_reading">Log reading</string>
     <!-- Server digest (web: notify.webhook-*, notify.format*, notify.test*) -->
     <string name="notify_server_title">Server digest</string>
     <string name="notify_server_hour">The server sends its digest once a day at %1$d:00.</string>

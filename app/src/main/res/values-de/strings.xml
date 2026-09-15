@@ -362,6 +362,9 @@
         <item quantity="one">%d weitere</item>
         <item quantity="other">%d weitere</item>
     </plurals>
+    <string name="notify_action_done">Erledigt</string>
+    <string name="notify_action_snooze">7 Tage verschieben</string>
+    <string name="notify_action_log_reading">Stand erfassen</string>
     <!-- Server-Zusammenfassung (web: notify.webhook-*, notify.format*, notify.test*) -->
     <string name="notify_server_title">Zusammenfassung vom Server</string>
     <string name="notify_server_hour">Der Server verschickt seine Zusammenfassung einmal täglich um %1$d:00 Uhr.</string>

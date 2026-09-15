@@ -38,13 +38,13 @@ class DigestWorker @AssistedInject constructor(
         if (sessions.session.value !is Session.SignedIn) return Result.success()
         val items = DueListModel(accounts.db).items(withinDays = WITHIN_DAYS).first()
         val res = context.resources
-        val text = Digest.text(
+        val plan = DigestPlan.plan(
             items,
             dueWord = res.getString(R.string.notify_due),
             upcomingWord = { days -> res.getQuantityString(R.plurals.notify_in_days, days.toInt(), days) },
             more = { n -> res.getQuantityString(R.plurals.notify_more, n, n) },
         )
-        if (text == null) notifier.cancel() else notifier.post(text)
+        notifier.post(plan)
         return Result.success()
     }
 

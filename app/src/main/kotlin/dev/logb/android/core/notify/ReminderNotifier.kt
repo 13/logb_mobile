@@ -18,10 +18,11 @@ import dev.logb.android.feature.share.LaunchTarget
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** One notification on one channel; tapping it opens the due list. */
+/** One notification per due reminder, grouped under a summary; tapping a child opens that reminder, the summary the due list. */
 @Singleton
 class ReminderNotifier @Inject constructor(@ApplicationContext private val context: Context) {
     private val manager get() = NotificationManagerCompat.from(context)
+    private val systemManager get() = context.getSystemService(NotificationManager::class.java)
 
     fun canPost(): Boolean =
         Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -32,12 +33,55 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
         manager.createNotificationChannel(channel)
     }
 
-    fun post(text: DigestText) {
+    /**
+     * Every child the plan names, grouped under a summary when there is more than one; children
+     * from a previous, larger plan that are not named this time are cancelled, and an empty plan
+     * cancels everything. Permission is checked twice, as `post(DigestText)` used to: once to
+     * bail out early, once right before posting in case it was revoked in between.
+     */
+    fun post(plan: DigestNotifications) {
+        // Cancellation needs no permission, so it happens even when POST_NOTIFICATIONS is denied
+        // or revoked -- a digest that has shrunk to nothing must not leave a stale notification.
+        if (plan.children.isEmpty()) { cancelAll(); return }
         if (!canPost()) return
         ensureChannel()
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val keep = plan.children.map { it.id }.toSet()
+        activeChildIds().filterNot { it in keep }.forEach { manager.cancel(it) }
+        plan.children.forEach(::postChild)
+        val summary = plan.summary
+        if (summary != null) postSummary(summary) else manager.cancel(DigestPlan.SUMMARY_ID)
+    }
+
+    /** Cancels one reminder's own notification, and the summary too once no children are left. */
+    fun cancel(reminderUuid: String) {
+        manager.cancel(DigestPlan.idFor(reminderUuid))
+        if (activeChildIds().isEmpty()) manager.cancel(DigestPlan.SUMMARY_ID)
+    }
+
+    fun cancelAll() {
+        activeChildIds().forEach { manager.cancel(it) }
+        manager.cancel(DigestPlan.SUMMARY_ID)
+    }
+
+    private fun postChild(child: ChildNotification) {
+        val tap = activityIntent(LaunchTarget.Reminders, child.objectUuid, requestCode(child.id, TAP_OFFSET))
+        val builder = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(child.title)
+            .setContentText(child.text)
+            .setContentIntent(tap)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setGroup(GROUP)
+        child.actions.forEach { action -> builder.addAction(0, actionLabel(action), actionIntent(child, action)) }
+        notify(child.id, builder.build())
+    }
+
+    private fun postSummary(text: DigestText) {
         val open = Intent(context, MainActivity::class.java).setAction(LaunchTarget.ACTION).putExtra(LaunchTarget.EXTRA, LaunchTarget.Due.name)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        val tap = PendingIntent.getActivity(context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val tap = PendingIntent.getActivity(context, SUMMARY_REQUEST_CODE, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(text.title)
@@ -45,19 +89,68 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
             .setContentIntent(tap)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setGroup(GROUP)
+            .setGroupSummary(true)
             .build()
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        notify(DigestPlan.SUMMARY_ID, notification)
+    }
+
+    /** The action button's `PendingIntent`: Done/Snooze write through the receiver, Log reading opens the reading form. */
+    private fun actionIntent(child: ChildNotification, action: NotificationAction): PendingIntent = when (action) {
+        NotificationAction.Done -> broadcastIntent(ReminderActionReceiver.ACTION_DONE, child)
+        NotificationAction.Snooze -> broadcastIntent(ReminderActionReceiver.ACTION_SNOOZE, child)
+        NotificationAction.LogReading -> activityIntent(LaunchTarget.Reading, child.objectUuid, requestCode(child.id, NotificationAction.LogReading.ordinal))
+    }
+
+    private fun broadcastIntent(action: String, child: ChildNotification): PendingIntent {
+        val intent = Intent(context, ReminderActionReceiver::class.java).setAction(action).putExtra(ReminderActionReceiver.EXTRA_REMINDER, child.reminderUuid)
+        val actionOrdinal = if (action == ReminderActionReceiver.ACTION_DONE) NotificationAction.Done.ordinal else NotificationAction.Snooze.ordinal
+        return PendingIntent.getBroadcast(context, requestCode(child.id, actionOrdinal), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    private fun activityIntent(target: LaunchTarget, objectUuid: String, code: Int): PendingIntent {
+        val open = Intent(context, MainActivity::class.java).setAction(LaunchTarget.ACTION).putExtra(LaunchTarget.EXTRA, target.name).putExtra(LaunchTarget.EXTRA_OBJECT, objectUuid)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        return PendingIntent.getActivity(context, code, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    private fun actionLabel(action: NotificationAction): String = context.getString(
+        when (action) {
+            NotificationAction.Done -> R.string.notify_action_done
+            NotificationAction.Snooze -> R.string.notify_action_snooze
+            NotificationAction.LogReading -> R.string.notify_action_log_reading
+        },
+    )
+
+    private fun notify(id: Int, notification: android.app.Notification) {
         try {
-            manager.notify(ID, notification)
+            manager.notify(id, notification)
         } catch (_: SecurityException) {
             // Permission revoked between the check and the call: nothing to post, nothing to crash.
         }
     }
 
-    fun cancel() { manager.cancel(ID) }
+    /** Ids of the children currently posted, read back from the system rather than kept in prefs: it is always right, even after a process death. */
+    private fun activeChildIds(): List<Int> =
+        systemManager?.activeNotifications?.filter { it.notification.group == GROUP && it.id != DigestPlan.SUMMARY_ID }?.map { it.id } ?: emptyList()
 
     companion object {
         const val CHANNEL = "reminders"
-        const val ID = 1
+        const val ID = DigestPlan.SUMMARY_ID
+        const val GROUP = "dev.logb.android.reminders"
+
+        /**
+         * A child's own request code, offset by an action's ordinal (0, 1, ... one per
+         * `NotificationAction`) or by [TAP_OFFSET] for its content tap, so every `PendingIntent`
+         * belonging to one child is distinct -- FLAG_UPDATE_CURRENT overwrites another's extras
+         * when two collide. The tap and the Log reading action never belong to the same child
+         * (a reading reminder's only action is Log reading), so [TAP_OFFSET] never collides with
+         * `NotificationAction.LogReading.ordinal`. `child.id` spans the full positive Int range
+         * (see `DigestPlan.idFor`), so the multiply is done in Long and folded back with
+         * `hashCode()` rather than risking Int overflow.
+         */
+        private const val TAP_OFFSET = 9
+        private const val SUMMARY_REQUEST_CODE = 0
+        private fun requestCode(childId: Int, n: Int): Int = (childId.toLong() * 10 + n).hashCode()
     }
 }
