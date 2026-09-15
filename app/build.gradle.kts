@@ -178,6 +178,8 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.coil.compose)
     implementation(libs.coil.okhttp)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
     // Installs the recorded baseline profile on first run; without it the profile in the APK is
     // inert.
     implementation(libs.profileinstaller)
@@ -201,6 +203,7 @@ dependencies {
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.roborazzi.junit.rule)
+    testImplementation(libs.glance.appwidget.testing)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.androidx.test.junit)

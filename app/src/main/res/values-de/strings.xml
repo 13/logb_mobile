@@ -365,6 +365,19 @@
     <string name="notify_action_done">Erledigt</string>
     <string name="notify_action_snooze">7 Tage verschieben</string>
     <string name="notify_action_log_reading">Stand erfassen</string>
+    <!-- Homescreen-Widget -->
+    <string name="widget_description">Eine Liste fälliger Erinnerungen, mit einem Tipp erledigt.</string>
+    <plurals name="widget_due_count">
+        <item quantity="one">Fällig · %d</item>
+        <item quantity="other">Fällig · %d</item>
+    </plurals>
+    <string name="widget_nothing_due">Nichts fällig</string>
+    <string name="widget_signed_out">Zum Anmelden LogB öffnen</string>
+    <string name="widget_mark_done">Erledigt markieren</string>
+    <!-- Nur für die Vorschau im Widget-Picker: ein statisches Beispiel, nie echte Daten. -->
+    <string name="widget_preview_count">Fällig · 2</string>
+    <string name="widget_preview_row1">Golf: Ölwechsel</string>
+    <string name="widget_preview_row2">Heizkessel: Filter</string>
     <!-- Server-Zusammenfassung (web: notify.webhook-*, notify.format*, notify.test*) -->
     <string name="notify_server_title">Zusammenfassung vom Server</string>
     <string name="notify_server_hour">Der Server verschickt seine Zusammenfassung einmal täglich um %1$d:00 Uhr.</string>

@@ -365,6 +365,19 @@
     <string name="notify_action_done">Done</string>
     <string name="notify_action_snooze">Snooze 7 days</string>
     <string name="notify_action_log_reading">Log reading</string>
+    <!-- Home-screen widget -->
+    <string name="widget_description">A list of due reminders, with one tap to mark one done.</string>
+    <plurals name="widget_due_count">
+        <item quantity="one">Due · %d</item>
+        <item quantity="other">Due · %d</item>
+    </plurals>
+    <string name="widget_nothing_due">Nothing due</string>
+    <string name="widget_signed_out">Open LogB to sign in</string>
+    <string name="widget_mark_done">Mark done</string>
+    <!-- The picker preview only: a still sample, never live data. -->
+    <string name="widget_preview_count">Due · 2</string>
+    <string name="widget_preview_row1">Golf: Oil change</string>
+    <string name="widget_preview_row2">Boiler: Filter</string>
     <!-- Server digest (web: notify.webhook-*, notify.format*, notify.test*) -->
     <string name="notify_server_title">Server digest</string>
     <string name="notify_server_hour">The server sends its digest once a day at %1$d:00.</string>
