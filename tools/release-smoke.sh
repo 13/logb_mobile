@@ -18,11 +18,11 @@
 # Usage: tools/release-smoke.sh [serial]
 set -euo pipefail
 
-SERIAL="${1:-}"
+SERIAL="${1:-${ANDROID_SERIAL:-}}"
 if [ -z "$SERIAL" ]; then
     # A phone and an emulator can both be attached at once, and there is no safe way to guess which
     # one a bare run means. Unlike picking "the first" device, more than one without an explicit
-    # serial is a hard refusal.
+    # serial (an argument, or $ANDROID_SERIAL) is a hard refusal.
     COUNT=$(adb devices | awk 'NR>1 && $2=="device"' | wc -l)
     if [ "$COUNT" -gt 1 ]; then
         echo "more than one device attached — pass the emulator serial"
@@ -52,17 +52,39 @@ echo "== launching"
 "${ADB[@]}" shell am start -W -n "$PKG/.MainActivity" >/dev/null
 # Captured now, while the app is certainly up: every check below that reads the log has to be able
 # to tell this app's own output from the rest of the device's.
-PID=$("${ADB[@]}" shell pidof "$PKG" | tr -d '\r' | awk '{print $1}')
+PID=$("${ADB[@]}" shell pidof "$PKG" | tr -d '\r' | awk '{print $1}' || true)
 sleep 8
 
 FAILED=0
 
-# Read the strings from the resource files rather than hardcode them, so a future wording change
-# can't silently break these checks. English and German are the only locales this app ships.
-SERVER_URL_EN=$(sed -n 's/.*name="server_url">\(.*\)<\/string>.*/\1/p' app/src/main/res/values/strings.xml)
-SERVER_URL_DE=$(sed -n 's/.*name="server_url">\(.*\)<\/string>.*/\1/p' app/src/main/res/values-de/strings.xml)
-UNREACHABLE_EN=$(sed -n 's/.*name="server_unreachable">\(.*\)<\/string>.*/\1/p' app/src/main/res/values/strings.xml)
-UNREACHABLE_DE=$(sed -n 's/.*name="server_unreachable">\(.*\)<\/string>.*/\1/p' app/src/main/res/values-de/strings.xml)
+# Android string resources escape a handful of characters; decode them so grep sees the same text
+# a person would, whichever escaping a translator happened to use. &amp; is decoded last, or an
+# entity that was itself escaped (say "&amp;lt;", literal text "&lt;") would be double-decoded.
+decode_android_string() {
+    printf '%s' "$1" \
+        | sed -e "s/\\\\'/'/g" -e 's/\\"/"/g' -e "s/&apos;/'/g" -e 's/&quot;/"/g' \
+              -e 's/&lt;/</g' -e 's/&gt;/>/g' -e 's/&amp;/\&/g'
+}
+
+# $1: resource name, $2: strings.xml path. Reading the strings from the resource files, rather
+# than hardcoding them, means a future wording change can't silently break these checks — an empty
+# extraction (the resource was renamed, or the file moved) fails loudly instead of matching nothing.
+extract_string() {
+    local raw decoded
+    raw=$(sed -n "s/.*name=\"$1\">\\(.*\\)<\\/string>.*/\\1/p" "$2")
+    decoded=$(decode_android_string "$raw")
+    if [ -z "$decoded" ]; then
+        echo "could not read string '$1' from $2 — has it been renamed or moved?" >&2
+        exit 1
+    fi
+    printf '%s' "$decoded"
+}
+
+# English and German are the only locales this app ships.
+SERVER_URL_EN=$(extract_string server_url app/src/main/res/values/strings.xml)
+SERVER_URL_DE=$(extract_string server_url app/src/main/res/values-de/strings.xml)
+UNREACHABLE_EN=$(extract_string server_unreachable app/src/main/res/values/strings.xml)
+UNREACHABLE_DE=$(extract_string server_unreachable app/src/main/res/values-de/strings.xml)
 
 echo "== reading the server screen back"
 "${ADB[@]}" shell uiautomator dump /sdcard/logb-smoke.xml >/dev/null 2>&1 || true
@@ -79,8 +101,8 @@ echo "== typing an unreachable address"
 # The field has to be focused before "input text" reaches it. Compose merges the label into the
 # field's own accessibility node rather than a separate one, so the line that matched the label
 # above is also the field's line, and its bounds are the field's bounds.
-NODE_LINE=$(grep -F -e "$SERVER_URL_EN" -e "$SERVER_URL_DE" "$OUT/ui-server.xml" 2>/dev/null | head -1)
-BOUNDS=$(echo "$NODE_LINE" | grep -oE '\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]' | head -1)
+NODE_LINE=$(grep -F -e "$SERVER_URL_EN" -e "$SERVER_URL_DE" "$OUT/ui-server.xml" 2>/dev/null | head -1 || true)
+BOUNDS=$(echo "$NODE_LINE" | grep -oE '\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]' | head -1 || true)
 if [ -n "$BOUNDS" ]; then
     read -r X1 Y1 X2 Y2 <<<"$(echo "$BOUNDS" | grep -oE '[0-9]+' | tr '\n' ' ')"
     "${ADB[@]}" shell input tap $(( (X1 + X2) / 2 )) $(( (Y1 + Y2) / 2 ))
