@@ -15,7 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.core.design.components.LocalTypeRegistry
 import dev.logb.android.feature.share.LaunchTarget
@@ -64,14 +68,29 @@ private fun Screen(content: @Composable () -> Unit) {
 
 /**
  * True when both sides of a transition are one of the bottom bar's own top-level routes
- * (`Objects`/`Search`/`Settings`) — a tab switch, not a drill-down push or pop, so it must not
- * slide like one.
+ * (`Objects`/`Search`/`Settings`). Covers a jump between two top-level tabs that does *not* go
+ * through the bottom bar's own `onClick` — [ShareInbox]'s `LaunchTarget.Search`, navigated from
+ * `AppNavHost`'s `LaunchedEffect(target)` — which still shouldn't slide like a push. It does
+ * *not* cover a bottom-bar tap taken from deep in a stack (its `initialState` isn't top-level),
+ * which is what [transitionKind]'s `bottomBarNavigation` flag is for.
  */
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean {
     fun NavBackStackEntry.isTopLevel() =
         destination.hasRoute<Objects>() || destination.hasRoute<Search>() || destination.hasRoute<Settings>()
     return initialState.isTopLevel() && targetState.isTopLevel()
 }
+
+/** Whether a NavHost transition should be instant, or the ordinary push/pop slide. */
+internal enum class TransitionKind { Instant, Slide }
+
+/**
+ * The pure decision behind every one of `AppNavHost`'s four transition lambdas: instant exactly
+ * when either signal says so — a bottom-bar-initiated navigation (a plain tab switch, or a
+ * reselect of the already-active tab that pops it to its root, from any depth), or [isTabSwitch]'s
+ * own narrower top-level-to-top-level check for the other call site that isn't the bottom bar.
+ */
+internal fun transitionKind(bottomBarNavigation: Boolean, tabSwitch: Boolean): TransitionKind =
+    if (bottomBarNavigation || tabSwitch) TransitionKind.Instant else TransitionKind.Slide
 
 /** The signed-in, bootstrapped app: a bottom bar with three destinations and the screens under them. */
 @Composable
@@ -95,6 +114,36 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
     }
     val backStack by nav.currentBackStackEntryAsState()
     val active = activeDestination(backStack?.destination?.route)
+
+    // True while the transition in progress was started by a bottom-bar tap — a plain tab
+    // switch, or a reselect of the already-active tab that pops it to its root — from any stack
+    // depth. Set in `BottomBar`'s `onClick` below, right before its `nav.navigate()`.
+    //
+    // It can't simply be flipped back off on the next recomposition (a `SideEffect`, or a
+    // `LaunchedEffect` keyed on `backStack?.id`, are the two obvious ways to write that reset).
+    // `AnimatedContent`'s `transitionSpec` isn't sampled once when a transition starts and then
+    // left alone for its ~300ms — Compose re-evaluates it on later recompositions of that same,
+    // still-running transition too. Resetting the flag after only the first of those frames flips
+    // a transition that's still animating back to "Slide" mid-flight: an instant switch visibly
+    // restarts as a slide partway through. (An earlier, `SideEffect`-based version of this fix hit
+    // exactly that — confirmed by `BottomBarTransitionTimingTest`, which caught it: the "instant"
+    // destination was still measured at a full screen-width offset on the frame the test checked.)
+    //
+    // So the reset instead waits for the transition to actually finish. `NavHost` promotes an
+    // entering entry's own `Lifecycle` to `RESUMED` exactly then — not sooner — so a
+    // `LaunchedEffect` on that entry, watching its `Lifecycle.currentStateFlow`, resets the flag
+    // right after, once nothing will read it for this transition again. One case that reaches no
+    // `RESUMED` transition at all: a reselect of the tab whose root is already showing navigates
+    // to the entry already on top, so nothing changes and no transition starts. `BottomBar`'s
+    // `onClick` below resets the flag for that case itself, synchronously, right after the no-op
+    // `navigate()` call.
+    var bottomBarNavigation by remember { mutableStateOf(false) }
+    LaunchedEffect(backStack) {
+        backStack?.lifecycle?.currentStateFlow?.collect { state ->
+            if (state == Lifecycle.State.RESUMED) bottomBarNavigation = false
+        }
+    }
+
     CompositionLocalProvider(LocalTypeRegistry provides registry) {
         Scaffold(
             bottomBar = {
@@ -104,11 +153,14 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                         Destination.Search -> Search
                         Destination.Settings -> Settings
                     }
+                    val before = nav.currentBackStackEntry?.id
+                    bottomBarNavigation = true
                     nav.navigate(route) {
                         popUpTo(nav.graph.startDestinationId) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
+                    if (nav.currentBackStackEntry?.id == before) bottomBarNavigation = false
                 }
             },
         ) { padding ->
@@ -117,19 +169,19 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                 startDestination = Objects,
                 modifier = Modifier.padding(padding),
                 enterTransition = {
-                    if (isTabSwitch()) EnterTransition.None
+                    if (transitionKind(bottomBarNavigation, isTabSwitch()) == TransitionKind.Instant) EnterTransition.None
                     else slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300))
                 },
                 exitTransition = {
-                    if (isTabSwitch()) ExitTransition.None
+                    if (transitionKind(bottomBarNavigation, isTabSwitch()) == TransitionKind.Instant) ExitTransition.None
                     else slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300), targetOffset = { it / 4 })
                 },
                 popEnterTransition = {
-                    if (isTabSwitch()) EnterTransition.None
+                    if (transitionKind(bottomBarNavigation, isTabSwitch()) == TransitionKind.Instant) EnterTransition.None
                     else slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300), initialOffset = { it / 4 })
                 },
                 popExitTransition = {
-                    if (isTabSwitch()) ExitTransition.None
+                    if (transitionKind(bottomBarNavigation, isTabSwitch()) == TransitionKind.Instant) ExitTransition.None
                     else slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300))
                 },
             ) {
