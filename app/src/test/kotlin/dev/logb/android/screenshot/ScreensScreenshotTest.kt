@@ -36,6 +36,9 @@ import dev.logb.android.feature.stats.InsightsSection
 import dev.logb.android.feature.stats.ObjectInsights
 import dev.logb.android.feature.stats.StatsContent
 import dev.logb.android.feature.stats.StatsUiState
+import dev.logb.android.feature.update.AppVersion
+import dev.logb.android.feature.update.UpdateRow
+import dev.logb.android.feature.update.UpdateUiState
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -128,6 +131,19 @@ class ScreensScreenshotTest {
         AboutContent(
             AboutInfo("0.7.0", 700, "2026-09-14", "1dc9ad7", debug = false, releaseKey = true, serverUrl = "https://logb.example.org/", serverVersion = "0.7.1", capabilities = Capabilities.of("0.7.1")),
             onBack = {}, onOpenUrl = {}, onCopy = {},
+        )
+    }
+
+    @Test fun aboutWithUpdate() = capture("about_update") {
+        AboutContent(
+            AboutInfo("0.7.1", 701, "2026-09-15", "1dc9ad7", debug = false, releaseKey = true, serverUrl = "https://logb.example.org/", serverVersion = "0.8.2", capabilities = Capabilities.of("0.8.2")),
+            onBack = {}, onOpenUrl = {}, onCopy = {},
+            updateSection = {
+                UpdateRow(
+                    UpdateUiState.Available(AppVersion(0, 8, 0), 9_509_668, "https://github.com/13/logb_mobile/releases/tag/v0.8.0"),
+                    onCheck = {}, onDownload = {}, onInstall = {}, onGrantPermission = {}, onRetryInstall = {}, onOpenReleasePage = {},
+                )
+            },
         )
     }
 }

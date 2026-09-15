@@ -62,6 +62,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import dev.logb.android.BuildConfig
 import dev.logb.android.R
 import dev.logb.android.core.auth.LockPolicy
 import dev.logb.android.core.auth.Session
@@ -72,6 +73,7 @@ import dev.logb.android.core.format.currentLocale
 import dev.logb.android.core.format.relativeTime
 import dev.logb.android.core.prefs.ThemeMode
 import dev.logb.android.core.sync.SyncStatus
+import dev.logb.android.feature.update.UpdateSection
 
 @Composable
 private fun themeLabel(mode: ThemeMode) = stringResource(when (mode) { ThemeMode.System -> R.string.theme_system; ThemeMode.Light -> R.string.theme_light; ThemeMode.Dark -> R.string.theme_dark })
@@ -372,12 +374,13 @@ fun AboutScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel
                 }
             }
         },
+        updateSection = if (BuildConfig.DEBUG) null else ({ UpdateSection() }),
     )
 }
 
 /** The About page without its view model, for the screenshot test. */
 @Composable
-fun AboutContent(info: AboutInfo, onBack: () -> Unit, onOpenUrl: (String) -> Unit, onCopy: (String) -> Unit) {
+fun AboutContent(info: AboutInfo, onBack: () -> Unit, onOpenUrl: (String) -> Unit, onCopy: (String) -> Unit, updateSection: (@Composable () -> Unit)? = null) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         LogbTopBar(title = stringResource(R.string.settings_about), onBack = onBack)
@@ -430,6 +433,9 @@ fun AboutContent(info: AboutInfo, onBack: () -> Unit, onOpenUrl: (String) -> Uni
             TextButton(onClick = { onOpenUrl(AboutInfo.REPO_URL) }) { Text(stringResource(R.string.about_source)) }
             TextButton(onClick = { onOpenUrl(AboutInfo.ISSUES_URL) }) { Text(stringResource(R.string.about_issues)) }
             info.serverUrl?.let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text(stringResource(R.string.about_web_app)) } }
+        }
+        if (updateSection != null) {
+            AboutSection(stringResource(R.string.update_title)) { updateSection() }
         }
         AboutSection(stringResource(R.string.about_licenses)) {
             Text(
