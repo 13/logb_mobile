@@ -34,6 +34,8 @@ data class ObjectInput(
     val archived: Boolean? = null,
     @SerialName("parent_id") val parentId: Long? = null,
     @SerialName("client_uuid") val clientUuid: String? = null,
+    /** logb 0.8.0+; left out (null) when there are none, so an older server sees the shape it knows. */
+    val tags: List<String>? = null,
 )
 
 @Serializable
@@ -63,6 +65,8 @@ data class ActivityInput(
     @SerialName("quantity_milli") val quantityMilli: Long? = null,
     @SerialName("client_op_id") val clientOpId: String? = null,
     @SerialName("client_uuid") val clientUuid: String? = null,
+    /** logb 0.8.0+; left out (null) when there are none, so an older server sees the shape it knows. */
+    val tags: List<String>? = null,
 )
 
 @Serializable

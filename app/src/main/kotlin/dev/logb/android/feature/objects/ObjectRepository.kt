@@ -5,6 +5,7 @@ import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.domain.ActivityDraft
 import dev.logb.android.core.domain.ObjectDraft
 import dev.logb.android.core.domain.ReminderDraft
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.sync.Clock
 import dev.logb.android.core.sync.LocalWriter
 import dev.logb.android.feature.entries.ActivityRepository
@@ -25,7 +26,7 @@ class ObjectRepository(private val db: LogbDatabase, private val writer: LocalWr
         val now = Clock.nowIso()
         writer.create("object", uuid) {
             db.objectDao().upsert(
-                ObjectEntity(uuid, null, d.name.trim(), d.type, d.counterUnit, d.fuelUnit, d.description.trim(), d.purchaseDate, d.purchasePriceCents, null, null, d.parentUuid, now, now, null),
+                ObjectEntity(uuid, null, d.name.trim(), d.type, d.counterUnit, d.fuelUnit, d.description.trim(), d.purchaseDate, d.purchasePriceCents, null, null, d.parentUuid, now, now, null, tags = Tags.toJson(d.tags)),
             )
         }
         if (currentReading != null && d.counterUnit != null) {
@@ -48,11 +49,12 @@ class ObjectRepository(private val db: LogbDatabase, private val writer: LocalWr
             if (d.purchaseDate != o.purchaseDate) put("purchase_date", d.purchaseDate)
             if (d.purchasePriceCents != o.purchasePriceCents) put("purchase_price_cents", d.purchasePriceCents)
             if (d.parentUuid != o.parentUuid) put("parent_id", d.parentUuid)
+            if (Tags.toJson(d.tags) != o.tags) put("tags", Tags.toJson(d.tags))
         }
         if (changes.isEmpty()) return
         writer.set("object", uuid, changes) {
             db.objectDao().upsert(
-                o.copy(name = d.name.trim(), type = d.type, counterUnit = d.counterUnit, fuelUnit = d.fuelUnit, description = d.description.trim(), purchaseDate = d.purchaseDate, purchasePriceCents = d.purchasePriceCents, parentUuid = d.parentUuid, updatedAt = Clock.nowIso()),
+                o.copy(name = d.name.trim(), type = d.type, counterUnit = d.counterUnit, fuelUnit = d.fuelUnit, description = d.description.trim(), purchaseDate = d.purchaseDate, purchasePriceCents = d.purchasePriceCents, parentUuid = d.parentUuid, tags = Tags.toJson(d.tags), updatedAt = Clock.nowIso()),
             )
         }
         onWrite()

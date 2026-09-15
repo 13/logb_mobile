@@ -36,6 +36,7 @@ class Bootstrap(private val db: LogbDatabase) {
                 coverAttachmentUuid = m.longOrNull("cover_attachment_id")?.let(attachmentUuidById::get),
                 parentUuid = m.longOrNull("parent_id")?.let(objectUuidById::get),
                 createdAt = m.str("created_at"), updatedAt = m.str("updated_at"), deletedAt = null,
+                tags = m.strOrNull("tags") ?: "[]",
             )
         }
         val files = snapshot.files.map { r ->
@@ -55,6 +56,7 @@ class Bootstrap(private val db: LogbDatabase) {
                 date = m.str("date"), category = m.str("category"), title = m.str("title"), notes = m.strOrEmpty("notes"),
                 counterValue = m.longOrNull("counter_value"), costCents = m.longOrNull("cost_cents"), quantityMilli = m.longOrNull("quantity_milli"),
                 createdAt = m.str("created_at"), updatedAt = m.str("updated_at"), deletedAt = null,
+                tags = m.strOrNull("tags") ?: "[]",
             )
         }
         val attachments = snapshot.attachments.mapNotNull { r ->

@@ -2,6 +2,7 @@ package dev.logb.android.core.sync
 
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.OpEntity
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.network.ApiException
 import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.network.LogbJson
@@ -67,14 +68,14 @@ class PushEngine(private val db: LogbDatabase, private val api: LogbApi, private
                     val o = db.objectDao().get(op.entityUuid) ?: return dropped(op)
                     val parentId = o.parentUuid?.let { db.objectDao().serverIdFor(it) ?: throw NotYet() }
                     val dto = api.createObject(
-                        ObjectInput(o.name, o.type, o.counterUnit, o.fuelUnit, o.description, o.purchaseDate, o.purchasePriceCents, archived = o.archivedAt != null, parentId = parentId, clientUuid = o.uuid),
+                        ObjectInput(o.name, o.type, o.counterUnit, o.fuelUnit, o.description, o.purchaseDate, o.purchasePriceCents, archived = o.archivedAt != null, parentId = parentId, clientUuid = o.uuid, tags = Tags.fromJson(o.tags).ifEmpty { null }),
                     )
                     db.objectDao().upsert(o.copy(serverId = dto.id))
                 }
                 "activity" -> {
                     val a = db.activityDao().get(op.entityUuid) ?: return dropped(op)
                     val objectId = db.objectDao().serverIdFor(a.objectUuid) ?: throw NotYet()
-                    val dto = api.createActivity(objectId, ActivityInput(a.date, a.category, a.title, a.notes, a.counterValue, a.costCents, a.quantityMilli, clientOpId = op.id, clientUuid = a.uuid))
+                    val dto = api.createActivity(objectId, ActivityInput(a.date, a.category, a.title, a.notes, a.counterValue, a.costCents, a.quantityMilli, clientOpId = op.id, clientUuid = a.uuid, tags = Tags.fromJson(a.tags).ifEmpty { null }))
                     db.activityDao().upsert(a.copy(serverId = dto.id))
                 }
                 "reminder" -> {

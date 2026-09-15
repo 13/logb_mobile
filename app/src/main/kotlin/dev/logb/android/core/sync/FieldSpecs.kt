@@ -19,10 +19,12 @@ object FieldSpecs {
             "description" to FieldType.Text, "purchase_date" to FieldType.Text,
             "purchase_price_cents" to FieldType.Integer, "archived_at" to FieldType.Text,
             "cover_attachment_id" to FieldType.Ref("attachments"), "parent_id" to FieldType.Ref("objects"),
+            "tags" to FieldType.Text,
         ),
         "activity" to mapOf(
             "date" to FieldType.Text, "category" to FieldType.Text, "title" to FieldType.Text, "notes" to FieldType.Text,
             "counter_value" to FieldType.Integer, "cost_cents" to FieldType.Integer, "quantity_milli" to FieldType.Integer,
+            "tags" to FieldType.Text,
         ),
         "reminder" to mapOf(
             "title" to FieldType.Text, "notes" to FieldType.Text, "due_date" to FieldType.Text, "due_counter" to FieldType.Integer,

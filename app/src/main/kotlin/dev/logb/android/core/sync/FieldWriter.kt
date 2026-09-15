@@ -23,6 +23,7 @@ object FieldWriter {
                     "archived_at" -> o.copy(archivedAt = value as? String)
                     "cover_attachment_id" -> o.copy(coverAttachmentUuid = value as? String)
                     "parent_id" -> o.copy(parentUuid = value as? String)
+                    "tags" -> o.copy(tags = value as? String ?: "[]")
                     else -> return
                 }
                 db.objectDao().upsert(updated.copy(updatedAt = now))
@@ -37,6 +38,7 @@ object FieldWriter {
                     "counter_value" -> a.copy(counterValue = value as? Long)
                     "cost_cents" -> a.copy(costCents = value as? Long)
                     "quantity_milli" -> a.copy(quantityMilli = value as? Long)
+                    "tags" -> a.copy(tags = value as? String ?: "[]")
                     else -> return
                 }
                 db.activityDao().upsert(updated.copy(updatedAt = now))

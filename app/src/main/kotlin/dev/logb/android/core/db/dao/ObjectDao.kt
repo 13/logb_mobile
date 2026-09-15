@@ -72,4 +72,8 @@ interface ObjectDao {
     @Query("DELETE FROM objects WHERE uuid IN (:uuids)") suspend fun hardDelete(uuids: List<String>)
 
     @Query("DELETE FROM objects WHERE server_id IS NOT NULL") suspend fun deleteServerRows()
+
+    /** Every live `tags` column of objects and of entries under live objects, for suggestions. */
+    @Query("SELECT tags FROM objects WHERE deleted_at IS NULL UNION ALL SELECT a.tags FROM activities a JOIN objects o ON o.uuid = a.object_uuid WHERE a.deleted_at IS NULL AND o.deleted_at IS NULL")
+    fun tagColumns(): Flow<List<String>>
 }
