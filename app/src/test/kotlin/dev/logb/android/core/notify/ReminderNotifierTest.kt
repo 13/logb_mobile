@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
+import dev.logb.android.feature.share.LaunchTarget
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -85,5 +86,46 @@ class ReminderNotifierTest {
         notifier.cancel("golf")
 
         assertEquals(0, manager.activeNotifications.size)
+    }
+
+    @Test fun `Done and Snooze broadcast the right action and the reminder uuid`() {
+        val golf = child("golf")
+        notifier.post(DigestNotifications(null, listOf(golf)))
+
+        val notification = manager.activeNotifications.first { it.id == golf.id }.notification
+        val (doneAction, snoozeAction) = notification.actions.toList()
+
+        val done = shadowOf(doneAction.actionIntent).savedIntent
+        assertEquals(ReminderActionReceiver.ACTION_DONE, done.action)
+        assertEquals("golf", done.getStringExtra(ReminderActionReceiver.EXTRA_REMINDER))
+
+        val snooze = shadowOf(snoozeAction.actionIntent).savedIntent
+        assertEquals(ReminderActionReceiver.ACTION_SNOOZE, snooze.action)
+        assertEquals("golf", snooze.getStringExtra(ReminderActionReceiver.EXTRA_REMINDER))
+    }
+
+    @Test fun `the content tap opens Reminders for the child's object`() {
+        val golf = child("golf")
+        notifier.post(DigestNotifications(null, listOf(golf)))
+
+        val notification = manager.activeNotifications.first { it.id == golf.id }.notification
+        val tap = shadowOf(notification.contentIntent).savedIntent
+
+        assertEquals(LaunchTarget.Reminders.name, tap.getStringExtra(LaunchTarget.EXTRA))
+        assertEquals("obj-golf", tap.getStringExtra(LaunchTarget.EXTRA_OBJECT))
+    }
+
+    @Test fun `Log reading opens the Reading form for the child's object`() {
+        val reading = child("reading", actions = listOf(NotificationAction.LogReading))
+        notifier.post(DigestNotifications(null, listOf(reading)))
+
+        val notification = manager.activeNotifications.first { it.id == reading.id }.notification
+        val logReading = shadowOf(notification.actions.single().actionIntent).savedIntent
+
+        assertEquals(LaunchTarget.Reading.name, logReading.getStringExtra(LaunchTarget.EXTRA))
+        assertEquals("obj-reading", logReading.getStringExtra(LaunchTarget.EXTRA_OBJECT))
+        // The Log reading child's own content tap is unaffected: it still opens Reminders, not Reading.
+        val tap = shadowOf(notification.contentIntent).savedIntent
+        assertEquals(LaunchTarget.Reminders.name, tap.getStringExtra(LaunchTarget.EXTRA))
     }
 }

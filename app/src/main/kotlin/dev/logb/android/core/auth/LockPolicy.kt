@@ -15,6 +15,20 @@ object LockPolicy {
     fun shouldLock(enabled: Boolean, backgroundedAt: Long?, now: Long): Boolean =
         enabled && (backgroundedAt == null || now - backgroundedAt > GRACE_MS)
 
+    /**
+     * A notification tap or launcher shortcut just handed the app a target to open, while this
+     * resume's own re-check of the lock (`RootViewModel.onForeground`) has not landed yet
+     * (`backgroundedAt` is still set -- it is only cleared once that check completes). Trusting
+     * the *previous* session's "unlocked" answer for one more frame would let `AppNavHost` mount,
+     * consume the target, and then get torn down the moment the real (possibly "locked") answer
+     * lands a moment later -- losing the target with it, since consuming it is a one-shot read.
+     * Returning true says: drop back to "unknown" and wait, rather than trust a stale belief.
+     * Already `true` (still locked, e.g. a fresh `onForeground` retriggered by a stray lifecycle
+     * blip) or already `null` (still unknown) is left alone, so this can never itself unlock.
+     */
+    fun shouldRecheckForTarget(backgroundedAt: Long?, currentlyLocked: Boolean?): Boolean =
+        backgroundedAt != null && currentlyLocked == false
+
     enum class Availability { Available, NoneEnrolled, NoHardware, Unavailable }
 
     /** The `BiometricManager.canAuthenticate` code for `BIOMETRIC_WEAK or DEVICE_CREDENTIAL`, read for the settings switch. */

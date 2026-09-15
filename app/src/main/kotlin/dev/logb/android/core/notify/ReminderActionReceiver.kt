@@ -24,10 +24,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                when (intent.action) {
-                    ACTION_DONE -> actions.done(uuid)
-                    ACTION_SNOOZE -> actions.snooze(uuid)
-                }
+                dispatch(actions, intent.action, uuid)
             } finally {
                 pending.finish()
             }
@@ -38,5 +35,13 @@ class ReminderActionReceiver : BroadcastReceiver() {
         const val ACTION_DONE = "dev.logb.android.REMINDER_DONE"
         const val ACTION_SNOOZE = "dev.logb.android.REMINDER_SNOOZE"
         const val EXTRA_REMINDER = "reminder"
+
+        /** The actual dispatch, pulled out of `onReceive` so it is testable without a Hilt entry point. */
+        suspend fun dispatch(actions: ReminderActions, action: String?, reminderUuid: String) {
+            when (action) {
+                ACTION_DONE -> actions.done(reminderUuid)
+                ACTION_SNOOZE -> actions.snooze(reminderUuid)
+            }
+        }
     }
 }

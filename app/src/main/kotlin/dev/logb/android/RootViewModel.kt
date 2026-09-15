@@ -49,6 +49,17 @@ class RootViewModel @Inject constructor(private val sessions: SessionRepository,
     fun unlock() { _locked.value = false }
 
     /**
+     * Called from `onNewIntent`/`onCreate` whenever a notification tap or launcher shortcut just
+     * handed [dev.logb.android.feature.share.ShareInbox] something to open. See
+     * [LockPolicy.shouldRecheckForTarget] for why: without this, a target arriving in the same
+     * beat as a resume from the background can be consumed by an `AppNavHost` that [onForeground]
+     * is about to tear down, and `ShareInbox.takeTarget`/`take` do not hand it out a second time.
+     */
+    fun guardPendingTarget() {
+        if (LockPolicy.shouldRecheckForTarget(backgroundedAt, _locked.value)) _locked.value = null
+    }
+
+    /**
      * Null while unknown; true only until this account's mirror has completed its *first*
      * bootstrap ever. A later background re-bootstrap -- an import
      * ([dev.logb.android.feature.settings.data.DataViewModel.confirmImport]), a placeholder
