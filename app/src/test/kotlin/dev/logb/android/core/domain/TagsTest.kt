@@ -41,6 +41,16 @@ class TagsTest {
         assertEquals(AddResult.Added(listOf("A B")), Tags.addTag(listOf("A B"), "a b"))
     }
 
+    /**
+     * NEL (U+0085) and BOM (U+FEFF) are not whitespace by Java's `Character.isWhitespace`, so a
+     * trim-then-collapse order leaves a fresh leading/trailing space uncaught; collapse-then-trim
+     * (the fixed order) removes it. Written as backslash-u escapes, not literal characters.
+     */
+    @Test fun `add trims whitespace the collapse itself introduces at the edges`() {
+        assertEquals(AddResult.Added(listOf("Winter")), Tags.addTag(emptyList(), "Winter\u0085"))
+        assertEquals(AddResult.Added(listOf("Winter")), Tags.addTag(emptyList(), "\uFEFFWinter"))
+    }
+
     @Test fun `add refuses empty, too long and too many`() {
         assertEquals(AddResult.Refused(TagError.EMPTY), Tags.addTag(emptyList(), "   "))
         assertEquals(AddResult.Refused(TagError.TOO_LONG), Tags.addTag(emptyList(), "x".repeat(33)))

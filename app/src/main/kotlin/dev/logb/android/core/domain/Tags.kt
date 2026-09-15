@@ -40,7 +40,12 @@ object Tags {
     /** Not the device locale: Turkish "INFO" must still fold to "info", as on the server. */
     fun fold(tag: String): String = marks.replace(Normalizer.normalize(tag, Normalizer.Form.NFD), "").lowercase(Locale.ROOT)
 
-    fun normalizeTag(raw: String): String = spaces.replace(raw.trim(), " ")
+    /**
+     * Collapse first, then trim: `raw.trim()` alone leaves whitespace Java's `Character.isWhitespace`
+     * does not recognise (NEL U+0085, BOM U+FEFF) at the edges, so collapsing it afterwards turns
+     * it into a *new* leading/trailing plain space that trimming first would never catch.
+     */
+    fun normalizeTag(raw: String): String = spaces.replace(raw, " ").trim(' ')
 
     private fun length(s: String) = s.codePointCount(0, s.length)
 
