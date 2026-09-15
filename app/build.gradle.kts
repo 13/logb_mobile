@@ -122,9 +122,10 @@ android {
     }
 
     // The migration test reads the exported schemas as assets. AGP 9's local (Robolectric) unit
-    // tests read assets through the "debug" variant's merged assets, not a "test" source set
-    // (there is no separate merged-assets output for unit tests) — so the schemas go on "debug".
-    sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
+    // tests read assets through the "debug" variant's merged assets, not a "test" or "testDebug"
+    // source set (there is no separate merged-assets output for unit tests) — so the schemas go
+    // on "debug". Cost: debug APKs (never release) carry the schema JSON as assets.
+    sourceSets.getByName("debug").assets.directories.add("$projectDir/schemas")
 }
 
 kotlin {
