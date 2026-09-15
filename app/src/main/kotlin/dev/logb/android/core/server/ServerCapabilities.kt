@@ -21,9 +21,8 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
     suspend fun load() = set(serverStore.read()?.serverVersion)
 
     /**
-     * Asks the server for its version and stores it. True when tags or own types became
-     * available with this call: rows the server already had carry those fields, and only a
-     * bootstrap brings them into the mirror. Pairing needs no data, so it never asks for one.
+     * Asks the server for its version and stores it. The result tells whether tags or own types
+     * became available with this call.
      */
     suspend fun refresh(fetchVersion: suspend () -> String?): Boolean {
         val record = serverStore.read() ?: return false

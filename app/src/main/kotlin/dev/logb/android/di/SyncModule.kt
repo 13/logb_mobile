@@ -50,11 +50,10 @@ object SyncModule {
                 accounts.signedIn?.let {
                     SyncRunner {
                         val db = accounts.db
-                        // Before the pull: a server that just learned tags must be bootstrapped, or the
-                        // tags its rows already carry never reach the mirror.
-                        if (capabilities.refresh { runCatching { accounts.api.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() } }) {
-                            db.syncStateDao().requestBootstrap()
-                        }
+                        // Refreshes the stored version so the app knows what the server supports; the
+                        // bootstrap that brings existing tags and own types into the mirror arrives with
+                        // the Room v2 migration in release 0.8.0.
+                        capabilities.refresh { runCatching { accounts.api.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() } }
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
                         PushEngine(db, accounts.api, blobs).run()
                         PullEngine(db, accounts.api, deviceId).run()

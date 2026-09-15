@@ -68,8 +68,8 @@ Versions compare numerically per part; an unparsable version counts as `0.0.0`.
 - Screens ask the capabilities before showing tag inputs, the Types page, own-type choices or the QR button.
 - The Account screen lists what the server does not support: "Tags and own types need LogB 0.8.0 or newer".
 - `FieldSpecs` lists the new fields from the start; an old server's feed never contains them.
-- When the stored version crosses a capability threshold (the user updated the server), the pull engine
-  requests one bootstrap so rows already carrying tags and types arrive.
+- Release 0.7.0 only records the version. The mirror cannot hold tags or own types before the Room
+  version 2 migration, so no bootstrap is requested on a version change.
 
 ### About page
 
@@ -112,6 +112,10 @@ Port `object-list.ts` line for line into `feature/objects/ObjectListing.kt`, wit
   phases 3 and 4 (the `object_types` table is added in the same step).
 - `FieldSpecs`: `tags` as `Text` on `object` and `activity`. Bootstrap maps `tags`; `FieldWriter` writes it.
 - A pushed value the server rejects (too many, too long) is dropped like any other rejected op today.
+- The version 2 migration sets `sync_state.bootstrap_needed = 1` (when the row exists), so the first sync
+  after updating the app pulls a snapshot and the tags and own types the server already holds reach the
+  mirror. From then on, `ServerCapabilities.refresh` returning true (a server updated to 0.8.0 while the
+  app already runs 0.8.0) requests a bootstrap before the pull; that branch gets a unit test.
 
 ### Rules
 
