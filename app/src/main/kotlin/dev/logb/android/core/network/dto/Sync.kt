@@ -37,6 +37,7 @@ data class BootstrapResult(
     val reminders: List<JsonObject>,
     val attachments: List<JsonObject>,
     val files: List<JsonObject>,
+    @SerialName("object_types") val objectTypes: List<JsonObject> = emptyList(),
     val seq: Long,
     @SerialName("server_time") val serverTime: String,
     val epoch: String,

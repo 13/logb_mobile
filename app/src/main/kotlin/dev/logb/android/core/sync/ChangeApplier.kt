@@ -7,6 +7,7 @@ import dev.logb.android.core.db.entity.AttachmentEntity
 import dev.logb.android.core.db.entity.FieldClockEntity
 import dev.logb.android.core.db.entity.FileEntity
 import dev.logb.android.core.db.entity.ObjectEntity
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.network.dto.ChangeRow
 import dev.logb.android.core.network.ApiClient.normalizeBaseUrl
@@ -76,6 +77,7 @@ class ChangeApplier(private val db: LogbDatabase) {
         "reminder" -> db.reminderDao().get(uuid) != null
         "attachment" -> db.attachmentDao().get(uuid) != null
         "file" -> db.fileDao().get(uuid) != null
+        "object_type" -> db.objectTypeDao().get(uuid) != null
         else -> false
     }
 
@@ -114,6 +116,11 @@ class ChangeApplier(private val db: LogbDatabase) {
                 val existing = db.fileDao().get(r.entityUuid)
                 if (existing != null) { if (existing.serverId == null && r.entityId != null) db.fileDao().upsert(existing.copy(serverId = r.entityId)) }
                 else { db.fileDao().upsert(FileEntity(r.entityUuid, r.entityId, "", "", "", 0, null, null, null, now, null)); db.syncStateDao().requestBootstrap() }
+            }
+            "object_type" -> {
+                val existing = db.objectTypeDao().get(r.entityUuid)
+                if (existing != null) { if (existing.serverId == null && r.entityId != null) db.objectTypeDao().upsert(existing.copy(serverId = r.entityId)) }
+                else { db.objectTypeDao().upsert(ObjectTypeEntity(r.entityUuid, r.entityId, "", "object", "[\"other\"]", null, now, now, null)); db.syncStateDao().requestBootstrap() }
             }
         }
     }

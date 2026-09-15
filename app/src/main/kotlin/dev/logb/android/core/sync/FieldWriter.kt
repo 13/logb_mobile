@@ -70,6 +70,17 @@ object FieldWriter {
                 }
                 db.attachmentDao().upsert(updated)
             }
+            "object_type" -> {
+                val t = db.objectTypeDao().get(uuid) ?: return
+                val updated = when (field) {
+                    "name" -> t.copy(name = value as? String ?: t.name)
+                    "icon" -> t.copy(icon = value as? String ?: t.icon)
+                    "categories" -> t.copy(categories = value as? String ?: t.categories)
+                    "counter_unit" -> t.copy(counterUnit = value as? String)
+                    else -> return
+                }
+                db.objectTypeDao().upsert(updated.copy(updatedAt = now))
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ object Cascade {
         "activity" -> tombstoneActivity(db, uuid, now)
         "attachment" -> tombstoneAttachment(db, uuid, now)
         "reminder" -> { db.reminderDao().tombstone(listOf(uuid), now); listOf(uuid) }
+        "object_type" -> { db.objectTypeDao().tombstone(listOf(uuid), now); listOf(uuid) }
         else -> emptyList() // files are never deleted over sync; the server refuses the op too
     }
 

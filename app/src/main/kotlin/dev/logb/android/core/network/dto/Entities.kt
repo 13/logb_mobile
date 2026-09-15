@@ -103,6 +103,29 @@ data class ReminderInput(
     @SerialName("client_uuid") val clientUuid: String? = null,
 )
 
+/** `GET/POST /api/types`. */
+@Serializable
+data class TypeDto(
+    val id: Long,
+    @SerialName("client_uuid") val clientUuid: String,
+    val key: String,
+    val name: String,
+    val icon: String,
+    val categories: List<String>,
+    @SerialName("counter_unit") val counterUnit: String? = null,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String,
+)
+
+@Serializable
+data class TypeBody(
+    val name: String,
+    val icon: String,
+    val categories: List<String>,
+    @SerialName("counter_unit") val counterUnit: String? = null,
+    @SerialName("client_uuid") val clientUuid: String? = null,
+)
+
 @Serializable
 data class AttachmentDto(
     val id: Long,

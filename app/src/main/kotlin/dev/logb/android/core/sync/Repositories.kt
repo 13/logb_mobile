@@ -9,6 +9,7 @@ import dev.logb.android.feature.entries.ActivityRepository
 import dev.logb.android.feature.entries.AttachmentRepository
 import dev.logb.android.feature.objects.ObjectRepository
 import dev.logb.android.feature.reminders.ReminderRepository
+import dev.logb.android.feature.types.ObjectTypeRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +21,7 @@ class Repositories @Inject constructor(@ApplicationContext private val context: 
     private var activities: ActivityRepository? = null
     private var reminders: ReminderRepository? = null
     private var attachments: AttachmentRepository? = null
+    private var objectTypes: ObjectTypeRepository? = null
 
     private fun refresh() = synchronized(this) {
         val db = accounts.db
@@ -30,6 +32,7 @@ class Repositories @Inject constructor(@ApplicationContext private val context: 
         activities = ActivityRepository(db, writer, onWrite)
         reminders = ReminderRepository(db, writer, onWrite)
         attachments = AttachmentRepository(db, blobs, writer, onWrite)
+        objectTypes = ObjectTypeRepository(db, writer, onWrite)
         forDb = db
     }
 
@@ -37,4 +40,5 @@ class Repositories @Inject constructor(@ApplicationContext private val context: 
     val activityRepository: ActivityRepository get() { refresh(); return activities!! }
     val reminderRepository: ReminderRepository get() { refresh(); return reminders!! }
     val attachmentRepository: AttachmentRepository get() { refresh(); return attachments!! }
+    val objectTypeRepository: ObjectTypeRepository get() { refresh(); return objectTypes!! }
 }

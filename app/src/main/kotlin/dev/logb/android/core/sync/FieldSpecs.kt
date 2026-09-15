@@ -34,6 +34,9 @@ object FieldSpecs {
         ),
         "attachment" to mapOf("kind" to FieldType.Text, "caption" to FieldType.Text),
         "file" to emptyMap(),
+        "object_type" to mapOf(
+            "name" to FieldType.Text, "icon" to FieldType.Text, "categories" to FieldType.Text, "counter_unit" to FieldType.Text,
+        ),
     )
 
     fun of(entity: String, field: String): FieldType? = specs[entity]?.get(field)

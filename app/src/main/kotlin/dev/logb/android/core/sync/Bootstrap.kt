@@ -6,6 +6,7 @@ import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.db.entity.AttachmentEntity
 import dev.logb.android.core.db.entity.FileEntity
 import dev.logb.android.core.db.entity.ObjectEntity
+import dev.logb.android.core.db.entity.ObjectTypeEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.db.entity.SyncStateEntity
 import dev.logb.android.core.network.dto.BootstrapResult
@@ -83,6 +84,14 @@ class Bootstrap(private val db: LogbDatabase) {
                 createdAt = m.str("created_at"), deletedAt = null,
             )
         }
+        val objectTypes = snapshot.objectTypes.map { r ->
+            val m = RowMapper(r)
+            ObjectTypeEntity(
+                uuid = m.str("client_uuid"), serverId = m.long("id"), name = m.str("name"), icon = m.str("icon"),
+                categories = m.strOrNull("categories") ?: "[\"other\"]", counterUnit = m.strOrNull("counter_unit"),
+                createdAt = m.str("created_at"), updatedAt = m.str("updated_at"), deletedAt = null,
+            )
+        }
 
         db.inTransaction {
             db.attachmentDao().deleteServerRows()
@@ -90,6 +99,8 @@ class Bootstrap(private val db: LogbDatabase) {
             db.activityDao().deleteServerRows()
             db.fileDao().deleteServerRows()
             db.objectDao().deleteServerRows()
+            db.objectTypeDao().deleteServerRows()
+            db.objectTypeDao().upsert(*objectTypes.toTypedArray())
             db.objectDao().upsert(*objects.toTypedArray())
             db.fileDao().upsert(*files.toTypedArray())
             db.activityDao().upsert(*activities.toTypedArray())

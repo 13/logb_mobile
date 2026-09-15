@@ -17,6 +17,8 @@ import dev.logb.android.core.network.dto.PushResult
 import dev.logb.android.core.network.dto.ReminderDto
 import dev.logb.android.core.network.dto.ReminderInput
 import dev.logb.android.core.network.dto.Settings
+import dev.logb.android.core.network.dto.TypeBody
+import dev.logb.android.core.network.dto.TypeDto
 import dev.logb.android.core.network.dto.User
 import retrofit2.Response
 import retrofit2.http.Body
@@ -71,6 +73,8 @@ interface LogbApi {
     @POST("api/objects/{id}/activities") suspend fun createActivity(@Path("id") objectId: Long, @Body body: ActivityInput): ActivityDto
 
     @POST("api/objects/{id}/reminders") suspend fun createReminder(@Path("id") objectId: Long, @Body body: ReminderInput): ReminderDto
+
+    @POST("api/types") suspend fun createType(@Body body: TypeBody): TypeDto
 
     @Streaming @GET("api/files/{id}") suspend fun downloadOriginal(@Path("id") fileId: Long): ResponseBody
 

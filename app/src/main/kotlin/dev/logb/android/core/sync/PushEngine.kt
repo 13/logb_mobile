@@ -2,6 +2,7 @@ package dev.logb.android.core.sync
 
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.OpEntity
+import dev.logb.android.core.domain.CustomTypes
 import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.network.ApiException
 import dev.logb.android.core.network.LogbApi
@@ -12,6 +13,7 @@ import dev.logb.android.core.network.dto.ObjectInput
 import dev.logb.android.core.network.dto.Op
 import dev.logb.android.core.network.dto.PushBody
 import dev.logb.android.core.network.dto.ReminderInput
+import dev.logb.android.core.network.dto.TypeBody
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -124,6 +126,11 @@ class PushEngine(private val db: LogbDatabase, private val api: LogbApi, private
                             db.fileDao().upsert(file.copy(serverId = dto.fileId))
                         }
                     }
+                }
+                "object_type" -> {
+                    val t = db.objectTypeDao().get(op.entityUuid) ?: return dropped(op)
+                    val dto = api.createType(TypeBody(t.name, t.icon, CustomTypes.categoriesFromJson(t.categories), t.counterUnit, clientUuid = t.uuid))
+                    db.objectTypeDao().upsert(t.copy(serverId = dto.id))
                 }
                 else -> return dropped(op)
             }

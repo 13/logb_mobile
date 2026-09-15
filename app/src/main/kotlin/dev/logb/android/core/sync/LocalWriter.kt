@@ -96,6 +96,7 @@ class LocalWriter(private val db: LogbDatabase) {
         }
         "reminder" -> { db.reminderDao().hardDelete(listOf(uuid)); listOf(uuid) }
         "attachment" -> { db.attachmentDao().clearCoversPointingAt(listOf(uuid)); db.attachmentDao().hardDelete(listOf(uuid)); listOf(uuid) }
+        "object_type" -> { db.objectTypeDao().hardDelete(listOf(uuid)); listOf(uuid) }
         else -> emptyList()
     }
 }
