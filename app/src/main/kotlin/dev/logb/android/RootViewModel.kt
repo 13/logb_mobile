@@ -8,6 +8,7 @@ import dev.logb.android.core.auth.LockPolicy
 import dev.logb.android.core.auth.LockPrefs
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
+import dev.logb.android.core.db.entity.SyncStateEntity
 import dev.logb.android.core.prefs.Appearance
 import dev.logb.android.core.prefs.AppearancePrefs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -47,10 +48,21 @@ class RootViewModel @Inject constructor(private val sessions: SessionRepository,
 
     fun unlock() { _locked.value = false }
 
-    /** Null while unknown; true until the first bootstrap has landed for this account. */
-    val bootstrapNeeded: StateFlow<Boolean?> = sessions.session
+    /**
+     * Null while unknown; true only until this account's mirror has completed its *first*
+     * bootstrap ever. A later background re-bootstrap -- an import
+     * ([dev.logb.android.feature.settings.data.DataViewModel.confirmImport]), a placeholder
+     * [dev.logb.android.core.sync.ChangeApplier] has to heal, the 0.8.0 migration -- sets
+     * [SyncStateEntity.bootstrapNeeded] again to bring the mirror back in step, but that must run
+     * quietly behind the normal UI, not show this full-screen first-run state a second time.
+     * [SyncStateEntity.epoch] is written only once a bootstrap actually lands
+     * ([dev.logb.android.core.sync.Bootstrap.apply]) and nothing else ever clears it, so it being
+     * null is the one reliable "never happened" signal -- unlike the mutable `bootstrap_needed`
+     * flag itself, which [dev.logb.android.core.sync.PullEngine] keeps honouring for the re-fetch.
+     */
+    val showFirstRunBootstrap: StateFlow<Boolean?> = sessions.session
         .flatMapLatest { s ->
-            if (s is Session.SignedIn) accounts.db.syncStateDao().observe().map { it?.bootstrapNeeded ?: true } else flowOf(null)
+            if (s is Session.SignedIn) accounts.db.syncStateDao().observe().map { firstRunPending(it) } else flowOf(null)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -61,4 +73,8 @@ class RootViewModel @Inject constructor(private val sessions: SessionRepository,
     }
 
     fun signOut() = viewModelScope.launch { sessions.signOut() }
+
+    companion object {
+        fun firstRunPending(state: SyncStateEntity?): Boolean = state == null || state.epoch == null
+    }
 }

@@ -63,7 +63,9 @@ class MainActivity : AppCompatActivity() {
                         Session.NeedsServer -> ServerScreen()
                         is Session.SignedOut -> SignInScreen()
                         is Session.SignedIn -> {
-                            val bootstrapNeeded by root.bootstrapNeeded.collectAsStateWithLifecycle()
+                            // Only the very first bootstrap ever shows this; a later re-bootstrap
+                            // (an import, a healed placeholder, ...) runs behind the normal UI.
+                            val bootstrapNeeded by root.showFirstRunBootstrap.collectAsStateWithLifecycle()
                             val locked by root.locked.collectAsStateWithLifecycle()
                             when {
                                 locked != false -> if (locked == true) LockScreen(onUnlock = root::unlock) else Box(Modifier.fillMaxSize())
