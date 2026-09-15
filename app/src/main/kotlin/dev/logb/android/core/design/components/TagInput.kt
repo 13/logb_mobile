@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.runtime.Composable
@@ -51,7 +52,12 @@ fun TagInput(tags: List<String>, onTags: (List<String>) -> Unit, suggestions: Li
                 // As on the web: tapping the chip body does nothing; only the trailing close icon removes it.
                 InputChip(selected = false, onClick = {}, label = { Text(tag) },
                     trailingIcon = {
-                        Icon(Icons.Outlined.Close, contentDescription = remove, modifier = Modifier.clickable { onTags(Tags.removeTag(tags, tag)) })
+                        // The visual icon stays chip-sized (18dp); minimumInteractiveComponentSize
+                        // pads the touch target out to the recommended 48dp without widening the chip.
+                        Icon(
+                            Icons.Outlined.Close, contentDescription = remove,
+                            modifier = Modifier.minimumInteractiveComponentSize().clickable { onTags(Tags.removeTag(tags, tag)) },
+                        )
                     })
             }
         }
