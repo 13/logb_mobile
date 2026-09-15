@@ -12,7 +12,7 @@ data class ObjectDraft(
     val purchaseDate: String? = null,
     val purchasePriceCents: Long? = null,
     val parentUuid: String? = null,
-    val tags: List<String> = emptyList(),
+    val tags: List<String>? = null,
 )
 
 data class ActivityDraft(
@@ -23,7 +23,7 @@ data class ActivityDraft(
     val counterValue: Long? = null,
     val costCents: Long? = null,
     val quantityMilli: Long? = null,
-    val tags: List<String> = emptyList(),
+    val tags: List<String>? = null,
 )
 
 data class ReminderDraft(

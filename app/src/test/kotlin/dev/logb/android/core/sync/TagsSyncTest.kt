@@ -1,10 +1,13 @@
 package dev.logb.android.core.sync
 
 import dev.logb.android.core.db.TestDatabase
+import dev.logb.android.core.domain.ActivityDraft
 import dev.logb.android.core.domain.ObjectDraft
 import dev.logb.android.core.domain.Tags
+import dev.logb.android.core.domain.TagCount
 import dev.logb.android.core.network.LogbJson
 import dev.logb.android.core.network.dto.BootstrapResult
+import dev.logb.android.feature.entries.ActivityRepository
 import dev.logb.android.feature.objects.ObjectRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -54,6 +57,28 @@ class TagsSyncTest {
         val repo = ObjectRepository(db, LocalWriter(db))
         repo.create(ObjectDraft(name = "A", tags = listOf("Winter")))
         repo.create(ObjectDraft(name = "B", tags = listOf("winter", "Lease")))
-        assertEquals(setOf("Winter" to 2, "Lease" to 1).map { it.first }.toSet(), Tags.count(db.objectDao().tagColumns().first()).map { it.tag }.toSet())
+        assertEquals(listOf(TagCount("Winter", 2), TagCount("Lease", 1)), Tags.count(db.objectDao().tagColumns().first()))
+    }
+
+    @Test fun `editing an object with a draft that carries no tags keeps its tags and queues no tags op`() = runBlocking {
+        val repo = ObjectRepository(db, LocalWriter(db))
+        val uuid = repo.create(ObjectDraft(name = "Golf", tags = listOf("Winter")))
+        db.opDao().pending().forEach { db.opDao().delete(it.id) }
+        db.objectDao().upsert(db.objectDao().get(uuid)!!.copy(serverId = 5))
+        repo.update(uuid, ObjectDraft(name = "Golf GTI"))
+        assertEquals("""["Winter"]""", db.objectDao().get(uuid)!!.tags)
+        assertEquals(listOf("name"), db.opDao().pending().map { it.field })
+    }
+
+    @Test fun `editing an entry with a draft that carries no tags keeps its tags`() = runBlocking {
+        val objects = ObjectRepository(db, LocalWriter(db))
+        val activities = ActivityRepository(db, LocalWriter(db))
+        val objectUuid = objects.create(ObjectDraft(name = "Golf"))
+        val uuid = activities.create(objectUuid, ActivityDraft(date = "2026-01-01", category = "repair", title = "Brakes", tags = listOf("Winter")))
+        db.opDao().pending().forEach { db.opDao().delete(it.id) }
+        db.activityDao().upsert(db.activityDao().get(uuid)!!.copy(serverId = 6))
+        activities.update(uuid, ActivityDraft(date = "2026-01-01", category = "repair", title = "Brake pads"))
+        assertEquals("""["Winter"]""", db.activityDao().get(uuid)!!.tags)
+        assertEquals(listOf("title"), db.opDao().pending().map { it.field })
     }
 }
