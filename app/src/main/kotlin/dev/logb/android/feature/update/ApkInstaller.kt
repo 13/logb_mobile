@@ -31,6 +31,7 @@ class ApkInstaller @Inject constructor(@ApplicationContext private val context: 
             setSize(file.length())
         }
         val sessionId = installer.createSession(params)
+        var committed = false
         try {
             installer.openSession(sessionId).use { session ->
                 file.inputStream().use { input ->
@@ -40,9 +41,11 @@ class ApkInstaller @Inject constructor(@ApplicationContext private val context: 
                     }
                 }
                 session.commit(statusSender(sessionId))
+                committed = true
             }
         } catch (e: Exception) {
-            installer.abandonSession(sessionId)
+            // A committed session belongs to the installer now; only a session that never reached commit is ours to discard.
+            if (!committed) runCatching { installer.abandonSession(sessionId) }.exceptionOrNull()?.let(e::addSuppressed)
             throw e
         }
     }
