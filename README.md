@@ -77,7 +77,10 @@ release's `browser_download_url`. A download is offered for install only after i
 SHA-256 and signing certificate all match what GitHub published and the app already carries;
 installing needs Android's "install unknown apps" permission, granted through the system
 confirmation dialog on first use. This is the only request that does not go to the user's
-own LogB server. Debug builds never check.
+own LogB server. Debug builds never check. The certificate check is exact, so rotating the
+signing key would make every future release fail it until one install is done by hand with
+the new key (or the updater itself is changed to accept it); `REQUEST_INSTALL_PACKAGES` is
+restricted on the Play Store, which is why this feature lives entirely in `feature/update`.
 
 ## Tests
 
