@@ -7,3 +7,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "logb"
 include(":app")
+include(":baselineprofile")
