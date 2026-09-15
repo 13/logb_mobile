@@ -3,6 +3,7 @@ package dev.logb.android.contract
 import dev.logb.android.core.auth.ApiFactory
 import dev.logb.android.core.auth.FakeServerStore
 import dev.logb.android.core.auth.FakeTokenStore
+import dev.logb.android.core.auth.PasswordSession
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.db.TestDatabase
@@ -13,6 +14,8 @@ import dev.logb.android.core.domain.ObjectDraft
 import dev.logb.android.core.domain.ReminderDraft
 import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.TypeInput
+import dev.logb.android.core.network.dto.NewToken
+import dev.logb.android.core.network.dto.ServerNotificationsIn
 import dev.logb.android.core.server.Capabilities
 import dev.logb.android.core.sync.LocalWriter
 import dev.logb.android.core.sync.PullEngine
@@ -22,6 +25,7 @@ import dev.logb.android.core.blobs.BlobSettings
 import dev.logb.android.core.blobs.BlobStore
 import dev.logb.android.core.sync.ConnectivityMonitor
 import dev.logb.android.feature.entries.AttachmentRepository
+import dev.logb.android.feature.settings.data.DataTransfer
 import kotlinx.coroutines.flow.MutableStateFlow
 import dev.logb.android.feature.entries.ActivityRepository
 import dev.logb.android.feature.objects.ObjectRepository
@@ -42,6 +46,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.ServerSocket
@@ -333,5 +339,50 @@ class SyncContractTest {
         check(serverObjectAfterTagEdit.contains("Autumn")) { serverObjectAfterTagEdit }
 
         db.close()
+    }
+
+    /** The account pages (Settings › API access, Data, Notifications) against the real server, not a mock one. */
+    @Test
+    fun accountPagesWorkAgainstTheRealServer() = runBlocking {
+        call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
+        val factory = ApiFactory { b, t, j -> ApiClient.create(b, t, j) }
+        val serverStore = FakeServerStore()
+        val sessions = SessionRepository(serverStore, FakeTokenStore(), factory)
+        check(sessions.signIn(base, "ben", "correct horse").isSuccess)
+        val token = (sessions.session.value as Session.SignedIn).token
+        val api = ApiClient.create(base, { token })
+        val phoneTokenId = serverStore.read()!!.tokenId!!
+
+        // 1: a token created through a password session; two rows, one of them the phone's.
+        val created = PasswordSession(sessions, factory).run("correct horse") { it.createToken(NewToken("script")) }.getOrThrow()
+        check(created.token.startsWith("logb_pat_")) { created.token }
+        val afterCreate = api.listTokens()
+        assertEquals(2, afterCreate.size)
+        check(afterCreate.any { it.id == phoneTokenId }) { afterCreate }
+
+        // 2: revoking through a password session; a wrong password fails and revokes nothing.
+        check(PasswordSession(sessions, factory).run("wrong") { it.revokeToken(created.id) }.isFailure)
+        assertEquals(2, api.listTokens().size)
+        check(PasswordSession(sessions, factory).run("correct horse") { it.revokeToken(created.id) }.isSuccess)
+        assertEquals(1, api.listTokens().size)
+
+        // 3: an export round-trips through DataTransfer as a real zip, and imports back.
+        call("POST", "/objects", """{"name":"House","type":"home"}""")
+        val out = ByteArrayOutputStream()
+        val written = DataTransfer.export(api, out)
+        val bytes = out.toByteArray()
+        check(written > 0)
+        assertEquals(written, bytes.size.toLong())
+        assertEquals("PK", String(bytes, 0, 2, Charsets.US_ASCII))
+        val counts = api.importZip(DataTransfer.zipBody({ ByteArrayInputStream(bytes) }, bytes.size.toLong()))
+        assertEquals(1, counts.objects)
+
+        // 4: the server digest saves and echoes, and a test reports the webhook's own outcome
+        // (port 9 refuses the connection, which is a fine, non-null failure reason).
+        val saved = api.saveNotifications(ServerNotificationsIn("http://127.0.0.1:9/hook", "json"))
+        assertEquals("http://127.0.0.1:9/hook", saved.url)
+        assertEquals("json", saved.format)
+        assertNotNull(api.testNotifications().webhook)
+        Unit
     }
 }

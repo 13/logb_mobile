@@ -82,3 +82,10 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › Types: add "Boat" (tool icon, repair + fuel, h); an object of type Boat shows the icon, the unit and only Boat's categories; delete is refused while an object uses it.
 - [ ] The web shows the same tags, colours and the Boat type after a sync, and edits made there arrive on the phone.
 - [ ] Against a server older than 0.8.0: no tag input, no Types row; existing data unaffected.
+
+## Release 0.9.0 (the web's settings pages)
+
+- [ ] Settings › API access: create a token with the password — shown once, Copy works; revoke another; this phone's own token has no Revoke; a wrong password says so.
+- [ ] Settings › Data: export everything saves a zip where the picker says; import warns about duplicates, then shows the counts and the new rows arrive after the sync; an archive over the server limit says it is too large.
+- [ ] Settings › Notifications: a webhook address and format save; "Send a test notification" reports the webhook result; an invalid address is refused before saving.
+- [ ] Offline, each of the three pages says it needs a connection.

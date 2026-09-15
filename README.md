@@ -4,7 +4,7 @@ Native, offline-first Android client for [LogB](https://github.com/13/logb): the
 of your owned objects, on your phone, readable with the radio off, reconciled with your
 self-hosted server in the background.
 
-**Status: all six phases built; feature parity with the web client for a signed-in person.** Sign in, everything the account owns lands on the phone and
+**Status: feature parity with the web client for a signed-in, non-admin person.** Sign in, everything the account owns lands on the phone and
 stays readable offline; objects, entries, readings and reminders can be created, edited,
 deleted, marked done and snoozed with the radio off, and reconcile with the server -- and with
 edits made in the browser -- under field-level last-write-wins when a connection returns. Photos
@@ -18,8 +18,10 @@ optional biometric or screen-lock gate covers the logbook, and launcher shortcut
 due list, search and a new object. The objects list searches every depth and sorts five ways,
 readings warn when they jump far beyond recent usage, a due reminder can be skipped by its own
 interval, entries born offline say so until they are sent, and an object can be exported as the
-server's zip through the share sheet. Only operator screens stay in the browser: people, API
-tokens, the database, instance settings and whole-instance import.
+server's zip through the share sheet. Settings also carries the account pages the web has --
+API access, Data and the server's notification digest, described below. Only Settings › People
+and Settings › Database stay in the browser, along with browser push notifications; everything
+else a signed-in, non-admin person can do on the web, this app now does too.
 
 <p>
 <img src="docs/screenshots/objects.png" width="180" alt="Objects">
@@ -50,6 +52,33 @@ neither a tag input nor the Settings › Types row, while tags and types created
 displaying. Both sync both ways under the same field-level last-write-wins as everything else,
 and both work fully offline: a type minted on the phone gets its object key (`custom:<uuid>`)
 before ever reaching the server, and tags queue like any other field edit.
+
+## Account settings
+
+**Settings › API access** lists every personal access token on the account, including this
+phone's own (labelled "This phone", recognised by the token id the phone remembers or, failing
+that, by the server's own 15-character prefix; a row that can't be identified either way offers
+no *Revoke*, since revoking the wrong token could lock the phone out). Creating a token and
+revoking one both ask for the account password first and nothing else: logb mints and deletes
+tokens only for an interactive session, never for a bearer token, so a browser sign-in could do
+this but a script with a token could not -- the app opens a short-lived cookie session for the
+one call and forgets the password the moment it returns. A freshly created token's plaintext is
+shown once, with a Copy button, and is never written to disk or a log.
+
+**Settings › Data** exports the whole account as the server's zip through the system's file
+picker (suggested name `logb-export-<date>.zip`) and imports one the same way. Import always
+*adds*: it never replaces what is already on the phone or the server, so importing the same
+archive twice duplicates every object, entry, attachment and reminder it contains -- the app
+warns about this before it asks for the file, then shows the server's counts and requests a
+fresh bootstrap so the new rows land on the next sync.
+
+**Settings › Notifications** gained a *Server digest* section alongside the phone's own local
+reminder summary: a webhook address (checked before saving) and its format (plain text for
+`ntfy`, or JSON), saved to the account, plus *Send a test notification*, which reports back
+exactly what the server's own attempt at the webhook did.
+
+All three pages need the server and say so instead of failing quietly when it can't be reached;
+a 401 from any of their calls signs the phone out, the way every other page already does.
 
 ## Build
 
