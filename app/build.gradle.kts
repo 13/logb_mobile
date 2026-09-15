@@ -12,8 +12,8 @@ plugins {
 }
 
 // The release workflow stamps the git tag in with -PversionName / -PversionCode.
-val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.7.0")
-val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(700)
+val logbVersionName: String = providers.gradleProperty("versionName").getOrElse("0.7.1")
+val logbVersionCode: Int = providers.gradleProperty("versionCode").map(String::toInt).getOrElse(701)
 
 // A real signing key, when one exists: the user's global ANDROID_KEYSTORE* variables (CI exports
 // the same names from secrets), or an untracked keystore/keystore.properties. Without either,
@@ -54,6 +54,8 @@ android {
         testInstrumentationRunner = "dev.logb.android.HiltTestRunner"
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         buildConfigField("String", "BUILD_DATE", "\"$gitDate\"")
+        // The repository the in-app updater asks for releases (feature/update).
+        buildConfigField("String", "UPDATE_REPO", "\"13/logb_mobile\"")
         // The two languages the server speaks; nothing else ships strings.
         androidResources.localeFilters += listOf("en", "de")
     }
