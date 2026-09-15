@@ -1,7 +1,6 @@
 package dev.logb.android
 
 import android.os.Bundle
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +14,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import dev.logb.android.feature.lock.LockScreen
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.isSystemInDarkTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -30,22 +30,17 @@ import dev.logb.android.navigation.AppNavHost
 class MainActivity : AppCompatActivity() {
     @javax.inject.Inject lateinit var shareInbox: dev.logb.android.feature.share.ShareInbox
 
-    // The same instance `setContent` below reads via this field (both key off this Activity's
-    // ViewModelStore): kept as a field too so onNewIntent/onCreate can reach it before the first
-    // composition, to guard a target that arrives in the same beat as a resume from background.
-    private val rootViewModel: RootViewModel by viewModels()
-
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
-        if (shareInbox.offer(intent)) rootViewModel.guardPendingTarget()
+        shareInbox.offer(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null && shareInbox.offer(intent)) rootViewModel.guardPendingTarget()
+        if (savedInstanceState == null) shareInbox.offer(intent)
         setContent {
-            val root = rootViewModel
+            val root: RootViewModel = hiltViewModel()
             val appearance by root.appearance.collectAsStateWithLifecycle()
             // The gate follows the process, not this activity: a picker or the camera is another activity of
             // the same process and must not count as leaving the app.

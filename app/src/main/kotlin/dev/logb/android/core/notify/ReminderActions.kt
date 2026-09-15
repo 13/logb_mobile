@@ -21,18 +21,19 @@ class ReminderActions(
     suspend fun snooze(reminderUuid: String) = act(reminderUuid, snooze)
 
     private suspend fun act(reminderUuid: String, write: suspend (String) -> Unit) {
-        // Signed out (or a server not even chosen yet): nothing to write, so there is nothing
-        // this notification can still do -- it is cleared rather than left dangling.
-        if (!ensureSignedIn()) { cancel(reminderUuid); return }
         try {
+            // Signed out (or a server not even chosen yet): nothing to write, so there is
+            // nothing this notification can still do -- it is cleared rather than left dangling.
+            if (!ensureSignedIn()) { cancel(reminderUuid); return }
             write(reminderUuid)
+            cancel(reminderUuid)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            // Covers ensureSignedIn (a store read) failing too, not just the write: either way
+            // nothing happened, so the notification is left up rather than silently cleared.
             Log.e(TAG, "reminder action failed for $reminderUuid", e)
-            return
         }
-        cancel(reminderUuid)
     }
 
     companion object {

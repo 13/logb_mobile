@@ -73,6 +73,19 @@ class ReminderActionsTest {
         assertEquals(emptyList(), cancelled)
     }
 
+    @Test fun `ensureSignedIn throwing (a store read failing) keeps the notification and does not throw itself`() = runBlocking {
+        val failing = ReminderActions(
+            ensureSignedIn = { throw IllegalStateException("store read failed") },
+            done = { reminders.done(it, null) },
+            snooze = { reminders.snooze(it, 7) },
+            cancel = { uuid -> cancelled += uuid },
+        )
+
+        failing.done("r-1") // must not throw
+
+        assertEquals(emptyList(), cancelled)
+    }
+
     @Test fun `loading resolves through restore before the write happens`() = runBlocking {
         val objectUuid = ObjectRepository(db, writer).create(ObjectDraft(name = "Golf"))
         val r = reminders.create(objectUuid, ReminderDraft(title = "Oil", dueDate = "2026-09-01"), LocalDate.parse("2026-09-15"))
