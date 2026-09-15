@@ -93,8 +93,10 @@ class UpdateViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            // A newer release the daily check already found is offered right away, not after another tap.
-            if (UpdateAutoCheck.newerThanInstalled(prefs.current().available, BuildConfig.VERSION_NAME) != null &&
+            // A newer release the daily check already found is offered right away, not after another
+            // tap -- unless the person switched automatic checks off, who asks by pressing the button.
+            val s = prefs.current()
+            if (s.autoCheck && UpdateAutoCheck.newerThanInstalled(s.available, BuildConfig.VERSION_NAME) != null &&
                 mutableState.value == UpdateUiState.Idle
             ) check()
         }
