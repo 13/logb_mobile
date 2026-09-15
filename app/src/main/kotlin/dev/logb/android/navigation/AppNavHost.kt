@@ -1,6 +1,14 @@
 package dev.logb.android.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
@@ -15,6 +23,8 @@ import dev.logb.android.feature.share.ShareInbox
 import dev.logb.android.feature.share.ShareTargetScreen
 import dev.logb.android.feature.types.TypesRootViewModel
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -40,6 +50,28 @@ import dev.logb.android.feature.settings.SyncScreen
 import dev.logb.android.feature.settings.data.DataScreen
 import dev.logb.android.feature.settings.tokens.TokensScreen
 import dev.logb.android.feature.types.TypesScreen
+
+/**
+ * Wraps a destination's content in an opaque background so the slide transition's quarter-width
+ * overlap (see [AppNavHost]'s `NavHost` transitions) never lets another screen bleed through.
+ * Matches the color `MainActivity`'s root `Surface` paints (its default, unset `color` param is
+ * `MaterialTheme.colorScheme.surface`).
+ */
+@Composable
+private fun Screen(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { content() }
+}
+
+/**
+ * True when both sides of a transition are one of the bottom bar's own top-level routes
+ * (`Objects`/`Search`/`Settings`) — a tab switch, not a drill-down push or pop, so it must not
+ * slide like one.
+ */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean {
+    fun NavBackStackEntry.isTopLevel() =
+        destination.hasRoute<Objects>() || destination.hasRoute<Search>() || destination.hasRoute<Settings>()
+    return initialState.isTopLevel() && targetState.isTopLevel()
+}
 
 /** The signed-in, bootstrapped app: a bottom bar with three destinations and the screens under them. */
 @Composable
@@ -80,70 +112,98 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                 }
             },
         ) { padding ->
-            NavHost(nav, startDestination = Objects, modifier = Modifier.padding(padding)) {
+            NavHost(
+                nav,
+                startDestination = Objects,
+                modifier = Modifier.padding(padding),
+                enterTransition = {
+                    if (isTabSwitch()) EnterTransition.None
+                    else slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300))
+                },
+                exitTransition = {
+                    if (isTabSwitch()) ExitTransition.None
+                    else slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300), targetOffset = { it / 4 })
+                },
+                popEnterTransition = {
+                    if (isTabSwitch()) EnterTransition.None
+                    else slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300), initialOffset = { it / 4 })
+                },
+                popExitTransition = {
+                    if (isTabSwitch()) ExitTransition.None
+                    else slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300))
+                },
+            ) {
                 composable<Objects> {
-                    ObjectsScreen(
-                        onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) },
-                        onLog = { uuid -> nav.navigate(ActivityForm(uuid)) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
-                        onOpenDue = { nav.navigate(DueList) }, onOpenStats = { nav.navigate(Stats) },
-                    )
+                    Screen {
+                        ObjectsScreen(
+                            onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) }, onOpenSync = { nav.navigate(SyncSettings) }, onNew = { nav.navigate(ObjectForm()) },
+                            onLog = { uuid -> nav.navigate(ActivityForm(uuid)) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
+                            onOpenDue = { nav.navigate(DueList) }, onOpenStats = { nav.navigate(Stats) },
+                        )
+                    }
                 }
-                composable<Stats> { StatsScreen(onBack = { nav.popBackStack() }, onOpenObject = { uuid -> nav.navigate(ObjectDetail(uuid)) }) }
+                composable<Stats> { Screen { StatsScreen(onBack = { nav.popBackStack() }, onOpenObject = { uuid -> nav.navigate(ObjectDetail(uuid)) }) } }
                 composable<ObjectDetail> {
-                    ObjectDetailScreen(
-                        onBack = { nav.popBackStack() },
-                        onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) },
-                        onEdit = { uuid -> nav.navigate(ObjectForm(uuid = uuid)) },
-                        onAddChild = { uuid -> nav.navigate(ObjectForm(parentUuid = uuid)) },
-                        onLog = { uuid -> nav.navigate(ActivityForm(uuid)) },
-                        onEditEntry = { objectUuid, uuid -> nav.navigate(ActivityForm(objectUuid, uuid)) },
-                        onAddReminder = { uuid -> nav.navigate(ReminderForm(uuid)) },
-                        onAddReadingReminder = { uuid -> nav.navigate(ReminderForm(uuid, kind = "reading")) },
-                        onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
-                        onEditReminder = { objectUuid, uuid -> nav.navigate(ReminderForm(objectUuid, uuid)) },
-                        onLogForReminder = { objectUuid, reminderUuid, title -> nav.navigate(ActivityForm(objectUuid, doneReminderUuid = reminderUuid, title = title)) },
-                        onAttachment = { uuid -> nav.navigate(Viewer(uuid)) },
-                    )
+                    Screen {
+                        ObjectDetailScreen(
+                            onBack = { nav.popBackStack() },
+                            onOpen = { uuid -> nav.navigate(ObjectDetail(uuid)) },
+                            onEdit = { uuid -> nav.navigate(ObjectForm(uuid = uuid)) },
+                            onAddChild = { uuid -> nav.navigate(ObjectForm(parentUuid = uuid)) },
+                            onLog = { uuid -> nav.navigate(ActivityForm(uuid)) },
+                            onEditEntry = { objectUuid, uuid -> nav.navigate(ActivityForm(objectUuid, uuid)) },
+                            onAddReminder = { uuid -> nav.navigate(ReminderForm(uuid)) },
+                            onAddReadingReminder = { uuid -> nav.navigate(ReminderForm(uuid, kind = "reading")) },
+                            onReading = { uuid -> nav.navigate(ReadingForm(uuid)) },
+                            onEditReminder = { objectUuid, uuid -> nav.navigate(ReminderForm(objectUuid, uuid)) },
+                            onLogForReminder = { objectUuid, reminderUuid, title -> nav.navigate(ActivityForm(objectUuid, doneReminderUuid = reminderUuid, title = title)) },
+                            onAttachment = { uuid -> nav.navigate(Viewer(uuid)) },
+                        )
+                    }
                 }
-                composable<ActivityForm> { ActivityFormScreen(onBack = { nav.popBackStack() }, onAttachment = { uuid -> nav.navigate(Viewer(uuid)) }) }
-                composable<Viewer> { AttachmentViewerScreen(onBack = { nav.popBackStack() }) }
-                composable<ShareTarget> { ShareTargetScreen(onCancel = { nav.popBackStack() }, onPick = { uuid -> nav.navigate(ActivityForm(uuid, fromShare = true)) { popUpTo<ShareTarget> { inclusive = true } } }) }
-                composable<ReadingForm> { ReadingFormScreen(onBack = { nav.popBackStack() }) }
-                composable<ReminderForm> { ReminderFormScreen(onBack = { nav.popBackStack() }) }
-                composable<DueList> { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) }) }
+                composable<ActivityForm> { Screen { ActivityFormScreen(onBack = { nav.popBackStack() }, onAttachment = { uuid -> nav.navigate(Viewer(uuid)) }) } }
+                composable<Viewer> { Screen { AttachmentViewerScreen(onBack = { nav.popBackStack() }) } }
+                composable<ShareTarget> { Screen { ShareTargetScreen(onCancel = { nav.popBackStack() }, onPick = { uuid -> nav.navigate(ActivityForm(uuid, fromShare = true)) { popUpTo<ShareTarget> { inclusive = true } } }) } }
+                composable<ReadingForm> { Screen { ReadingFormScreen(onBack = { nav.popBackStack() }) } }
+                composable<ReminderForm> { Screen { ReminderFormScreen(onBack = { nav.popBackStack() }) } }
+                composable<DueList> { Screen { DueListScreen(onBack = { nav.popBackStack() }, onOpen = { uuid -> nav.navigate(ObjectDetail(uuid, tab = "reminders")) }, onReading = { uuid -> nav.navigate(ReadingForm(uuid)) }) } }
                 composable<ObjectForm> { entry ->
                     val editing = entry.toRoute<ObjectForm>().uuid != null
-                    ObjectFormScreen(
-                        onBack = { nav.popBackStack() },
-                        onSaved = { uuid -> if (editing) nav.popBackStack() else nav.navigate(ObjectDetail(uuid)) { popUpTo<ObjectForm> { inclusive = true } } },
-                        onDeleted = { nav.popBackStack<Objects>(inclusive = false) },
-                    )
-                }
-                composable<Search> { SearchScreen(onOpenObject = { uuid -> nav.navigate(ObjectDetail(uuid)) }) }
-                composable<Settings> {
-                    SettingsHubScreen(onOpen = { page ->
-                        nav.navigate(
-                            when (page) {
-                                SettingsPage.Appearance -> Appearance
-                                SettingsPage.Account -> Account
-                                SettingsPage.Sync -> SyncSettings
-                                SettingsPage.Notifications -> Notifications
-                                SettingsPage.Types -> TypesSettings
-                                SettingsPage.Data -> DataSettings
-                                SettingsPage.ApiAccess -> ApiAccessSettings
-                                SettingsPage.About -> About
-                            },
+                    Screen {
+                        ObjectFormScreen(
+                            onBack = { nav.popBackStack() },
+                            onSaved = { uuid -> if (editing) nav.popBackStack() else nav.navigate(ObjectDetail(uuid)) { popUpTo<ObjectForm> { inclusive = true } } },
+                            onDeleted = { nav.popBackStack<Objects>(inclusive = false) },
                         )
-                    })
+                    }
                 }
-                composable<Appearance> { AppearanceScreen(onBack = { nav.popBackStack() }) }
-                composable<Account> { AccountScreen(onBack = { nav.popBackStack() }) }
-                composable<SyncSettings> { SyncScreen(onBack = { nav.popBackStack() }) }
-                composable<About> { AboutScreen(onBack = { nav.popBackStack() }) }
-                composable<Notifications> { NotificationsScreen(onBack = { nav.popBackStack() }) }
-                composable<TypesSettings> { TypesScreen(onBack = { nav.popBackStack() }) }
-                composable<DataSettings> { DataScreen(onBack = { nav.popBackStack() }) }
-                composable<ApiAccessSettings> { TokensScreen(onBack = { nav.popBackStack() }) }
+                composable<Search> { Screen { SearchScreen(onOpenObject = { uuid -> nav.navigate(ObjectDetail(uuid)) }) } }
+                composable<Settings> {
+                    Screen {
+                        SettingsHubScreen(onOpen = { page ->
+                            nav.navigate(
+                                when (page) {
+                                    SettingsPage.Appearance -> Appearance
+                                    SettingsPage.Account -> Account
+                                    SettingsPage.Sync -> SyncSettings
+                                    SettingsPage.Notifications -> Notifications
+                                    SettingsPage.Types -> TypesSettings
+                                    SettingsPage.Data -> DataSettings
+                                    SettingsPage.ApiAccess -> ApiAccessSettings
+                                    SettingsPage.About -> About
+                                },
+                            )
+                        })
+                    }
+                }
+                composable<Appearance> { Screen { AppearanceScreen(onBack = { nav.popBackStack() }) } }
+                composable<Account> { Screen { AccountScreen(onBack = { nav.popBackStack() }) } }
+                composable<SyncSettings> { Screen { SyncScreen(onBack = { nav.popBackStack() }) } }
+                composable<About> { Screen { AboutScreen(onBack = { nav.popBackStack() }) } }
+                composable<Notifications> { Screen { NotificationsScreen(onBack = { nav.popBackStack() }) } }
+                composable<TypesSettings> { Screen { TypesScreen(onBack = { nav.popBackStack() }) } }
+                composable<DataSettings> { Screen { DataScreen(onBack = { nav.popBackStack() }) } }
+                composable<ApiAccessSettings> { Screen { TokensScreen(onBack = { nav.popBackStack() }) } }
             }
         }
     }
