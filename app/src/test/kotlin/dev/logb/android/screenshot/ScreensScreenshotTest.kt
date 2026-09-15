@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.logb.android.core.auth.Session
+import dev.logb.android.core.network.dto.ApiToken
 import dev.logb.android.core.network.dto.User
 import dev.logb.android.core.db.model.Bucket
 import dev.logb.android.core.db.rem
@@ -32,6 +33,9 @@ import dev.logb.android.feature.settings.AboutContent
 import dev.logb.android.feature.settings.AboutInfo
 import dev.logb.android.feature.settings.SettingsHubContent
 import dev.logb.android.feature.settings.SettingsUiState
+import dev.logb.android.feature.settings.tokens.TokenRow
+import dev.logb.android.feature.settings.tokens.TokensContent
+import dev.logb.android.feature.settings.tokens.TokensUiState
 import dev.logb.android.feature.stats.FuelInsights
 import dev.logb.android.feature.stats.InsightsSection
 import dev.logb.android.feature.stats.ObjectInsights
@@ -163,6 +167,21 @@ class ScreensScreenshotTest {
                 form = TypeForm("u1", "Boat", "tool", listOf("repair", "fuel", "other"), "h"),
             ),
             onEdit = {}, onNew = {}, onSave = {}, onCancel = {}, onDelete = {}, onFormChange = {}, onBack = {},
+        )
+    }
+
+    @Test fun tokens() = capture("tokens") {
+        TokensContent(
+            TokensUiState(
+                rows = listOf(
+                    TokenRow(ApiToken(1, "This phone", "logb_pat_ab12", "2026-08-01T00:00:00Z", "2026-09-10T08:00:00Z"), isThisPhone = true),
+                    TokenRow(ApiToken(2, "Backup script", "logb_pat_cd34", "2026-07-15T00:00:00Z", "2026-09-01T00:00:00Z"), isThisPhone = false),
+                    TokenRow(ApiToken(3, "CI pipeline", "logb_pat_ef56", "2026-09-12T00:00:00Z", null), isThisPhone = false),
+                ),
+                loaded = true,
+                fresh = "logb_pat_ef56_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c",
+            ),
+            onBack = {}, onName = {}, onCreate = {}, onRevoke = {}, onConfirm = {}, onDismiss = {}, onCopy = {},
         )
     }
 }

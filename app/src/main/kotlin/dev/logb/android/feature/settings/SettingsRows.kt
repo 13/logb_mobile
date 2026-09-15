@@ -5,7 +5,7 @@ import dev.logb.android.core.prefs.Appearance
 import dev.logb.android.core.prefs.ThemeMode
 import dev.logb.android.core.sync.SyncStatus
 
-enum class SettingsPage { Appearance, Account, Sync, Notifications, Types, About }
+enum class SettingsPage { Appearance, Account, Sync, Notifications, Types, ApiAccess, About }
 
 /** A hub row: where it goes and what it currently says, so the hub reads as a status summary. */
 data class SettingsRow(val page: SettingsPage, val value: String?)
@@ -27,6 +27,7 @@ fun settingsRows(session: Session, appearance: Appearance, sync: SyncStatus, lan
         add(SettingsRow(SettingsPage.Sync, syncValue))
         add(SettingsRow(SettingsPage.Notifications, notifications))
         if (showTypes) add(SettingsRow(SettingsPage.Types, null))
+        add(SettingsRow(SettingsPage.ApiAccess, null))
         add(SettingsRow(SettingsPage.About, version))
     }
 }

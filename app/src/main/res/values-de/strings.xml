@@ -444,4 +444,28 @@
     <string name="update_auto">Einmal täglich prüfen</string>
     <string name="update_auto_hint">Fragt api.github.com, die einzige Anfrage, die nicht an deinen LogB-Server geht</string>
     <string name="update_hub_available">%1$s · %2$s verfügbar</string>
+
+    <!-- API-Zugriff (web: tokens.*) -->
+    <string name="tokens_title">API-Zugriff</string>
+    <string name="tokens_intro">Für Apps und Skripte, die ohne Browser auf LogB zugreifen. Ein Token gilt als dein Konto — behandle es wie ein Passwort.</string>
+    <string name="tokens_name">Wofür ist dieses Token?</string>
+    <string name="tokens_name_placeholder">z. B. Handy</string>
+    <string name="tokens_create">Token erstellen</string>
+    <string name="tokens_created">Jetzt kopieren — es wird nicht noch einmal angezeigt.</string>
+    <string name="tokens_copy">Kopieren</string>
+    <string name="tokens_copied">Kopiert</string>
+    <string name="tokens_revoke">Widerrufen</string>
+    <string name="tokens_revoke_confirm">Dieses Token widerrufen? Alles, was es nutzt, funktioniert sofort nicht mehr.</string>
+    <string name="tokens_never_used">nie benutzt</string>
+    <string name="tokens_last_used">zuletzt benutzt %1$s</string>
+    <string name="tokens_none">Noch keine Tokens.</string>
+    <string name="tokens_password_note">Ein Passwortwechsel widerruft auch alle Tokens.</string>
+    <plurals name="tokens_count">
+        <item quantity="one">1 Token</item>
+        <item quantity="other">%d Tokens</item>
+    </plurals>
+    <string name="tokens_this_phone">Dieses Telefon</string>
+    <string name="tokens_password_title">Mit deinem Passwort bestätigen</string>
+    <string name="tokens_password_hint">LogB erstellt und widerruft Tokens nur, nachdem du dich mit deinem Passwort angemeldet hast.</string>
+    <string name="needs_connection">Dafür braucht es eine Verbindung zu deinem Server.</string>
 </resources>

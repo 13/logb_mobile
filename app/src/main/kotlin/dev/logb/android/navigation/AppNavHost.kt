@@ -37,6 +37,7 @@ import dev.logb.android.feature.settings.NotificationsScreen
 import dev.logb.android.feature.settings.SettingsHubScreen
 import dev.logb.android.feature.settings.SettingsPage
 import dev.logb.android.feature.settings.SyncScreen
+import dev.logb.android.feature.settings.tokens.TokensScreen
 import dev.logb.android.feature.types.TypesScreen
 
 /** The signed-in, bootstrapped app: a bottom bar with three destinations and the screens under them. */
@@ -124,6 +125,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                                 SettingsPage.Sync -> SyncSettings
                                 SettingsPage.Notifications -> Notifications
                                 SettingsPage.Types -> TypesSettings
+                                SettingsPage.ApiAccess -> ApiAccessSettings
                                 SettingsPage.About -> About
                             },
                         )
@@ -135,6 +137,7 @@ fun AppNavHost(shareInbox: ShareInbox? = null) {
                 composable<About> { AboutScreen(onBack = { nav.popBackStack() }) }
                 composable<Notifications> { NotificationsScreen(onBack = { nav.popBackStack() }) }
                 composable<TypesSettings> { TypesScreen(onBack = { nav.popBackStack() }) }
+                composable<ApiAccessSettings> { TokensScreen(onBack = { nav.popBackStack() }) }
             }
         }
     }
