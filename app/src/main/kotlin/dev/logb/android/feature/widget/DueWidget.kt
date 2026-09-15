@@ -3,6 +3,8 @@ package dev.logb.android.feature.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,7 +52,7 @@ import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.notify.ReminderActions
 import dev.logb.android.feature.reminders.DueListModel
 import dev.logb.android.feature.share.LaunchTarget
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
 
 /** What the widget needs from the graph: nothing it doesn't already share with the rest of the app. */
 @EntryPoint
@@ -70,22 +72,19 @@ class DueWidget : GlanceAppWidget() {
         val sessions = ep.sessions()
         // A process started just for this update may not have restored its session yet, as
         // ReminderActions and DigestWorker both account for.
-        if (sessions.session.value is Session.Loading) sessions.restore()
-        val signedIn = sessions.session.value is Session.SignedIn
-        val locked = DueWidgetStates.resolveLocked(runCatching { ep.lockPrefs().current() }.getOrNull())
-        // The count still reaches a locked widget (like the digest's group summary); only the
-        // per-row detail -- object names, titles -- is privacy-sensitive, and DueWidgetStates
-        // strips exactly that.
-        val items = if (signedIn) DueListModel(ep.accounts().db).items(WITHIN_DAYS).first() else emptyList()
+        if (sessions.session.value is Session.Loading) runCatching { sessions.restore() }
         val res = context.resources
-        val state = DueWidgetStates.from(
-            items,
-            locked = locked,
-            signedIn = signedIn,
+        // Reactive, not a one-off read: this runs once per Glance session, and an update() to a
+        // live session only recomposes -- see DueWidgetFlow. The count still reaches a locked
+        // widget (like the digest's group summary); only the per-row detail is stripped.
+        val states = DueWidgetFlow.states(
+            session = sessions.session,
+            lockEnabled = ep.lockPrefs().isEnabled,
+            items = { DueListModel(ep.accounts().db).items(WITHIN_DAYS) },
             dueWord = res.getString(R.string.notify_due),
             upcomingWord = { days -> res.getQuantityString(R.plurals.notify_in_days, days.toInt(), days) },
         )
-        provideContent { DueWidgetContent(state) }
+        provideContent { DueWidgetBody(states) }
     }
 
     companion object {
@@ -93,6 +92,13 @@ class DueWidget : GlanceAppWidget() {
         val MEDIUM = DpSize(250.dp, 180.dp)
         private const val WITHIN_DAYS = 7L
     }
+}
+
+/** Collects [states] for as long as the Glance session lives; starts locked, so no name renders before the real state is known. */
+@Composable
+fun DueWidgetBody(states: Flow<DueWidgetState>) {
+    val state by states.collectAsState(DueWidgetFlow.INITIAL)
+    DueWidgetContent(state)
 }
 
 @Composable

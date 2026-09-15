@@ -4,6 +4,11 @@ import androidx.glance.appwidget.testing.unit.runGlanceAppWidgetUnitTest
 import androidx.glance.testing.unit.hasContentDescription
 import androidx.glance.testing.unit.hasText
 import androidx.test.core.app.ApplicationProvider
+import dev.logb.android.core.auth.Session
+import dev.logb.android.core.network.dto.User
+import dev.logb.android.core.notify.DueFixtures
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -49,5 +54,43 @@ class DueWidgetContentTest {
         provideComposable { DueWidgetContent(DueWidgetState(count = 1, rows = reading, locked = false, signedIn = true)) }
         onNode(hasText("Golf: Mileage")).assertExists()
         onNode(hasContentDescription("Mark done")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `signed out shows the sign-in prompt and nothing else`() = runGlanceAppWidgetUnitTest {
+        setContext(ApplicationProvider.getApplicationContext())
+        setAppWidgetSize(DueWidget.MEDIUM)
+        provideComposable { DueWidgetContent(DueWidgetState(count = 0, rows = emptyList(), locked = false, signedIn = false)) }
+        onNode(hasText("Open LogB to sign in")).assertExists()
+        onNode(hasText("Due", true)).assertDoesNotExist()
+        onNode(hasContentDescription("Mark done")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the body starts locked, so no name renders before the first state arrives`() = runGlanceAppWidgetUnitTest {
+        setContext(ApplicationProvider.getApplicationContext())
+        setAppWidgetSize(DueWidget.MEDIUM)
+        provideComposable { DueWidgetBody(MutableSharedFlow()) }
+        onNode(hasText("Due · 0")).assertExists()
+        onNode(hasText("Golf", true)).assertDoesNotExist()
+    }
+
+    /**
+     * The body renders what the flow says, locked included. Glance's unit-test environment copies
+     * the tree once, on the Recomposer's first idle, and then stops observing it -- so a later
+     * recomposition (a lock toggled mid-session) cannot be inspected here; that part is proven on
+     * the flow itself in [DueWidgetFlowTest].
+     */
+    @Test
+    fun `the body renders the flow's state, and a locked flow shows only the count`() = runGlanceAppWidgetUnitTest {
+        setContext(ApplicationProvider.getApplicationContext())
+        setAppWidgetSize(DueWidget.MEDIUM)
+        val session = MutableStateFlow<Session>(Session.SignedIn("https://logb.example/", User(1, "ben"), "t", "EUR"))
+        val items = listOf(DueFixtures.service("r1", "Golf", "Oil change", due = true), DueFixtures.service("r2", "Boiler", "Filter", due = true))
+        val states = DueWidgetFlow.states(session, MutableStateFlow(true), { MutableStateFlow(items) }, "due") { "in $it days" }
+        provideComposable { DueWidgetBody(states) }
+        onNode(hasText("Due · 2")).assertExists()
+        onNode(hasText("Golf", true)).assertDoesNotExist()
+        onNode(hasText("Oil change", true)).assertDoesNotExist()
     }
 }
