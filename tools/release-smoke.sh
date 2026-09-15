@@ -38,6 +38,10 @@ APK="app/build/outputs/apk/release/LogB-release.apk"
 
 PKG=dev.logb.android
 OUT="${SMOKE_OUT:-build/release-smoke}"
+# A previous run's dump/screenshot/log files must never survive into this one: a failed dump below
+# falls back to `|| true` (so one bad step doesn't abort the whole script), and a stale file left
+# over from an earlier pass would otherwise let its grep check pass on old content.
+rm -rf "$OUT"
 mkdir -p "$OUT"
 
 echo "== installing the release build on $SERIAL"
@@ -56,6 +60,24 @@ PID=$("${ADB[@]}" shell pidof "$PKG" | tr -d '\r' | awk '{print $1}' || true)
 sleep 8
 
 FAILED=0
+
+# Dumps the current screen to $1 on this machine. Wipes the on-device file first so a dump that
+# fails (and is swallowed by `|| true`, so one bad step doesn't abort the whole run) can never leave
+# a *previous* run's dump for the pull to find; then, if the pulled file is missing or empty, reports
+# a clear FAIL instead of letting the caller's grep silently match nothing — or, worse, match
+# something left over from before. Returns non-zero when the screen could not be read, so callers
+# skip the content check but the rest of the script still runs.
+dump_screen() {
+    local out_file="$1"
+    "${ADB[@]}" shell rm -f /sdcard/logb-smoke.xml
+    "${ADB[@]}" shell uiautomator dump /sdcard/logb-smoke.xml >/dev/null 2>&1 || true
+    "${ADB[@]}" pull /sdcard/logb-smoke.xml "$out_file" >/dev/null 2>&1 || true
+    if [ ! -s "$out_file" ]; then
+        echo "FAIL: could not read the screen; see $out_file"
+        FAILED=1
+        return 1
+    fi
+}
 
 # Android string resources escape a handful of characters; decode them so grep sees the same text
 # a person would, whichever escaping a translator happened to use. &amp; is decoded last, or an
@@ -87,14 +109,13 @@ UNREACHABLE_EN=$(extract_string server_unreachable app/src/main/res/values/strin
 UNREACHABLE_DE=$(extract_string server_unreachable app/src/main/res/values-de/strings.xml)
 
 echo "== reading the server screen back"
-"${ADB[@]}" shell uiautomator dump /sdcard/logb-smoke.xml >/dev/null 2>&1 || true
-"${ADB[@]}" pull /sdcard/logb-smoke.xml "$OUT/ui-server.xml" >/dev/null 2>&1 || true
-
-if grep -qF -e "$SERVER_URL_EN" -e "$SERVER_URL_DE" "$OUT/ui-server.xml" 2>/dev/null; then
-    echo "  the server screen rendered"
-else
-    echo "FAIL: the server address field never showed; see $OUT/ui-server.xml"
-    FAILED=1
+if dump_screen "$OUT/ui-server.xml"; then
+    if grep -qF -e "$SERVER_URL_EN" -e "$SERVER_URL_DE" "$OUT/ui-server.xml"; then
+        echo "  the server screen rendered"
+    else
+        echo "FAIL: the server address field never showed; see $OUT/ui-server.xml"
+        FAILED=1
+    fi
 fi
 
 echo "== typing an unreachable address"
@@ -118,16 +139,15 @@ fi
 sleep 5
 
 echo "== reading the screen back after Continue"
-"${ADB[@]}" shell uiautomator dump /sdcard/logb-smoke.xml >/dev/null 2>&1 || true
-"${ADB[@]}" pull /sdcard/logb-smoke.xml "$OUT/ui.xml" >/dev/null 2>&1 || true
-"${ADB[@]}" exec-out screencap -p > "$OUT/screen.png" 2>/dev/null || true
-
-if grep -qF -e "$UNREACHABLE_EN" -e "$UNREACHABLE_DE" "$OUT/ui.xml" 2>/dev/null; then
-    echo "  the unreachable-server error reached the screen"
-else
-    echo "FAIL: no unreachable-server error on screen; see $OUT/ui.xml"
-    FAILED=1
+if dump_screen "$OUT/ui.xml"; then
+    if grep -qF -e "$UNREACHABLE_EN" -e "$UNREACHABLE_DE" "$OUT/ui.xml"; then
+        echo "  the unreachable-server error reached the screen"
+    else
+        echo "FAIL: no unreachable-server error on screen; see $OUT/ui.xml"
+        FAILED=1
+    fi
 fi
+"${ADB[@]}" exec-out screencap -p > "$OUT/screen.png" 2>/dev/null || true
 
 echo "== checking the update receiver survived"
 # InstallResultReceiver has no intent-filter — it is only ever targeted by an explicit PendingIntent
