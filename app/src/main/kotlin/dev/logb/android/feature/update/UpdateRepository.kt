@@ -176,8 +176,10 @@ class UpdateRepository @Inject constructor(
         val signers = runCatching { signatures.ofArchive(target) }.getOrNull()
         val installedSigners = runCatching { signatures.installed() }.getOrNull()
         if (signers == null || installedSigners == null || signers != installedSigners) {
-            currentCoroutineContext().ensureActive()
+            // Deleted before the cancellation check rethrows: a rejected file must never
+            // survive a cancelled download any more than a failed one.
             target.delete()
+            currentCoroutineContext().ensureActive()
             emit(DownloadProgress.Failed(UpdateFailure.SIGNATURE_MISMATCH))
             return@flow
         }
