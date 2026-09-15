@@ -457,6 +457,7 @@
     <string name="data_exported">Export gespeichert.</string>
     <string name="data_importing">Importiere…</string>
     <string name="data_too_large">Das Archiv ist größer, als dieser Server annimmt.</string>
+    <string name="data_file_gone">LogB kann die Datei nicht mehr öffnen. Wähle sie erneut aus.</string>
 
     <!-- API-Zugriff (web: tokens.*) -->
     <string name="tokens_title">API-Zugriff</string>

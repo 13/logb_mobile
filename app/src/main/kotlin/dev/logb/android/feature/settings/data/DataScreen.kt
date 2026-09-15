@@ -12,9 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,7 +38,8 @@ fun DataScreen(onBack: () -> Unit, viewModel: DataViewModel = hiltViewModel()) {
     val errorMessage = when (state.error) {
         DataError.Offline -> stringResource(R.string.needs_connection)
         DataError.TooLarge -> stringResource(R.string.data_too_large)
-        DataError.Other -> viewModel.lastErrorMessage
+        DataError.FileGone -> stringResource(R.string.data_file_gone)
+        DataError.Other -> state.errorMessage
         null -> null
     }
     DataContent(
@@ -69,7 +70,7 @@ fun DataContent(
         Column(Modifier.padding(16.dp)) {
             Button(onClick = onExport, enabled = state.busy == null, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.settings_export)) }
             Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = onImport, enabled = state.busy == null, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.settings_import)) }
+            FilledTonalButton(onClick = onImport, enabled = state.busy == null, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.settings_import)) }
             if (state.busy != null) {
                 Spacer(Modifier.height(16.dp))
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
