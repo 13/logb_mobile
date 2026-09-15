@@ -13,6 +13,7 @@ import dev.logb.android.core.domain.ObjectDraft
 import dev.logb.android.core.domain.ReminderDraft
 import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.TypeInput
+import dev.logb.android.core.server.Capabilities
 import dev.logb.android.core.sync.LocalWriter
 import dev.logb.android.core.sync.PullEngine
 import dev.logb.android.core.sync.PushEngine
@@ -283,7 +284,9 @@ class SyncContractTest {
         val api = ApiClient.create(base, { token })
         val db = TestDatabase.inMemory()
         val pull = PullEngine(db, api, deviceId = "contract-phone")
-        val push = PushEngine(db, api)
+        // The binary this test runs against is always 0.8.0+ (the `-PlogbBin` property names it);
+        // without this, PushEngine's own safe default would hold the own-type and tags ops back.
+        val push = PushEngine(db, api, capabilities = Capabilities(tags = true, ownTypes = true, pairing = false))
         pull.run() // empty bootstrap; the device id and clock land
 
         // Offline: an own type, an object of that type carrying a tag, and an entry carrying its own tag.
@@ -314,6 +317,21 @@ class SyncContractTest {
 
         assertEquals("Yacht", db.objectTypeDao().get(typeUuid)!!.name)
         assertEquals(listOf("Summer", "Lease"), Tags.fromJson(db.objectDao().get(objectUuid)!!.tags))
+
+        // The phone edits the object's tags as a set op; the server ends up with the new set.
+        val current = db.objectDao().get(objectUuid)!!
+        objects.update(
+            objectUuid,
+            ObjectDraft(
+                name = current.name, type = current.type, counterUnit = current.counterUnit, fuelUnit = current.fuelUnit,
+                description = current.description, purchaseDate = current.purchaseDate, purchasePriceCents = current.purchasePriceCents,
+                parentUuid = current.parentUuid, tags = listOf("Summer", "Autumn"),
+            ),
+        )
+        push.run()
+        val serverObjectAfterTagEdit = call("GET", "/objects/$objectId")
+        check(serverObjectAfterTagEdit.contains("Autumn")) { serverObjectAfterTagEdit }
+
         db.close()
     }
 }
