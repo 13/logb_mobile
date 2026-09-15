@@ -51,6 +51,17 @@ class SignInViewModel @Inject constructor(private val sessions: SessionRepositor
     )
     val state: StateFlow<SignInUiState> = _state.asStateFlow()
 
+    init {
+        // The Activity has no NavHost, so this ViewModel is not recreated when the top-level
+        // screen flips between sign-in and change-server -- collect the session so a later
+        // server change (sign out, then a different address) reaches an already-built instance.
+        viewModelScope.launch {
+            sessions.session.collect { s ->
+                if (s is Session.SignedOut) _state.update { it.copy(serverUrl = s.serverUrl, username = s.username ?: "", error = s.reason?.let { "unauthorized" }) }
+            }
+        }
+    }
+
     fun onUsernameChange(v: String) = _state.update { it.copy(username = v, error = null) }
 
     fun onPasswordChange(v: String) = _state.update { it.copy(password = v, error = null) }
