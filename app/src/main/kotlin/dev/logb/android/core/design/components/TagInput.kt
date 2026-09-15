@@ -1,5 +1,6 @@
 package dev.logb.android.core.design.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -47,8 +48,11 @@ fun TagInput(tags: List<String>, onTags: (List<String>) -> Unit, suggestions: Li
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             tags.forEach { tag ->
                 val remove = stringResource(R.string.tags_remove, tag)
-                InputChip(selected = false, onClick = { onTags(Tags.removeTag(tags, tag)) }, label = { Text(tag) },
-                    trailingIcon = { Icon(Icons.Outlined.Close, contentDescription = remove) })
+                // As on the web: tapping the chip body does nothing; only the trailing close icon removes it.
+                InputChip(selected = false, onClick = {}, label = { Text(tag) },
+                    trailingIcon = {
+                        Icon(Icons.Outlined.Close, contentDescription = remove, modifier = Modifier.clickable { onTags(Tags.removeTag(tags, tag)) })
+                    })
             }
         }
         OutlinedTextField(
