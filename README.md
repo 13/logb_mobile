@@ -69,6 +69,16 @@ APK attached to a GitHub release, reading the keystore from the `LOGB_KEYSTORE_B
 (`.github/workflows/ci.yml`) runs the unit tests, lint, the screenshot goldens, both APKs, and
 the contract test against a `13/logb` checkout built beside the app.
 
+## Updates
+
+Release builds check `api.github.com/repos/13/logb_mobile/releases/latest` once a day at
+start (switchable in Settings › About), and download the APK only when asked from the
+release's `browser_download_url`. A download is offered for install only after its size,
+SHA-256 and signing certificate all match what GitHub published and the app already carries;
+installing needs Android's "install unknown apps" permission, granted through the system
+confirmation dialog on first use. This is the only request that does not go to the user's
+own LogB server. Debug builds never check.
+
 ## Tests
 
 - Unit tests (JVM, Room on Robolectric's SQLite, MockWebServer): `./gradlew :app:testDebugUnitTest`

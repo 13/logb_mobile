@@ -66,3 +66,11 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › About: logo, *Version 0.7.0 (700)*, *Built* with the commit's date, *Commit* opens GitHub, *Release build, release key* on a tagged APK; server address, version and *Tags: no* against 0.7.1; *Copy details* copies the text.
 - [ ] Settings › Account against a server older than 0.8.0: *Tags and own types need LogB 0.8.0 or newer on the server.*
 - [ ] Objects: the archive icon in the top bar shows archived objects under the title *Archived*; system back returns to the active list.
+
+
+## Release 0.7.1 (in-app update)
+
+- [ ] A release build older than the newest GitHub release: after opening the app, Settings shows *<installed> · <newest> available* on About.
+- [ ] Settings › About › Updates: *Download* shows progress, *Install* hands over to Android's confirmation, the app restarts as the new version.
+- [ ] *Check once a day* off: no request to api.github.com at start (check with the network inspector or a proxy).
+- [ ] A debug build shows no Updates section.

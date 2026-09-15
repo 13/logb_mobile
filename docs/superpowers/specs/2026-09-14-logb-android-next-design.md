@@ -246,13 +246,12 @@ are removed. Opening one asks for the screen lock when it is on.
 
 ### Update check
 
-- At most once a day at app start, and "Check for updates" on About. Setting to switch it off; About states
-  that this is the one request that does not go to the user's server.
-- `GET https://api.github.com/repos/13/logb_mobile/releases/latest`; the version code is derived from the tag
-  as `release.yml` does (`major*10000 + minor*100 + patch`) and compared with the installed one.
-- Offer: "LogB 0.11.0 is available". Download the `LogB-*.apk` asset with `DownloadManager`, verify its signing
-  certificate equals the installed app's, hand it to the package installer (`REQUEST_INSTALL_PACKAGES`).
-- Never offered in debug builds.
+Built ahead of the rest of this phase, on branch `release-0.7.1`, as
+`docs/superpowers/plans/2026-09-15-release-0.7.1-in-app-update.md`: see that plan for the design and its
+deviations from the sketch originally here (an OkHttp-based downloader and `PackageInstaller` session instead
+of `DownloadManager`, the signing check run before the installer is involved, and the found-update text on the
+Settings hub's About row instead of a notification). Executed end to end on an emulator 2026-09-15; see that
+plan's status line and `docs/smoke-checklist.md`'s "Release 0.7.1 (in-app update)" section for the record.
 
 ## Testing
 
