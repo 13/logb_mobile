@@ -10,9 +10,11 @@ import org.junit.Before
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.FileNotFoundException
 import java.time.LocalDate
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class DataTransferTest {
     private val server = MockWebServer()
@@ -42,4 +44,12 @@ class DataTransferTest {
     }
 
     @Test fun `export file name carries the date`() = assertEquals("logb-export-2026-09-15.zip", DataTransfer.exportFileName(LocalDate.parse("2026-09-15")))
+
+    @Test fun `a null stream from a revoked grant surfaces as FileNotFoundException`() {
+        assertFailsWith<FileNotFoundException> { DataTransfer.openOrThrow { null } }
+    }
+
+    @Test fun `a SecurityException from a revoked grant surfaces as FileNotFoundException`() {
+        assertFailsWith<FileNotFoundException> { DataTransfer.openOrThrow { throw SecurityException("Permission Denial") } }
+    }
 }

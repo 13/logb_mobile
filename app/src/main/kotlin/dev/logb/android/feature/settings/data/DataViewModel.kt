@@ -42,11 +42,25 @@ object DataTransfer {
 
     suspend fun export(api: LogbApi, out: OutputStream): Long = api.exportAll().use { body -> body.byteStream().use { it.copyTo(out) } }
 
-    fun zipBody(open: () -> InputStream, length: Long): RequestBody = object : RequestBody() {
+    fun zipBody(open: () -> InputStream?, length: Long): RequestBody = object : RequestBody() {
         override fun contentType(): MediaType = ZIP
         override fun contentLength(): Long = length
-        override fun writeTo(sink: BufferedSink) { open().source().use { sink.writeAll(it) } }
+        override fun writeTo(sink: BufferedSink) { openOrThrow(open).source().use { sink.writeAll(it) } }
     }
+
+    /**
+     * `ContentResolver.openInputStream` returns null, rather than throwing, when the provider has
+     * nothing to hand back; a revoked `content://` grant surfaces as a [SecurityException] instead.
+     * Both mean the same thing to the caller -- the picked document is gone -- so both become the
+     * [FileNotFoundException] [classifyDataError] already maps to `data_file_gone`, instead of an
+     * unclassified [NullPointerException] or a raw [SecurityException] escaping [writeTo].
+     */
+    internal fun openOrThrow(open: () -> InputStream?): InputStream =
+        try {
+            open() ?: throw FileNotFoundException("grant revoked")
+        } catch (e: SecurityException) {
+            throw FileNotFoundException(e.message)
+        }
 
     fun exportFileName(today: LocalDate): String = "logb-export-$today.zip"
 }
@@ -137,7 +151,7 @@ class DataViewModel @Inject constructor(
         try {
             val counts = withContext(Dispatchers.IO) {
                 val length = context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c -> sizeOf(c) } ?: -1L
-                accounts.api.importZip(DataTransfer.zipBody({ context.contentResolver.openInputStream(uri)!! }, length))
+                accounts.api.importZip(DataTransfer.zipBody({ context.contentResolver.openInputStream(uri) }, length))
             }
             accounts.db.syncStateDao().requestBootstrap()
             _state.update { it.copy(busy = null, imported = counts) }
