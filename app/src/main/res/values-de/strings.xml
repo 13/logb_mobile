@@ -362,6 +362,22 @@
         <item quantity="one">%d weitere</item>
         <item quantity="other">%d weitere</item>
     </plurals>
+    <!-- Server-Zusammenfassung (web: notify.webhook-*, notify.format*, notify.test*) -->
+    <string name="notify_server_title">Zusammenfassung vom Server</string>
+    <string name="notify_server_hour">Der Server verschickt seine Zusammenfassung einmal täglich um %1$d:00 Uhr.</string>
+    <string name="notify_webhook_title">Webhook</string>
+    <string name="notify_webhook_hint">Schicke dir deine eigene tägliche Zusammenfassung an eine URL, etwa ein ntfy-Thema.</string>
+    <string name="notify_webhook_hint_instance">Schicke dir deine eigene tägliche Zusammenfassung an eine URL, etwa ein ntfy-Thema. Leer lassen, um in der gemeinsamen Zusammenfassung dieser Instanz zu bleiben.</string>
+    <string name="notify_webhook_url">URL</string>
+    <string name="notify_webhook_invalid">Gib eine http- oder https-Adresse ein oder lass das Feld leer.</string>
+    <string name="notify_format">Format</string>
+    <string name="notify_format_text">Text (ntfy)</string>
+    <string name="notify_format_json">JSON</string>
+    <string name="notify_test">Test-Benachrichtigung senden</string>
+    <string name="notify_test_push">An %1$d deiner Geräte gesendet.</string>
+    <string name="notify_test_webhook">Webhook: %1$s</string>
+    <string name="notify_test_nowhere">Noch gibt es kein Ziel: schalte Benachrichtigungen ein oder trage erst einen Webhook ein.</string>
+    <string name="notify_saved">Gespeichert.</string>
     <string name="off">Aus</string>
     <!-- Lock -->
     <string name="lock_enable">Mit Biometrie oder Displaysperre sperren</string>

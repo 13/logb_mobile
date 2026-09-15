@@ -362,6 +362,22 @@
         <item quantity="one">%d more</item>
         <item quantity="other">%d more</item>
     </plurals>
+    <!-- Server digest (web: notify.webhook-*, notify.format*, notify.test*) -->
+    <string name="notify_server_title">Server digest</string>
+    <string name="notify_server_hour">The server sends its digest once a day at %1$d:00.</string>
+    <string name="notify_webhook_title">Webhook</string>
+    <string name="notify_webhook_hint">Send your own daily digest to a URL, such as an ntfy topic.</string>
+    <string name="notify_webhook_hint_instance">Send your own daily digest to a URL, such as an ntfy topic. Leave it empty to stay in this instance’s shared digest.</string>
+    <string name="notify_webhook_url">URL</string>
+    <string name="notify_webhook_invalid">Enter an http or https address, or leave it empty.</string>
+    <string name="notify_format">Format</string>
+    <string name="notify_format_text">Text (ntfy)</string>
+    <string name="notify_format_json">JSON</string>
+    <string name="notify_test">Send a test notification</string>
+    <string name="notify_test_push">Sent to %1$d of your devices.</string>
+    <string name="notify_test_webhook">Webhook: %1$s</string>
+    <string name="notify_test_nowhere">There is nowhere to send one yet: turn on notifications or add a webhook first.</string>
+    <string name="notify_saved">Saved.</string>
     <string name="off">Off</string>
     <!-- Lock -->
     <string name="lock_enable">Lock with biometrics or screen lock</string>

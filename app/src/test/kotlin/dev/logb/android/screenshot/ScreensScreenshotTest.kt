@@ -32,6 +32,9 @@ import dev.logb.android.feature.reminders.DueListContent
 import dev.logb.android.feature.settings.AboutContent
 import dev.logb.android.feature.settings.AboutInfo
 import dev.logb.android.core.network.dto.ImportCounts
+import dev.logb.android.core.network.dto.NotificationTest
+import dev.logb.android.feature.settings.ServerDigestSection
+import dev.logb.android.feature.settings.ServerDigestUiState
 import dev.logb.android.feature.settings.SettingsHubContent
 import dev.logb.android.feature.settings.SettingsUiState
 import dev.logb.android.feature.settings.data.DataContent
@@ -197,5 +200,17 @@ class ScreensScreenshotTest {
             DataUiState(imported = ImportCounts(objects = 12, activities = 48, attachments = 6, reminders = 3, typesCreated = 2, typesMerged = 1)),
             onBack = {}, onExport = {}, onImport = {}, onConfirmImport = {}, onCancelImport = {},
         )
+    }
+
+    @Test fun serverDigest() = capture("server_digest") {
+        Column(Modifier.padding(16.dp)) {
+            ServerDigestSection(
+                ServerDigestUiState(
+                    loaded = true, url = "https://ntfy.sh/logb-ben", format = "text", hour = 8,
+                    test = NotificationTest(webhook = "sent", pushSent = 2, pushFailed = 0),
+                ),
+                onUrl = {}, onFormat = {}, onSave = {}, onTest = {},
+            )
+        }
     }
 }
