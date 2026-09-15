@@ -19,18 +19,18 @@ interface SearchDao {
     @Query(
         """SELECT o.uuid AS uuid, o.name AS name, o.type AS type, o.description AS description, p.name AS parentName, o.archived_at AS archivedAt
            FROM objects o LEFT JOIN objects p ON p.uuid = o.parent_uuid
-           WHERE o.deleted_at IS NULL AND (o.name LIKE :pattern ESCAPE '\' OR o.description LIKE :pattern ESCAPE '\' OR o.tags LIKE :pattern ESCAPE '\')
+           WHERE o.deleted_at IS NULL AND (o.name LIKE :pattern ESCAPE '\' OR o.description LIKE :pattern ESCAPE '\' OR o.tags LIKE :tagsPattern ESCAPE '\')
            ORDER BY o.name COLLATE NOCASE LIMIT 50""",
     )
-    suspend fun objects(pattern: String): List<ObjectHit>
+    suspend fun objects(pattern: String, tagsPattern: String): List<ObjectHit>
 
     @Query(
         """SELECT a.* FROM activities a JOIN objects o ON o.uuid = a.object_uuid
            WHERE a.deleted_at IS NULL AND o.deleted_at IS NULL
-           AND (a.title LIKE :pattern ESCAPE '\' OR a.notes LIKE :pattern ESCAPE '\' OR a.tags LIKE :pattern ESCAPE '\')
+           AND (a.title LIKE :pattern ESCAPE '\' OR a.notes LIKE :pattern ESCAPE '\' OR a.tags LIKE :tagsPattern ESCAPE '\')
            ORDER BY a.date DESC LIMIT 100""",
     )
-    suspend fun activities(pattern: String): List<ActivityEntity>
+    suspend fun activities(pattern: String, tagsPattern: String): List<ActivityEntity>
 
     companion object {
         /** `api::search::like_pattern`: the query as a substring, with `%`, `_` and `\` taken literally. */
@@ -38,5 +38,13 @@ interface SearchDao {
             val escaped = query.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             return "%$escaped%"
         }
+
+        /**
+         * The tags column stores JSON (`["Winter"]`); a query of pure punctuation (a quote, a
+         * bracket) must not match every row through that column's own syntax. Only search tags
+         * when the query carries a letter or digit; otherwise an empty pattern, which a JSON
+         * array string never equals.
+         */
+        fun tagsPattern(query: String): String = if (query.any { it.isLetterOrDigit() }) likePattern(query) else ""
     }
 }

@@ -61,8 +61,9 @@ class SearchModel(private val db: LogbDatabase) {
     fun results(queries: Flow<String>): Flow<SearchResults> = queries.mapLatest { q ->
         if (q.isBlank()) return@mapLatest SearchResults(q)
         val pattern = SearchDao.likePattern(q)
-        val entries = db.searchDao().activities(pattern).map { it to (db.objectDao().get(it.objectUuid)?.name ?: "") }
-        SearchResults(q, db.searchDao().objects(pattern), entries)
+        val tagsPattern = SearchDao.tagsPattern(q)
+        val entries = db.searchDao().activities(pattern, tagsPattern).map { it to (db.objectDao().get(it.objectUuid)?.name ?: "") }
+        SearchResults(q, db.searchDao().objects(pattern, tagsPattern), entries)
     }
 }
 
