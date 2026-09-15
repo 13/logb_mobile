@@ -44,11 +44,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -58,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import dev.logb.android.R
 import dev.logb.android.core.auth.LockPolicy
 import dev.logb.android.core.auth.Session
@@ -353,14 +357,20 @@ fun SyncScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel(
 fun AboutScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val info by viewModel.about.collectAsStateWithLifecycle()
     val uri = androidx.compose.ui.platform.LocalUriHandler.current
-    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
     val copied = stringResource(R.string.about_copied)
     AboutContent(
         info = info, onBack = onBack, onOpenUrl = { runCatching { uri.openUri(it) } },
         onCopy = { text ->
-            clipboard.setText(androidx.compose.ui.text.AnnotatedString(text))
-            android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
+            scope.launch {
+                clipboard.setClipEntry(ClipEntry(android.content.ClipData.newPlainText("LogB", text)))
+                // Android 13+ shows its own confirmation when something is copied to the clipboard.
+                if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+                    android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
         },
     )
 }
