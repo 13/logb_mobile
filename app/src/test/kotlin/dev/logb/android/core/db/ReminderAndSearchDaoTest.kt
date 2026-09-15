@@ -65,6 +65,11 @@ class SearchDaoTest {
     fun `pure punctuation never matches every row through the tags column's own JSON syntax`() = runTest {
         db.objectDao().upsert(obj("a", "Sailboat").copy(tags = Tags.toJson(listOf("Winter"))))
         db.objectDao().upsert(obj("b", "Golf"))
-        assertEquals(emptyList(), db.searchDao().objects(SearchDao.likePattern("\"["), SearchDao.tagsPattern("\"[")).map { it.name })
+        // ["Winter"] carries both a bare quote and the literal two-character run `["` (its own
+        // opening bracket and quote) -- an unconditional LIKE clause matches both, so these
+        // queries actually exercise the guard (unlike a quote-then-bracket order, which never
+        // occurs in this JSON and would pass with or without the fix).
+        assertEquals(emptyList(), db.searchDao().objects(SearchDao.likePattern("\""), SearchDao.tagsPattern("\"")).map { it.name })
+        assertEquals(emptyList(), db.searchDao().objects(SearchDao.likePattern("[\""), SearchDao.tagsPattern("[\"")).map { it.name })
     }
 }
