@@ -121,6 +121,41 @@ signing key would make every future release fail it until one install is done by
 the new key (or the updater itself is changed to accept it); `REQUEST_INSTALL_PACKAGES` is
 restricted on the Play Store, which is why this feature lives entirely in `feature/update`.
 
+## Performance and release checks
+
+The objects list and the due list read the mirror in a constant number of queries however many
+objects there are: `ObjectsModel.allCards()` runs 6 SELECTs and `DueListModel.items()` runs 4,
+regardless of object count, using aggregate DAO queries (`statsForAll`, `readingRowsForAll`,
+`coverShas`) instead of a per-object loop. `AggregateEquivalenceTest` proves every `ObjectCard`
+and `DueItem` field the aggregate path produces equals what the old per-object path produced, on
+a seeded 30-object mirror, and asserts the query count stays flat from 5 to 200 objects.
+
+CI (`.github/workflows/ci.yml`) also runs two emulator jobs beside the JVM checks: `Device tests`
+runs `:app:connectedDebugAndroidTest` on API 31, and `Release APK on a device` assembles the
+minified release APK and runs `tools/release-smoke.sh` against it on API 34 — this is the only
+check that exercises the R8-shrunk build, catching a missing keep rule that the debug build and
+the JVM tests can't see. Run the same script locally against an emulator or a device:
+
+```bash
+./gradlew :app:assembleRelease --console=plain
+tools/release-smoke.sh <serial>       # e.g. emulator-5554, or a phone's adb serial
+```
+
+The script refuses to guess when more than one device is attached (`adb devices`) and no serial
+is given — pass one explicitly, or set `ANDROID_SERIAL`.
+
+A baseline profile (`app/src/release/generated/baselineProfiles/`) reorders the release dex so
+the cold start to the server screen needs fewer page faults; `profileinstaller` compiles it into
+odex on first launch. Regenerate it only on a Gradle Managed Device, never on a connected
+emulator or phone:
+
+```bash
+./gradlew :app:generateReleaseBaselineProfile   # runs on the pixel6Api34 Gradle Managed Device
+```
+
+The startup benchmark that measures the effect is `:baselineprofile:pixel6Api34BenchmarkReleaseAndroidTest`,
+also on `pixel6Api34`.
+
 ## Tests
 
 - Unit tests (JVM, Room on Robolectric's SQLite, MockWebServer): `./gradlew :app:testDebugUnitTest`

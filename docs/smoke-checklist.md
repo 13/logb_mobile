@@ -89,3 +89,11 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › Data: export everything saves a zip where the picker says; import warns about duplicates, then shows the counts and the new rows arrive after the sync; an archive over the server limit says it is too large.
 - [ ] Settings › Notifications: a webhook address and format save; "Send a test notification" reports the webhook result; an invalid address is refused before saving.
 - [ ] Offline, each of the three pages says it needs a connection.
+
+## Release 0.10.0 (fast lists and release checks)
+
+- [ ] With a few hundred objects, the objects list and the due list open and update without a stall.
+- [ ] CI `Device tests` and `Release APK on a device` are green.
+- [ ] `tools/release-smoke.sh <emulator serial>` passes locally on the release APK.
+- [ ] An update from 0.9.0 installs in-app.
+- [ ] Settings › About shows 0.10.0.
