@@ -66,6 +66,9 @@ private val DarkColors = darkColorScheme(
 /** The "due" colour: amber, not error red. A reminder coming due is news, not a fault. */
 val LocalWarnColor = staticCompositionLocalOf { LogbPalette.Warn }
 
+/** The theme's effective dark flag: it follows the app's appearance setting, not only the system. */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
 @Composable
 fun LogbTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -80,7 +83,10 @@ fun LogbTheme(
         darkTheme -> DarkColors
         else -> LightColors
     }
-    CompositionLocalProvider(LocalWarnColor provides if (darkTheme) LogbPalette.WarnDark else LogbPalette.Warn) {
+    CompositionLocalProvider(
+        LocalWarnColor provides if (darkTheme) LogbPalette.WarnDark else LogbPalette.Warn,
+        LocalDarkTheme provides darkTheme,
+    ) {
         MaterialTheme(colorScheme = colors, typography = LogbTypography, shapes = LogbShapes, content = content)
     }
 }

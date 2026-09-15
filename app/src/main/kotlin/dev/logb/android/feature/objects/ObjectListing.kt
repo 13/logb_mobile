@@ -1,5 +1,6 @@
 package dev.logb.android.feature.objects
 
+import dev.logb.android.core.domain.Tags
 import java.text.Collator
 import java.text.Normalizer
 import java.util.Locale
@@ -24,7 +25,7 @@ object ObjectListing {
     fun matchesQuery(card: ObjectCard, query: String, typeLabel: (String) -> String): Boolean {
         val q = fold(query.trim())
         if (q.isEmpty()) return true
-        return listOf(card.name, typeLabel(card.type), card.description).any { fold(it).contains(q) }
+        return (listOf(card.name, typeLabel(card.type), card.description) + card.tags).any { fold(it).contains(q) }
     }
 
     /**
@@ -69,15 +70,15 @@ object ObjectListing {
      */
     fun visibleRows(
         active: List<ObjectCard>, archived: List<ObjectCard>, showArchived: Boolean, query: String, sort: SortKey,
-        typeLabel: (String) -> String, locale: Locale,
+        typeLabel: (String) -> String, locale: Locale, tag: String? = null,
     ): List<ListRow> {
         val names = (active + archived).associate { it.uuid to it.name }
         val activeIds = active.map { it.uuid }.toSet()
-        val searching = query.isNotBlank()
+        val searching = query.isNotBlank() || tag != null
         val pool = if (showArchived) archived else active
         val shown = pool.filter { o ->
             when {
-                searching -> matchesQuery(o, query, typeLabel)
+                searching -> matchesQuery(o, query, typeLabel) && (tag == null || Tags.carries(o.tags, tag))
                 showArchived -> true
                 else -> o.parentUuid == null || o.parentUuid !in activeIds
             }

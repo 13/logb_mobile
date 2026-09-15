@@ -64,7 +64,7 @@ class ScreensScreenshotTest {
 
     private val today = LocalDate.parse("2026-09-13")
     private val cards = listOf(
-        ObjectCard("golf", "Golf", "car", 86_000, "km", 28_640, "2026-09-05", 1, null),
+        ObjectCard("golf", "Golf", "car", 86_000, "km", 28_640, "2026-09-05", 1, null, tags = listOf("Winter", "Lease")),
         ObjectCard("house", "House", "home", null, null, 1_230, "2026-03-10", 0, null),
         ObjectCard("bike", "Gravel bike", "bike", 3_120, "km", 45_000, "2026-08-01", 0, null),
     )

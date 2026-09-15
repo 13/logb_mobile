@@ -52,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.R
 import dev.logb.android.core.design.components.LogbTopBar
+import dev.logb.android.core.design.components.TagInput
 import dev.logb.android.core.design.components.errorText
 import dev.logb.android.core.design.theme.LocalWarnColor
 import dev.logb.android.core.format.currentLocale
@@ -111,6 +112,9 @@ fun ActivityFormScreen(onBack: () -> Unit, onAttachment: (String) -> Unit = {}, 
                 OutlinedTextField(state.quantity, viewModel::onQuantity, label = { Text(stringResource(R.string.field_quantity, state.obj?.fuelUnit ?: "")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), isError = "quantityMilli" in state.errors, supportingText = errorText(state.errors["quantityMilli"])?.let { { Text(it) } }, modifier = Modifier.fillMaxWidth())
             }
             OutlinedTextField(state.notes, viewModel::onNotes, label = { Text(stringResource(R.string.field_notes)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            val showTags by viewModel.showTags.collectAsStateWithLifecycle()
+            val tagSuggestions by viewModel.tagSuggestions.collectAsStateWithLifecycle()
+            if (showTags) TagInput(state.tags, viewModel::onTags, tagSuggestions, Modifier.fillMaxWidth())
             Text(stringResource(R.string.field_attachments), style = MaterialTheme.typography.labelLarge)
             if (attachments.isNotEmpty() || state.pending.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

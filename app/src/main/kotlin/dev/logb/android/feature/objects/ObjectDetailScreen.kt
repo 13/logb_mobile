@@ -35,6 +35,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.R
 import dev.logb.android.core.design.components.LogbTopBar
 import dev.logb.android.core.design.components.StatFigure
+import dev.logb.android.core.design.components.TagChips
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.format.NO_VALUE
 import dev.logb.android.core.format.currentLocale
 import dev.logb.android.core.format.formatCents
@@ -69,6 +71,7 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
                 }
             }
         }
+        TagChips(Tags.fromJson(obj.tags), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         val stats = state.stats
         if (stats != null) {
             Card(
@@ -90,7 +93,7 @@ fun ObjectDetailScreen(onBack: () -> Unit, onOpen: (String) -> Unit, onEdit: (St
             }
         }
         when (TABS[tab]) {
-            "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, onEntry = { onEditEntry(obj.uuid, it) }, onAttachment = onAttachment)
+            "timeline" -> TimelineTab(state, onFilter = viewModel::setFilter, onEntry = { onEditEntry(obj.uuid, it) }, onAttachment = onAttachment, onTag = viewModel::onTagFilter)
             "documents" -> DocumentsTab(state, onAttachment = onAttachment, onPicked = viewModel::attach)
             "reminders" -> RemindersTab(
                 state, obj.counterUnit,

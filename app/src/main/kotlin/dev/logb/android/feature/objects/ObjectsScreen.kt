@@ -45,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,6 +67,7 @@ import dev.logb.android.core.design.components.EmptyState
 import dev.logb.android.core.design.components.LogbTopBar
 import dev.logb.android.core.design.components.ObjectTypeIcon
 import dev.logb.android.core.design.components.SyncLine
+import dev.logb.android.core.design.components.TagChips
 import dev.logb.android.core.design.theme.LocalWarnColor
 import dev.logb.android.core.design.theme.figureSmall
 import dev.logb.android.core.format.formatCents
@@ -79,7 +81,7 @@ fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: 
     val state by viewModel.state.collectAsStateWithLifecycle()
     ObjectsContent(
         state, onOpen = onOpen, onOpenSync = onOpenSync, onRefresh = viewModel::refresh, onToggleArchived = viewModel::toggleArchived, onNew = onNew, onOpenDue = onOpenDue,
-        onLog = onLog, onReading = onReading, onOpenStats = onOpenStats, onQuery = viewModel::setQuery, onSort = viewModel::setSort,
+        onLog = onLog, onReading = onReading, onOpenStats = onOpenStats, onQuery = viewModel::setQuery, onSort = viewModel::setSort, onTag = viewModel::setTagFilter,
     )
 }
 
@@ -88,7 +90,7 @@ fun ObjectsScreen(onOpen: (String) -> Unit, onOpenSync: () -> Unit = {}, onNew: 
 @Composable
 fun ObjectsContent(
     state: ObjectsUiState, onOpen: (String) -> Unit, onOpenSync: () -> Unit, onRefresh: () -> Unit, onToggleArchived: () -> Unit, onNew: () -> Unit = {}, onOpenDue: () -> Unit = {},
-    onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}, onQuery: (String) -> Unit = {}, onSort: (SortKey) -> Unit = {},
+    onLog: (String) -> Unit = {}, onReading: (String) -> Unit = {}, onOpenStats: () -> Unit = {}, onQuery: (String) -> Unit = {}, onSort: (SortKey) -> Unit = {}, onTag: (String?) -> Unit = {},
 ) {
     var sortMenu by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
@@ -123,6 +125,12 @@ fun ObjectsContent(
             trailingIcon = { if (state.query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear)) } },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         )
+        if (state.tagFilter != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.tags_filter, state.tagFilter), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = { onTag(null) }) { Text(stringResource(R.string.tags_clear)) }
+            }
+        }
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.dueCount > 0) item { DueBanner(state.dueCount, onOpenDue) }
@@ -135,7 +143,7 @@ fun ObjectsContent(
                         )
                     }
                 }
-                items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }, onLog = { onLog(card.uuid) }, onReading = if (card.counterUnit != null) ({ onReading(card.uuid) }) else null, parentName = state.parentNames[card.uuid]) }
+                items(state.cards, key = { it.uuid }) { card -> ObjectCardRow(card, state.currency, onClick = { onOpen(card.uuid) }, onLog = { onLog(card.uuid) }, onReading = if (card.counterUnit != null) ({ onReading(card.uuid) }) else null, parentName = state.parentNames[card.uuid], onTag = { tag -> onTag(tag) }, activeTag = state.tagFilter) }
                 item { Spacer(Modifier.height(72.dp)) }
             }
         }
@@ -165,7 +173,7 @@ private fun DueBanner(count: Int, onClick: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog: (() -> Unit)? = null, onReading: (() -> Unit)? = null, parentName: String? = null) {
+fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog: (() -> Unit)? = null, onReading: (() -> Unit)? = null, parentName: String? = null, onTag: ((String) -> Unit)? = null, activeTag: String? = null) {
     val locale = currentLocale()
     var menu by remember { mutableStateOf(false) }
     Card(
@@ -202,6 +210,7 @@ fun ObjectCardRow(card: ObjectCard, currency: String, onClick: () -> Unit, onLog
                     usage,
                 )
                 Text(meta.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TagChips(card.tags, Modifier.padding(top = 4.dp), onSelect = onTag, active = activeTag)
             }
             if (onLog != null) {
                 Box {

@@ -12,13 +12,19 @@ import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.ReminderDraft
 import dev.logb.android.core.domain.ReminderTemplate
 import dev.logb.android.core.domain.ReminderTemplates
+import dev.logb.android.core.domain.TagCount
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.Validation
 import dev.logb.android.core.format.Parse
+import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.sync.Repositories
 import dev.logb.android.navigation.ObjectForm
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -35,6 +41,7 @@ data class ObjectFormState(
     val price: String = "",
     val parent: ObjectEntity? = null,
     val parentCandidates: List<ObjectEntity> = emptyList(),
+    val tags: List<String> = emptyList(),
     val templates: List<ReminderTemplate> = emptyList(),
     val ticked: Set<String> = emptySet(),
     val currentReading: String = "",
@@ -45,7 +52,7 @@ data class ObjectFormState(
     val activityCount: Int = 0,
 ) {
     val draft: ObjectDraft
-        get() = ObjectDraft(name, type, counterUnit, fuelUnit, description, purchaseDate, Parse.cents(price), parent?.uuid)
+        get() = ObjectDraft(name, type, counterUnit, fuelUnit, description, purchaseDate, Parse.cents(price), parent?.uuid, tags)
 
     /** A distance template is ticked: the form asks where the counter is now. */
     val asksCurrentReading: Boolean
@@ -53,7 +60,7 @@ data class ObjectFormState(
 }
 
 @HiltViewModel
-class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private val repos: Repositories, savedState: SavedStateHandle) : ViewModel() {
+class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private val repos: Repositories, private val capabilities: ServerCapabilities, savedState: SavedStateHandle) : ViewModel() {
     private val route: ObjectForm = savedState.toRoute()
     private val db = accounts.db
     private val _state = MutableStateFlow(ObjectFormState(editing = route.uuid != null))
@@ -68,7 +75,7 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
                 if (existing != null) s.copy(
                     name = existing.name, type = existing.type, counterUnit = existing.counterUnit, fuelUnit = existing.fuelUnit,
                     description = existing.description, purchaseDate = existing.purchaseDate, price = Parse.centsToText(existing.purchasePriceCents),
-                    parent = parent, parentCandidates = candidates, activityCount = db.objectDao().stats(existing.uuid).activityCount,
+                    parent = parent, parentCandidates = candidates, tags = Tags.fromJson(existing.tags), activityCount = db.objectDao().stats(existing.uuid).activityCount,
                 )
                 else s.copy(parent = parent, parentCandidates = candidates).withTemplates()
             }
@@ -88,6 +95,9 @@ class ObjectFormViewModel @Inject constructor(accounts: ActiveAccount, private v
     fun onParent(v: ObjectEntity?) = _state.update { it.copy(parent = v) }
     fun toggleTemplate(id: String) = _state.update { it.copy(ticked = if (id in it.ticked) it.ticked - id else it.ticked + id) }
     fun onCurrentReading(v: String) = _state.update { it.copy(currentReading = v) }
+    fun onTags(v: List<String>) = _state.update { it.copy(tags = v) }
+    val tagSuggestions: StateFlow<List<TagCount>> = db.objectDao().tagColumns().map(Tags::count).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val showTags: StateFlow<Boolean> = capabilities.current.map { it.tags }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** `titles` resolves each template's title in the person's language; the view supplies it. */
     fun save(titles: Map<String, String>) {

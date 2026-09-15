@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.logb.android.R
 import dev.logb.android.core.design.components.LogbTopBar
 import dev.logb.android.core.design.components.ObjectTypeIcon
+import dev.logb.android.core.design.components.TagInput
 import dev.logb.android.core.design.components.errorText
 import dev.logb.android.core.design.components.templateTitle
 import dev.logb.android.core.domain.ObjectTypes
@@ -146,6 +147,9 @@ fun ObjectFormScreen(onBack: () -> Unit, onSaved: (String) -> Unit, onDeleted: (
                 }
             }
             OutlinedTextField(state.description, viewModel::onDescription, label = { Text(stringResource(R.string.field_description)) }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            val showTags by viewModel.showTags.collectAsStateWithLifecycle()
+            val tagSuggestions by viewModel.tagSuggestions.collectAsStateWithLifecycle()
+            if (showTags) TagInput(state.tags, viewModel::onTags, tagSuggestions, Modifier.fillMaxWidth())
             DateField(stringResource(R.string.field_purchase_date), state.purchaseDate, viewModel::onPurchaseDate, error = errorText(state.errors["purchaseDate"]))
             OutlinedTextField(state.price, viewModel::onPrice, label = { Text(stringResource(R.string.field_purchase_price)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), isError = "purchasePriceCents" in state.errors, supportingText = errorText(state.errors["purchasePriceCents"])?.let { { Text(it) } }, modifier = Modifier.fillMaxWidth())
             ListItem(

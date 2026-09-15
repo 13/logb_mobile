@@ -366,6 +366,14 @@
     <string name="reading_warn_implausible">Weit mehr als üblich seit %1$s. Auf Tippfehler prüfen, dann erneut speichern.</string>
     <string name="timeline_pending">Wartet auf Senden</string>
     <string name="clear_cover">Titelbild entfernen</string>
+    <!-- Tags (web: tags.*) -->
+    <string name="tags_label">Tags</string>
+    <string name="tags_placeholder">Tag hinzufügen</string>
+    <string name="tags_remove">%1$s entfernen</string>
+    <string name="tags_too_long">Ein Tag darf höchstens 32 Zeichen lang sein.</string>
+    <string name="tags_too_many">Höchstens 10 Tags.</string>
+    <string name="tags_filter">Tag: %1$s</string>
+    <string name="tags_clear">Tag-Filter aufheben</string>
     <!-- Account parity -->
     <string name="server_version">Server %1$s</string>
     <string name="server_needs_update">Tags und eigene Typen brauchen LogB 0.8.0 oder neuer auf dem Server.</string>

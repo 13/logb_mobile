@@ -16,13 +16,17 @@ import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.domain.ActivityDraft
 import dev.logb.android.core.domain.ObjectTypes
+import dev.logb.android.core.domain.TagCount
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.Validation
 import dev.logb.android.core.format.Parse
+import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.sync.Repositories
 import dev.logb.android.navigation.ActivityForm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -46,18 +50,19 @@ data class ActivityFormState(
     /** Files picked for a new entry, attached when it is saved. */
     val pending: List<PickedFile> = emptyList(),
     val dateTouched: Boolean = false,
+    val tags: List<String> = emptyList(),
 ) {
     val categories: List<String> get() = obj?.let { ObjectTypes.categoriesFor(it.type, category) } ?: ObjectTypes.CATEGORIES
     val showsQuantity: Boolean get() = category == "fuel" && obj?.let { ObjectTypes.hasFuel(it.type) && it.counterUnit != null } == true
     val counterValue: Long? get() = Parse.long(counter)
     /** The reading typed is lower than the newest one the object has: a typo more often than not. */
     val counterLowerThanCurrent: Boolean get() = counterValue != null && currentCounter != null && counterValue!! < currentCounter
-    val draft: ActivityDraft get() = ActivityDraft(date, category, title, notes, counterValue, Parse.cents(cost), if (showsQuantity) Parse.milli(quantity) else null)
+    val draft: ActivityDraft get() = ActivityDraft(date, category, title, notes, counterValue, Parse.cents(cost), if (showsQuantity) Parse.milli(quantity) else null, tags)
     val suggestions: List<String> get() = if (title.length < 1) emptyList() else recentTitles.filter { it.contains(title, ignoreCase = true) && it != title }.take(5)
 }
 
 @HiltViewModel
-class ActivityFormViewModel @Inject constructor(@ApplicationContext private val context: Context, accounts: ActiveAccount, private val repos: Repositories, private val inbox: dev.logb.android.feature.share.ShareInbox, savedState: SavedStateHandle) : ViewModel() {
+class ActivityFormViewModel @Inject constructor(@ApplicationContext private val context: Context, accounts: ActiveAccount, private val repos: Repositories, private val inbox: dev.logb.android.feature.share.ShareInbox, private val capabilities: ServerCapabilities, savedState: SavedStateHandle) : ViewModel() {
     private val route: ActivityForm = savedState.toRoute()
     private val db = accounts.db
     private val _state = MutableStateFlow(ActivityFormState(editing = route.uuid != null))
@@ -78,6 +83,7 @@ class ActivityFormViewModel @Inject constructor(@ApplicationContext private val 
                 if (existing != null) base.copy(
                     date = existing.date, category = existing.category, title = existing.title, notes = existing.notes,
                     counter = existing.counterValue?.toString() ?: "", cost = Parse.centsToText(existing.costCents), quantity = Parse.milliToText(existing.quantityMilli),
+                    tags = Tags.fromJson(existing.tags),
                     // Editing: the "lower than current" warning compares against the other entries, not this one.
                     currentCounter = db.activityDao().readings(route.objectUuid).filter { it.uuid != existing.uuid }.maxOfOrNull { it.counterValue ?: 0 },
                 )
@@ -97,6 +103,9 @@ class ActivityFormViewModel @Inject constructor(@ApplicationContext private val 
     fun onCounter(v: String) = _state.update { it.copy(counter = v, errors = it.errors - "counterValue") }
     fun onCost(v: String) = _state.update { it.copy(cost = v, errors = it.errors - "costCents") }
     fun onQuantity(v: String) = _state.update { it.copy(quantity = v, errors = it.errors - "quantityMilli") }
+    fun onTags(v: List<String>) = _state.update { it.copy(tags = v) }
+    val tagSuggestions: StateFlow<List<TagCount>> = db.objectDao().tagColumns().map(Tags::count).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val showTags: StateFlow<Boolean> = capabilities.current.map { it.tags }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Picked files: attached now when editing, kept until save for a new entry. A photo's capture date is offered as the entry date while the date is still today's default. */
     fun attach(uris: List<Uri>) = viewModelScope.launch {

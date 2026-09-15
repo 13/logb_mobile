@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,8 +40,10 @@ import dev.logb.android.core.design.components.AttachmentThumb
 import dev.logb.android.R
 import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.design.components.EmptyState
+import dev.logb.android.core.design.components.TagChips
 import dev.logb.android.core.design.theme.figureLabel
 import dev.logb.android.core.design.theme.figureSmall
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.TimelineFold
 import dev.logb.android.core.domain.TimelineRow
 import dev.logb.android.core.format.currentLocale
@@ -60,7 +63,7 @@ fun categoryLabel(category: String): String = stringResource(
 )
 
 @Composable
-fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry: (String) -> Unit = {}, onAttachment: (String) -> Unit = {}) {
+fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry: (String) -> Unit = {}, onAttachment: (String) -> Unit = {}, onTag: (String?) -> Unit = {}) {
     val expanded = remember { mutableStateOf(setOf<String>()) }
     val unit = state.obj?.counterUnit
     Column(Modifier.fillMaxSize()) {
@@ -69,6 +72,12 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry
                 state.categories.forEach { c ->
                     FilterChip(selected = state.categoryFilter == c, onClick = { onFilter(c) }, label = { Text(categoryLabel(c)) })
                 }
+            }
+        }
+        if (state.tagFilter != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.tags_filter, state.tagFilter), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = { onTag(null) }) { Text(stringResource(R.string.tags_clear)) }
             }
         }
         if (state.loaded && state.years.isEmpty()) {
@@ -85,7 +94,7 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry
                 }
                 items(group.rows, key = { row -> when (row) { is TimelineRow.Entry -> row.activity.uuid; is TimelineRow.Readings -> row.key } }) { row ->
                     when (row) {
-                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty(), onClick = { onEntry(row.activity.uuid) }, onAttachment = onAttachment, pending = row.activity.uuid in state.pendingEntryUuids)
+                        is TimelineRow.Entry -> EntryRow(row.activity, unit, state.currency, state.attachmentsByActivity[row.activity.uuid].orEmpty(), onClick = { onEntry(row.activity.uuid) }, onAttachment = onAttachment, pending = row.activity.uuid in state.pendingEntryUuids, onTag = { tag -> onTag(tag) }, activeTag = state.tagFilter)
                         is TimelineRow.Readings -> ReadingsRow(row, unit, isOpen = row.key in expanded.value, onToggle = { expanded.value = if (row.key in expanded.value) expanded.value - row.key else expanded.value + row.key }, currency = state.currency, onEntry = onEntry)
                     }
                 }
@@ -95,7 +104,7 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry
 }
 
 @Composable
-private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, attachments: List<AttachmentWithFile>, onClick: () -> Unit = {}, onAttachment: (String) -> Unit = {}, pending: Boolean = false) {
+private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, attachments: List<AttachmentWithFile>, onClick: () -> Unit = {}, onAttachment: (String) -> Unit = {}, pending: Boolean = false, onTag: ((String) -> Unit)? = null, activeTag: String? = null) {
     val locale = currentLocale()
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -108,6 +117,7 @@ private fun EntryRow(a: ActivityEntity, unit: String?, currency: String, attachm
         val figures = listOfNotNull(a.costCents?.let { formatCents(it, currency, locale) }, a.counterValue?.let { formatCounter(it, unit, locale) })
         if (figures.isNotEmpty()) Text(figures.joinToString(" · "), style = MaterialTheme.typography.figureSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (a.notes.isNotBlank()) Text(a.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+        TagChips(Tags.fromJson(a.tags), Modifier.padding(top = 4.dp), onSelect = onTag, active = activeTag)
         if (attachments.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                 items(attachments, key = { it.attachment.uuid }) { att -> AttachmentThumb(att, size = 64.dp, onClick = { onAttachment(att.attachment.uuid) }) }

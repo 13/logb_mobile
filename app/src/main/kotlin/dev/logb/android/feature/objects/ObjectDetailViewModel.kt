@@ -15,6 +15,7 @@ import dev.logb.android.core.db.model.ObjectStats
 import dev.logb.android.core.domain.ObjectTypes
 import dev.logb.android.core.domain.ReminderPresenter
 import dev.logb.android.core.domain.ReminderView
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.domain.TimelineFold
 import dev.logb.android.core.domain.TimelineRow
 import dev.logb.android.feature.stats.InsightsModel
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -45,6 +47,7 @@ data class ObjectDetailUiState(
     val years: List<YearGroup> = emptyList(),
     val categoryFilter: String? = null,
     val categories: List<String> = emptyList(),
+    val tagFilter: String? = null,
     /** Attachments of every entry on the timeline, by entry uuid. */
     val attachmentsByActivity: Map<String, List<AttachmentWithFile>> = emptyMap(),
     val documents: List<AttachmentWithFile> = emptyList(),
@@ -62,12 +65,12 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
     private val insights = InsightsModel(db, today)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun state(categoryFilter: Flow<String?>, currency: String): Flow<ObjectDetailUiState> {
+    fun state(categoryFilter: Flow<String?>, currency: String, tagFilter: Flow<String?> = flowOf(null)): Flow<ObjectDetailUiState> {
         val timeline = db.activityDao().timeline(uuid)
         val attachments = timeline.flatMapLatest { acts -> db.attachmentDao().forActivities(acts.map { it.uuid }) }
         val reminders = combine(db.reminderDao().forObject(uuid), timeline) { rs, _ -> rs }
         val children = db.objectDao().children(uuid).flatMapLatest { kids -> objects.cardsFor(kids) }
-        return combine(db.objectDao().observe(uuid), timeline, attachments, reminders, categoryFilter, db.attachmentDao().forObject(uuid), children) { values ->
+        return combine(db.objectDao().observe(uuid), timeline, attachments, reminders, categoryFilter, db.attachmentDao().forObject(uuid), children, tagFilter) { values ->
             @Suppress("UNCHECKED_CAST")
             val obj = values[0] as ObjectEntity?
             val acts = values[1] as List<ActivityEntity>
@@ -76,18 +79,22 @@ class ObjectDetailModel(private val db: LogbDatabase, private val uuid: String, 
             val filter = values[4] as String?
             val docs = values[5] as List<AttachmentWithFile>
             val kids = values[6] as List<ObjectCard>
+            val tag = values[7] as String?
             if (obj == null) return@combine ObjectDetailUiState(loaded = true, currency = currency)
             val stats = db.objectDao().stats(uuid)
             val t = today()
             val lastReading = ReminderPresenter.clampLastReading(stats.lastReadingDate, t)
             val usage = insights.usage(uuid)
             val views = rems.map { ReminderPresenter.present(it, stats.currentCounter, lastReading, t, usage) }
-            val filtered = if (filter == null) acts else acts.filter { it.category == filter }
+            val filtered = acts
+                .let { if (filter == null) it else it.filter { a -> a.category == filter } }
+                .let { if (tag == null) it else it.filter { a -> Tags.carries(Tags.fromJson(a.tags), tag) } }
             ObjectDetailUiState(
                 obj = obj, stats = stats, ancestors = db.objectDao().ancestors(uuid), children = kids,
                 years = filtered.groupBy { it.date.take(4) }.entries.sortedByDescending { it.key }.map { (y, list) -> YearGroup(y, TimelineFold.fold(list)) },
                 categoryFilter = filter,
                 categories = ObjectTypes.categoriesFor(obj.type).filter { c -> acts.any { it.category == c } },
+                tagFilter = tag,
                 attachmentsByActivity = atts.groupBy { it.attachment.activityUuid ?: "" },
                 pendingEntryUuids = db.opDao().pending().filter { it.kind == "create" && it.entity == "activity" }.map { it.entityUuid }.toSet(),
                 documents = docs,
@@ -109,8 +116,9 @@ class ObjectDetailViewModel @Inject constructor(
 ) : ViewModel() {
     val route: ObjectDetail = savedState.toRoute()
     private val filter = MutableStateFlow<String?>(null)
+    private val tagFilter = MutableStateFlow<String?>(null)
     private val model = ObjectDetailModel(accounts.db, route.uuid)
-    val state: StateFlow<ObjectDetailUiState> = model.state(filter, accounts.signedIn?.currency ?: "EUR")
+    val state: StateFlow<ObjectDetailUiState> = model.state(filter, accounts.signedIn?.currency ?: "EUR", tagFilter)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ObjectDetailUiState())
 
     val includeContents: StateFlow<Boolean> = statsPrefs.includeContents.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -124,6 +132,8 @@ class ObjectDetailViewModel @Inject constructor(
     fun setIncludeContents(on: Boolean) = viewModelScope.launch { statsPrefs.setIncludeContents(on) }
 
     fun setFilter(category: String?) { filter.value = if (filter.value == category) null else category }
+
+    fun onTagFilter(tag: String?) { tagFilter.value = tag }
 
     fun setArchived(archived: Boolean) = viewModelScope.launch { repos.objectRepository.setArchived(route.uuid, archived) }
 

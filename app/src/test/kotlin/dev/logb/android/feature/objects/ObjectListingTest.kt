@@ -13,9 +13,10 @@ class ObjectListingTest {
     private fun obj(
         name: String? = null, type: String = "other", description: String = "", parent: String? = null, archived: Boolean = false,
         updatedAt: String = "2026-01-01T00:00:00Z", lastActivity: String? = null, cost: Long = 0, counter: Long? = null, uuid: String? = null,
+        tags: List<String> = emptyList(),
     ): ObjectCard {
         val id = uuid ?: "u${next++}"
-        return ObjectCard(id, name ?: "Object $id", type, counter, null, cost, lastActivity, 0, null, parentUuid = parent, archived = archived, description = description, updatedAt = updatedAt)
+        return ObjectCard(id, name ?: "Object $id", type, counter, null, cost, lastActivity, 0, null, parentUuid = parent, archived = archived, description = description, updatedAt = updatedAt, tags = tags)
     }
 
     private val label: (String) -> String = { mapOf("e_bike" to "E-Bike", "home" to "Zuhause")[it] ?: it }
@@ -65,4 +66,17 @@ class ObjectListingTest {
     @Test fun `searches every depth and names the parent of a nested match`() = assertEquals(listOf("Boiler" to "House"), rows(false, "boil"))
     @Test fun `names an archived parent too`() = assertEquals(listOf("Mower" to "Shed"), rows(false, "mow"))
     @Test fun `lists archived objects flat, with their parent`() = assertEquals(listOf("Shed" to "House"), rows(true, ""))
+
+    private val tagHouse = obj(name = "Tag House", uuid = "200", tags = listOf("Lease"))
+    private val tagBoiler = obj(name = "Tag Boiler", parent = "200", uuid = "201", tags = listOf("winter"))
+    private val tagCar = obj(name = "Tag Car", uuid = "202", tags = listOf("Winter", "Lease"))
+
+    @Test fun `search matches tags`() =
+        assertEquals(listOf("Tag Car", "Tag House"), ObjectListing.visibleRows(listOf(tagHouse, tagBoiler, tagCar), emptyList(), false, "lease", SortKey.Name, { it }, en).map { it.card.name })
+
+    @Test fun `a tag filter keeps carriers at every depth, ignoring case`() =
+        assertEquals(
+            listOf("Tag Boiler" to "Tag House", "Tag Car" to null),
+            ObjectListing.visibleRows(listOf(tagHouse, tagBoiler, tagCar), emptyList(), false, "", SortKey.Name, { it }, en, "WINTER").map { it.card.name to it.parentName },
+        )
 }

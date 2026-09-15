@@ -366,6 +366,14 @@
     <string name="reading_warn_implausible">Far more than usual since %1$s. Check for a typo, then save again.</string>
     <string name="timeline_pending">Waiting to send</string>
     <string name="clear_cover">Clear cover</string>
+    <!-- Tags (web: tags.*) -->
+    <string name="tags_label">Tags</string>
+    <string name="tags_placeholder">Add a tag</string>
+    <string name="tags_remove">Remove %1$s</string>
+    <string name="tags_too_long">A tag can be at most 32 characters.</string>
+    <string name="tags_too_many">Up to 10 tags.</string>
+    <string name="tags_filter">Tag: %1$s</string>
+    <string name="tags_clear">Clear tag filter</string>
     <!-- Account parity -->
     <string name="server_version">Server %1$s</string>
     <string name="server_needs_update">Tags and own types need LogB 0.8.0 or newer on the server.</string>

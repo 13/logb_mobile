@@ -8,6 +8,7 @@ import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.db.entity.ObjectEntity
 import dev.logb.android.core.db.entity.ReminderEntity
 import dev.logb.android.core.domain.ReminderPresenter
+import dev.logb.android.core.domain.Tags
 import dev.logb.android.core.sync.SyncManager
 import dev.logb.android.core.sync.SyncReason
 import dev.logb.android.core.sync.SyncStatus
@@ -43,6 +44,7 @@ data class ObjectCard(
     val updatedAt: String = "",
     /** Counter units per day × 1000 over recent readings, for the "≈ 120 km a month" line. */
     val counterPerDayMilli: Long? = null,
+    val tags: List<String> = emptyList(),
 )
 
 data class ObjectsUiState(
@@ -52,6 +54,7 @@ data class ObjectsUiState(
     val query: String = "",
     val sort: SortKey = SortKey.Name,
     val archived: Boolean = false,
+    val tagFilter: String? = null,
     val dueCount: Int = 0,
     val sync: SyncStatus = SyncStatus.None,
     val currency: String = "EUR",
@@ -77,6 +80,7 @@ class ObjectsModel(private val db: LogbDatabase, private val today: () -> LocalD
             ObjectCard(
                 o.uuid, o.name, o.type, stats.currentCounter, o.counterUnit, stats.totalCostCents, stats.lastActivityDate, due, cover,
                 parentUuid = o.parentUuid, archived = o.archivedAt != null, description = o.description, updatedAt = o.updatedAt, counterPerDayMilli = rate,
+                tags = Tags.fromJson(o.tags),
             )
         }
     }
@@ -106,13 +110,14 @@ class ObjectsViewModel @Inject constructor(
     private val model = ObjectsModel(accounts.db)
     private val archived = MutableStateFlow(false)
     private val query = MutableStateFlow("")
+    private val tagFilter = MutableStateFlow<String?>(null)
     private val currency = accounts.signedIn?.currency ?: "EUR"
 
     val state: StateFlow<ObjectsUiState> = combine(
-        combine(model.allCards(), archived, query, prefs.sort) { cards, arch, q, sort ->
+        combine(model.allCards(), archived, query, prefs.sort, tagFilter) { cards, arch, q, sort, tag ->
             val locale = context.resources.configuration.locales[0]
-            val rows = ObjectListing.visibleRows(cards.filter { !it.archived }, cards.filter { it.archived }, arch, q, sort, { context.getString(typeLabelRes(it)) }, locale)
-            ObjectsUiState(rows.map { it.card }, rows.mapNotNull { r -> r.parentName?.let { r.card.uuid to it } }.toMap(), q, sort, arch)
+            val rows = ObjectListing.visibleRows(cards.filter { !it.archived }, cards.filter { it.archived }, arch, q, sort, { context.getString(typeLabelRes(it)) }, locale, tag)
+            ObjectsUiState(rows.map { it.card }, rows.mapNotNull { r -> r.parentName?.let { r.card.uuid to it } }.toMap(), q, sort, arch, tag)
         },
         model.totalDue(), syncManager.status, accounts.db.opDao().dead(),
     ) { list, due, sync, dead ->
@@ -122,6 +127,7 @@ class ObjectsViewModel @Inject constructor(
     fun toggleArchived() { archived.value = !archived.value }
     fun setQuery(q: String) { query.value = q }
     fun setSort(key: SortKey) = viewModelScope.launch { prefs.setSort(key) }
+    fun setTagFilter(tag: String?) { tagFilter.value = tag }
 
     fun refresh() = viewModelScope.launch { syncManager.syncNow() }
 
