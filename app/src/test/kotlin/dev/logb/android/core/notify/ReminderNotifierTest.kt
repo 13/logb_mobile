@@ -11,6 +11,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -127,5 +130,59 @@ class ReminderNotifierTest {
         // The Log reading child's own content tap is unaffected: it still opens Reminders, not Reading.
         val tap = shadowOf(notification.contentIntent).savedIntent
         assertEquals(LaunchTarget.Reminders.name, tap.getStringExtra(LaunchTarget.EXTRA))
+    }
+
+    private fun extrasText(n: android.app.Notification): String =
+        listOf(android.app.Notification.EXTRA_TITLE, android.app.Notification.EXTRA_TEXT, android.app.Notification.EXTRA_BIG_TEXT)
+            .joinToString(" ") { n.extras.getCharSequence(it)?.toString().orEmpty() }
+
+    @Test fun `with the app lock on, every notification is private with a public version that names nothing`() {
+        val golf = child("golf")
+        val house = child("house")
+        val reading = child("reading", actions = listOf(NotificationAction.LogReading))
+        notifier.post(DigestNotifications(DigestText("Golf: Oil change due · 2 more", null), listOf(golf, house, reading), total = 3), lockOn = true)
+
+        val active = manager.activeNotifications
+        assertEquals(4, active.size)
+        for (sbn in active) {
+            val n = sbn.notification
+            assertEquals(android.app.Notification.VISIBILITY_PRIVATE, n.visibility)
+            val public = assertNotNull(n.publicVersion, "id ${sbn.id} has no public version")
+            assertEquals("LogB", public.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
+            assertEquals("3 reminders due", public.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString())
+            assertFalse(extrasText(public).contains("Golf"), "public version of ${sbn.id} leaks a name: ${extrasText(public)}")
+            assertFalse(extrasText(public).contains("Oil change"))
+        }
+    }
+
+    @Test fun `with the app lock on, Done and Snooze need the device unlocked, Log reading does not`() {
+        val golf = child("golf")
+        val reading = child("reading", actions = listOf(NotificationAction.LogReading))
+        notifier.post(DigestNotifications(null, listOf(golf, reading)), lockOn = true)
+
+        val byId = manager.activeNotifications.associateBy { it.id }
+        val actions = byId.getValue(golf.id).notification.actions.toList()
+        assertEquals(listOf("Done", "Snooze 7 days"), actions.map { it.title.toString() })
+        assertTrue(actions.all { it.isAuthenticationRequired })
+        assertFalse(byId.getValue(reading.id).notification.actions.single().isAuthenticationRequired)
+    }
+
+    @Test fun `with the app lock off, notifications keep the default visibility, no public version and no unlock requirement`() {
+        val golf = child("golf")
+        val house = child("house")
+        notifier.post(DigestNotifications(DigestText("2 reminders", null), listOf(golf, house)), lockOn = false)
+
+        for (sbn in manager.activeNotifications) {
+            val n = sbn.notification
+            assertNull(n.publicVersion)
+            assertEquals(android.app.Notification().visibility, n.visibility)
+            assertTrue(n.actions.orEmpty().none { it.isAuthenticationRequired })
+        }
+    }
+
+    @Test fun `clearAll takes every reminder notification down`() {
+        notifier.post(DigestNotifications(DigestText("2", null), listOf(child("golf"), child("house"))))
+        (notifier as dev.logb.android.core.alerts.ReminderNotificationsClearer).clearAll()
+        assertEquals(0, manager.activeNotifications.size)
     }
 }

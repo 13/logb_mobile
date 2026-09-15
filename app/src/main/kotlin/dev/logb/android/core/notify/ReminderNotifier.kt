@@ -14,13 +14,14 @@ import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.logb.android.MainActivity
 import dev.logb.android.R
+import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.feature.share.LaunchTarget
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /** One notification per due reminder, grouped under a summary; tapping a child opens that reminder, the summary the due list. */
 @Singleton
-class ReminderNotifier @Inject constructor(@ApplicationContext private val context: Context) {
+class ReminderNotifier @Inject constructor(@ApplicationContext private val context: Context) : ReminderNotificationsClearer {
     private val manager get() = NotificationManagerCompat.from(context)
     private val systemManager get() = context.getSystemService(NotificationManager::class.java)
 
@@ -38,8 +39,12 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
      * from a previous, larger plan that are not named this time are cancelled, and an empty plan
      * cancels everything. Permission is checked twice, as `post(DigestText)` used to: once to
      * bail out early, once right before posting in case it was revoked in between.
+     *
+     * [lockOn] is LogB's own app lock: when on, every notification is `VISIBILITY_PRIVATE` with a
+     * public version carrying only "LogB" and the count -- no object name, no title -- and Done
+     * and Snooze need the device unlocked (API 31+). Log reading opens the app, which asks anyway.
      */
-    fun post(plan: DigestNotifications) {
+    fun post(plan: DigestNotifications, lockOn: Boolean = false) {
         // Cancellation needs no permission, so it happens even when POST_NOTIFICATIONS is denied
         // or revoked -- a digest that has shrunk to nothing must not leave a stale notification.
         if (plan.children.isEmpty()) { cancelAll(); return }
@@ -48,9 +53,10 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val keep = plan.children.map { it.id }.toSet()
         activeChildIds().filterNot { it in keep }.forEach { manager.cancel(it) }
-        plan.children.forEach(::postChild)
+        val publicVersion = if (lockOn) publicVersion(plan.total) else null
+        plan.children.forEach { postChild(it, publicVersion) }
         val summary = plan.summary
-        if (summary != null) postSummary(summary) else manager.cancel(DigestPlan.SUMMARY_ID)
+        if (summary != null) postSummary(summary, publicVersion) else manager.cancel(DigestPlan.SUMMARY_ID)
     }
 
     /** Cancels one reminder's own notification, and the summary too once no children are left. */
@@ -59,12 +65,28 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
         if (activeChildIds().isEmpty()) manager.cancel(DigestPlan.SUMMARY_ID)
     }
 
+    override fun clearAll() = cancelAll()
+
     fun cancelAll() {
         activeChildIds().forEach { manager.cancel(it) }
         manager.cancel(DigestPlan.SUMMARY_ID)
     }
 
-    private fun postChild(child: ChildNotification) {
+    /** What a locked screen may show in place of a private notification: the app and a count, nothing else. */
+    private fun publicVersion(count: Int): android.app.Notification =
+        NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(context.resources.getQuantityString(R.plurals.notify_public_count, count, count))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setGroup(GROUP)
+            .build()
+
+    private fun NotificationCompat.Builder.applyPrivacy(publicVersion: android.app.Notification?): NotificationCompat.Builder = apply {
+        if (publicVersion != null) setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setPublicVersion(publicVersion)
+    }
+
+    private fun postChild(child: ChildNotification, publicVersion: android.app.Notification?) {
         val tap = activityIntent(LaunchTarget.Reminders, child.objectUuid, requestCode(child.id, TAP_OFFSET))
         val builder = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notify)
@@ -74,11 +96,20 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setGroup(GROUP)
-        child.actions.forEach { action -> builder.addAction(0, actionLabel(action), actionIntent(child, action)) }
+            .applyPrivacy(publicVersion)
+        child.actions.forEach { action ->
+            // Writes from a locked phone need it unlocked first; opening the app (Log reading) is gated by the app itself.
+            val needsUnlock = publicVersion != null && action != NotificationAction.LogReading
+            builder.addAction(
+                NotificationCompat.Action.Builder(0, actionLabel(action), actionIntent(child, action))
+                    .setAuthenticationRequired(needsUnlock)
+                    .build(),
+            )
+        }
         notify(child.id, builder.build())
     }
 
-    private fun postSummary(text: DigestText) {
+    private fun postSummary(text: DigestText, publicVersion: android.app.Notification?) {
         val open = Intent(context, MainActivity::class.java).setAction(LaunchTarget.ACTION).putExtra(LaunchTarget.EXTRA, LaunchTarget.Due.name)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val tap = PendingIntent.getActivity(context, SUMMARY_REQUEST_CODE, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -91,6 +122,7 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setGroup(GROUP)
             .setGroupSummary(true)
+            .applyPrivacy(publicVersion)
             .build()
         notify(DigestPlan.SUMMARY_ID, notification)
     }

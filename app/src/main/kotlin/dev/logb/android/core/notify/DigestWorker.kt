@@ -11,6 +11,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dev.logb.android.R
 import dev.logb.android.core.auth.ActiveAccount
+import dev.logb.android.core.auth.LockPrefs
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.widget.WidgetRefresher
@@ -33,6 +34,7 @@ class DigestWorker @AssistedInject constructor(
     private val notifier: ReminderNotifier,
     private val prefs: NotificationPrefs,
     private val widgetRefresher: WidgetRefresher,
+    private val lockPrefs: LockPrefs,
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         if (!prefs.current().enabled) return Result.success()
@@ -46,7 +48,9 @@ class DigestWorker @AssistedInject constructor(
             upcomingWord = { days -> res.getQuantityString(R.plurals.notify_in_days, days.toInt(), days) },
             more = { n -> res.getQuantityString(R.plurals.notify_more, n, n) },
         )
-        notifier.post(plan) // posts, cancels stale children, or cancels everything -- either way the widget needs to catch up
+        // A lock setting that cannot be read counts as on: privacy defaults closed.
+        val lockOn = runCatching { lockPrefs.current() }.getOrDefault(true)
+        notifier.post(plan, lockOn) // posts, cancels stale children, or cancels everything -- either way the widget needs to catch up
         widgetRefresher.requestRefresh()
         return Result.success()
     }

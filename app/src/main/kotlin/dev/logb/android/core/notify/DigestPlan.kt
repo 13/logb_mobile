@@ -7,7 +7,8 @@ enum class NotificationAction { Done, Snooze, LogReading }
 
 data class ChildNotification(val id: Int, val reminderUuid: String, val objectUuid: String, val title: String, val text: String, val actions: List<NotificationAction>)
 
-data class DigestNotifications(val summary: DigestText?, val children: List<ChildNotification>)
+/** [total] is every item the digest found, not just the [children] it shows: the count a locked phone may still see. */
+data class DigestNotifications(val summary: DigestText?, val children: List<ChildNotification>, val total: Int = children.size)
 
 /** Which notifications the digest posts and what each can do; pure, so the phrasing and grouping are tested without a device. */
 object DigestPlan {
@@ -34,7 +35,7 @@ object DigestPlan {
             val title = if (hidden > 0) "$line · ${more(hidden)}" else line
             DigestText(title, null)
         }
-        return DigestNotifications(summary, children)
+        return DigestNotifications(summary, children, total = items.size)
     }
 
     /** Due now, or how soon. `?: 0` guards a directly-constructed view; `DueListModel` always sets `soonestDays` for the upcoming items this reaches. */

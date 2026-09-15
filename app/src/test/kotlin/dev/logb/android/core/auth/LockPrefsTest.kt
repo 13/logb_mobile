@@ -34,4 +34,16 @@ class LockPrefsTest {
         assertFalse(prefs.current())
         assertEquals(2, refresher.immediate)
     }
+
+    @Test
+    fun `turning the lock on takes posted reminder notifications down, turning it off does not`() = runTest {
+        var cleared = 0
+        val prefs = LockPrefs(ApplicationProvider.getApplicationContext(), FakeWidgetRefresher()) { cleared++ }
+
+        prefs.setEnabled(true)
+        assertEquals(1, cleared)
+
+        prefs.setEnabled(false)
+        assertEquals(1, cleared)
+    }
 }

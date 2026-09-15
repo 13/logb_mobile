@@ -4,6 +4,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.notify.ReminderActions
@@ -14,6 +15,9 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NotifyModule {
+    @Provides
+    fun reminderNotificationsClearer(notifier: ReminderNotifier): ReminderNotificationsClearer = notifier
+
     @Provides
     @Singleton
     fun reminderActions(repos: Repositories, notifier: ReminderNotifier, sessions: SessionRepository): ReminderActions =

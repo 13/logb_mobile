@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.logb.android.core.alerts.NoopReminderNotificationsClearer
+import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +24,7 @@ private val Context.lockDataStore: DataStore<Preferences> by preferencesDataStor
 class LockPrefs @Inject constructor(
     @ApplicationContext private val context: Context,
     private val widgetRefresher: WidgetRefresher = NoopWidgetRefresher,
+    private val notifications: ReminderNotificationsClearer = NoopReminderNotificationsClearer,
 ) {
     private val enabled = booleanPreferencesKey("enabled")
 
@@ -31,10 +34,13 @@ class LockPrefs @Inject constructor(
 
     /**
      * Persisted first, then a placed widget is told at once: it must never keep showing object
-     * names and titles after the lock goes on, nor lag behind it going off.
+     * names and titles after the lock goes on, nor lag behind it going off. Turning the lock on
+     * also takes down reminder notifications already posted with names in them: the next digest
+     * reposts them privately. (Turning it off changes nothing already shown.)
      */
     suspend fun setEnabled(on: Boolean) {
         context.lockDataStore.edit { it[enabled] = on }
+        if (on) notifications.clearAll()
         widgetRefresher.requestImmediateRefresh()
     }
 }
