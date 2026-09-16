@@ -2,7 +2,10 @@ package dev.logb.android.core.design
 
 import android.content.Context
 import android.content.pm.PackageManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.security.MessageDigest
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Which key signed the installed app: the release key, or anything else (a debug build). */
 object AppSignature {
@@ -17,4 +20,14 @@ object AppSignature {
         val signers = info.signingInfo?.apkContentsSigners.orEmpty()
         isRelease(signers.map { sha256Hex(it.toByteArray()) })
     }.getOrDefault(false)
+}
+
+/**
+ * Caches [AppSignature.isReleaseSigned] for the process. `PackageManager.getPackageInfo` is a
+ * blocking IPC call, so this holds it behind a `by lazy` rather than a ViewModel constructor
+ * computing it eagerly on whatever thread creates the ViewModel (usually the main thread).
+ */
+@Singleton
+class ReleaseKey @Inject constructor(@ApplicationContext private val context: Context) {
+    val isRelease: Boolean by lazy { AppSignature.isReleaseSigned(context) }
 }
