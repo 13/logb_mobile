@@ -66,6 +66,29 @@ class ServerCapabilitiesTest {
         assertFalse(caps.refresh { HealthInfo(version = "0.8.0") }, "no change the second time")
     }
 
+    @Test fun `a reordered feature list causes no store write`() = runBlocking {
+        var setVersionCalls = 0
+        val store = object : ServerStore {
+            private val delegate = FakeServerStore(record.copy(features = listOf("pairing", "tags")))
+            override suspend fun read(): ServerRecord? = delegate.read()
+            override suspend fun write(record: ServerRecord) = delegate.write(record)
+            override suspend fun clear() = delegate.clear()
+            override suspend fun setVersion(serverUrl: String, version: String?, features: List<String>) {
+                setVersionCalls++
+                delegate.setVersion(serverUrl, version, features)
+            }
+        }
+        val caps = ServerCapabilities(store)
+        caps.load()
+
+        // Same version, same features -- just listed in the opposite order, exactly as a server
+        // that builds the list from an unordered set might report it from one call to the next.
+        caps.refresh { HealthInfo(version = "0.7.1", features = listOf("tags", "pairing")) }
+
+        assertEquals(0, setVersionCalls, "a reordered but otherwise identical feature list must not trigger a write")
+        assertEquals(listOf("pairing", "tags"), store.read()!!.features, "the stored order is untouched")
+    }
+
     @Test fun `refresh stores the fetched features and sign-in stores them the same way`() = runBlocking {
         val store = FakeServerStore(record)
         val caps = ServerCapabilities(store)

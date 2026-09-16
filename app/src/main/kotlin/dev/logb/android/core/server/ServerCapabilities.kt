@@ -61,7 +61,10 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
         val stillSameServer = serverStore.read()?.serverUrl == url
         if (!stillSameServer) return false
         val before = Capabilities.of(record.serverVersion, record.features)
-        if (fetched.version != record.serverVersion || fetched.features != record.features) {
+        // Compared as sets: the server's feature list carries no meaningful order, so one
+        // reported in a different order from what is already stored must not be treated as a
+        // change and trigger a write nothing actually needs.
+        if (fetched.version != record.serverVersion || fetched.features.toSet() != record.features.toSet()) {
             serverStore.setVersion(url, fetched.version, fetched.features)
         }
         refreshedUrl.set(url)
