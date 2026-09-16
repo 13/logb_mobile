@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.getAndUpdate
 
 sealed interface InstallResult {
     data object Success : InstallResult
@@ -70,13 +71,23 @@ class InstallResultReceiver : BroadcastReceiver() {
         /**
          * Pure, so this is unit-testable without touching Android beyond the [Intent] value class:
          * a pending status records the confirm intent so it can be offered later; any final status
-         * (success, cancelled, or another failure) clears it, since there is nothing left to confirm.
+         * (success, cancelled, or another failure) clears it atomically through
+         * [consumePendingConfirmation], since there is nothing left to confirm.
          */
         fun track(status: Int, confirm: Intent?) {
-            mutablePendingConfirmation.value = if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) confirm else null
+            if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+                mutablePendingConfirmation.value = confirm
+            } else {
+                consumePendingConfirmation()
+            }
         }
 
-        /** Hands over the pending confirm intent and clears it -- it is only good to open once. */
-        fun consumePendingConfirmation(): Intent? = mutablePendingConfirmation.value.also { mutablePendingConfirmation.value = null }
+        /**
+         * Hands over the pending confirm intent and clears it, atomically so a concurrent
+         * terminal status racing in through [track] can never leave a stale intent behind (or a
+         * fresh one dropped). Used from the terminal path in [track], and to clear a stale intent
+         * before a new install/check session begins.
+         */
+        fun consumePendingConfirmation(): Intent? = mutablePendingConfirmation.getAndUpdate { null }
     }
 }

@@ -114,6 +114,9 @@ class UpdateViewModel @Inject constructor(
         work?.cancel()
         available = null
         ready = null
+        // A confirmation left over from a previous, never-finished install session must not
+        // resurface once a fresh check/download/install cycle begins.
+        InstallResultReceiver.consumePendingConfirmation()
         mutableState.value = UpdateUiState.Checking
         work = viewModelScope.launch {
             val result = repository.check()
@@ -156,6 +159,9 @@ class UpdateViewModel @Inject constructor(
             mutableState.value = UpdateUiState.NeedsPermission(file.releaseUrl)
             return
         }
+        // A confirmation from a previous install session (e.g. one the process died still waiting
+        // on) must never be offered for this new one.
+        InstallResultReceiver.consumePendingConfirmation()
         mutableState.value = UpdateUiState.Installing
         work?.cancel()
         work = viewModelScope.launch {
@@ -194,12 +200,14 @@ class UpdateViewModel @Inject constructor(
     }
 
     /**
-     * The confirm intent Android could not bring to the front on its own. Reading it also
-     * consumes it and returns the row to `Installing`, since a foreground activity is always free
-     * to start it and this is a one-time hand-off.
+     * The confirm intent Android could not bring to the front on its own. This only peeks: the
+     * intent is cleared from [InstallResultReceiver] solely on a terminal status (see
+     * [InstallResultReceiver.track]) or a new install/check session, never just by being read
+     * here. So if the person opens Android's dialog and leaves without acting, [onResumed] can
+     * offer this very same intent again instead of stranding the row with nothing to press.
      */
     fun confirmationIntent(): Intent? {
-        val intent = InstallResultReceiver.consumePendingConfirmation() ?: return null
+        val intent = InstallResultReceiver.pendingConfirmation.value ?: return null
         mutableState.value = UpdateUiState.Installing
         return intent
     }

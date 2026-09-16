@@ -18,13 +18,13 @@ import javax.inject.Singleton
  * confirmation for a sideloaded app's update; nothing in the UI may promise otherwise.
  */
 @Singleton
-class ApkInstaller @Inject constructor(@ApplicationContext private val context: Context) {
-    fun canInstall(): Boolean = context.packageManager.canRequestPackageInstalls()
+open class ApkInstaller @Inject constructor(@ApplicationContext private val context: Context) {
+    open fun canInstall(): Boolean = context.packageManager.canRequestPackageInstalls()
 
-    fun unknownSourcesIntent(): Intent =
+    open fun unknownSourcesIntent(): Intent =
         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${context.packageName}".toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
-    fun install(file: File) {
+    open fun install(file: File) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(context.packageName)
