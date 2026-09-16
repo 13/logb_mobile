@@ -7,11 +7,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -408,7 +410,9 @@ fun AboutContent(info: AboutInfo, onBack: () -> Unit, onOpenUrl: (String) -> Uni
             Text(stringResource(R.string.about_body), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
         AboutSection(stringResource(R.string.about_build)) {
-            Text(stringResource(R.string.about_build_date, info.buildDate), style = MaterialTheme.typography.bodyMedium)
+            if (info.buildDate != "unknown") {
+                Text(stringResource(R.string.about_build_date, info.buildDate), style = MaterialTheme.typography.bodyMedium)
+            }
             val commit = stringResource(R.string.about_commit, info.commit)
             if (info.commitUrl != null) {
                 Text(commit, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenUrl(info.commitUrl!!) })
@@ -439,9 +443,11 @@ fun AboutContent(info: AboutInfo, onBack: () -> Unit, onOpenUrl: (String) -> Uni
             }
         }
         AboutSection(stringResource(R.string.about_links)) {
-            TextButton(onClick = { onOpenUrl(AboutInfo.REPO_URL) }) { Text(stringResource(R.string.about_source)) }
-            TextButton(onClick = { onOpenUrl(AboutInfo.ISSUES_URL) }) { Text(stringResource(R.string.about_issues)) }
-            info.serverUrl?.let { url -> TextButton(onClick = { onOpenUrl(url) }) { Text(stringResource(R.string.about_web_app)) } }
+            val linkPadding = PaddingValues(horizontal = 0.dp)
+            val linkModifier = Modifier.heightIn(min = 40.dp)
+            TextButton(onClick = { onOpenUrl(AboutInfo.REPO_URL) }, contentPadding = linkPadding, modifier = linkModifier) { Text(stringResource(R.string.about_source)) }
+            TextButton(onClick = { onOpenUrl(AboutInfo.ISSUES_URL) }, contentPadding = linkPadding, modifier = linkModifier) { Text(stringResource(R.string.about_issues)) }
+            info.serverUrl?.let { url -> TextButton(onClick = { onOpenUrl(url) }, contentPadding = linkPadding, modifier = linkModifier) { Text(stringResource(R.string.about_web_app)) } }
         }
         if (updateSection != null) {
             AboutSection(stringResource(R.string.update_title)) { updateSection() }
