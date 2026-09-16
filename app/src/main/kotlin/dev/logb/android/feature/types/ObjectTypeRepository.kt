@@ -13,7 +13,7 @@ import java.util.UUID
 
 sealed interface TypeSave {
     data class Saved(val uuid: String) : TypeSave
-    /** A `CustomTypes` code, or `name_taken` / `in_use`. */
+    /** A `CustomTypes` code, or `name_taken` / `in_use` / `not_found`. */
     data class Refused(val code: String) : TypeSave
 }
 
@@ -35,7 +35,7 @@ class ObjectTypeRepository(private val db: LogbDatabase, private val writer: Loc
     }
 
     suspend fun update(uuid: String, input: TypeInput): TypeSave {
-        val t = db.objectTypeDao().get(uuid) ?: return TypeSave.Refused("name_invalid")
+        val t = db.objectTypeDao().get(uuid) ?: return TypeSave.Refused("not_found")
         val valid = when (val c = CustomTypes.normalize(input)) { is TypeCheck.Invalid -> return TypeSave.Refused(c.code); is TypeCheck.Valid -> c.input }
         if (nameTaken(valid.name, uuid)) return TypeSave.Refused("name_taken")
         val categories = CustomTypes.categoriesToJson(valid.categories)

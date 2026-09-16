@@ -50,4 +50,8 @@ class ObjectTypeRepositoryTest {
         repo.update(uuid, TypeInput("Boat", "home", listOf("repair"), null))
         assertEquals(listOf("icon"), db.opDao().pending().map { it.field })
     }
+
+    @Test fun `updating a missing uuid is refused as not found, not as an invalid name`() = runBlocking {
+        assertEquals(TypeSave.Refused("not_found"), repo.update("does-not-exist", TypeInput("Boat", "tool", listOf("repair"), null)))
+    }
 }

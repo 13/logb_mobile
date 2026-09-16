@@ -214,5 +214,6 @@ private fun typeErrorText(code: String): String = when (code) {
     "icon_invalid" -> stringResource(R.string.types_error_icon_invalid)
     "categories_invalid" -> stringResource(R.string.types_error_categories_invalid)
     "unit_invalid" -> stringResource(R.string.types_error_unit_invalid)
+    "not_found" -> stringResource(R.string.types_error_not_found)
     else -> code
 }

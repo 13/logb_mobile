@@ -232,6 +232,7 @@
     <string name="types_error_icon_invalid">Choose one of the icons shown.</string>
     <string name="types_error_categories_invalid">Choose at least one of the categories shown.</string>
     <string name="types_error_unit_invalid">Choose km, mi, h or none as the counter unit.</string>
+    <string name="types_error_not_found">This type no longer exists.</string>
     <string name="types_empty">You have no types of your own yet.</string>
     <string name="icon_document">Document</string>
     <string name="icon_camera">Camera</string>

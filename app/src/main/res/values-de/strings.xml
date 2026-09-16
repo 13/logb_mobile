@@ -232,6 +232,7 @@
     <string name="types_error_icon_invalid">Wähle eines der angezeigten Symbole.</string>
     <string name="types_error_categories_invalid">Wähle mindestens eine der angezeigten Kategorien.</string>
     <string name="types_error_unit_invalid">Wähle km, mi, h oder keine als Zählereinheit.</string>
+    <string name="types_error_not_found">Dieser Typ existiert nicht mehr.</string>
     <string name="types_empty">Du hast noch keine eigenen Typen.</string>
     <string name="icon_document">Dokument</string>
     <string name="icon_camera">Kamera</string>
