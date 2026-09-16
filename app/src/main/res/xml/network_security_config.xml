@@ -14,4 +14,19 @@
             <certificates src="user" />
         </trust-anchors>
     </base-config>
+    <!--
+      The in-app updater fetches the release list and the APK from GitHub. A user-installed CA (an MDM
+      profile, a proxy root) must not be able to rewrite what an update is, so these hosts trust the
+      system store alone. The signing-certificate check would still refuse a forged APK; this keeps the
+      version, the checksum and the file name honest too.
+    -->
+    <domain-config>
+        <domain includeSubdomains="false">api.github.com</domain>
+        <domain includeSubdomains="false">github.com</domain>
+        <domain includeSubdomains="false">objects.githubusercontent.com</domain>
+        <domain includeSubdomains="false">release-assets.githubusercontent.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>
