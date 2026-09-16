@@ -39,7 +39,7 @@ fun PairingConfirmHost(viewModel: PairingConfirmViewModel = hiltViewModel()) {
         AlertDialog(
             onDismissRequest = viewModel::dismissError,
             text = { Text(pairErrorMessage(error)) },
-            confirmButton = { TextButton(onClick = viewModel::dismissError) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = { TextButton(onClick = viewModel::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }
 }
