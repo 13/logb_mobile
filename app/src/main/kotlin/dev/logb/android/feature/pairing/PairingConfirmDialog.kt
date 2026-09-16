@@ -23,10 +23,22 @@ fun pairErrorMessage(error: PairError): String = when (error) {
     PairError.Unsupported -> stringResource(R.string.pair_unsupported)
     PairError.Invalid -> stringResource(R.string.pair_invalid)
     PairError.RateLimited -> stringResource(R.string.pair_rate_limited)
-    is PairError.Rejected -> error.message ?: stringResource(R.string.pair_rejected)
+    is PairError.Rejected -> error.message?.let(::displayableServerMessage) ?: stringResource(R.string.pair_rejected)
     PairError.Unreachable -> stringResource(R.string.server_unreachable)
     PairError.CameraPermissionDenied -> stringResource(R.string.pair_camera_permission_denied)
 }
+
+/** The longest server refusal shown word for word; anything longer gets the generic text. */
+internal const val MAX_SERVER_MESSAGE_LENGTH = 200
+
+/**
+ * A server's own 400 text, if it is fit to show as is: at most [MAX_SERVER_MESSAGE_LENGTH]
+ * characters, with no control characters (line breaks, tabs, escapes) and no bidi overrides that
+ * could reorder what the dialog appears to say. Null otherwise, so the caller falls back to
+ * "The server refused this sign-in."
+ */
+internal fun displayableServerMessage(message: String): String? =
+    message.takeIf { m -> m.isNotBlank() && m.length <= MAX_SERVER_MESSAGE_LENGTH && m.none { it.isISOControl() || it in '\u202A'..'\u202E' || it in '\u2066'..'\u2069' } }
 
 /**
  * Mounted alongside the server screen, the sign-in screen, and the signed-in unlocked app -- see

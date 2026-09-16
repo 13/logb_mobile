@@ -89,4 +89,39 @@ class PairingConfirmDialogTest {
 
         compose.onNodeWithText(expected).assertIsDisplayed()
     }
+
+    private fun showRejected(message: String?) {
+        compose.setContent { androidx.compose.material3.Text(pairErrorMessage(dev.logb.android.core.auth.PairError.Rejected(message))) }
+        drain()
+    }
+
+    @Test
+    fun `a short, plain server refusal is shown word for word`() {
+        showRejected("device_name must not be empty")
+        compose.onNodeWithText("device_name must not be empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a server refusal longer than 200 characters shows the generic text instead`() {
+        showRejected("x".repeat(201))
+        compose.onNodeWithText(compose.activity.getString(dev.logb.android.R.string.pair_rejected)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a server refusal with control characters shows the generic text instead`() {
+        showRejected("refused\nplease visit evil.example")
+        compose.onNodeWithText(compose.activity.getString(dev.logb.android.R.string.pair_rejected)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `displayableServerMessage keeps exactly 200 plain characters and refuses controls and bidi overrides`() {
+        val limit = "y".repeat(200)
+        kotlin.test.assertEquals(limit, displayableServerMessage(limit))
+        kotlin.test.assertNull(displayableServerMessage(limit + "y"))
+        kotlin.test.assertNull(displayableServerMessage("tab\there"))
+        kotlin.test.assertNull(displayableServerMessage("bell\u0007"))
+        kotlin.test.assertNull(displayableServerMessage("abc\u202Eevil"))
+        kotlin.test.assertNull(displayableServerMessage("   "))
+        kotlin.test.assertEquals("Gerätename darf nicht leer sein", displayableServerMessage("Gerätename darf nicht leer sein"))
+    }
 }
