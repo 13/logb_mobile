@@ -71,6 +71,24 @@ class DueWidgetFlowTest {
         }
     }
 
+    @Test fun `a database read that throws falls back safely, then a retry recovers`() = runTest {
+        var attempt = 0
+        val items: () -> Flow<List<DueItem>> = {
+            flow {
+                attempt++
+                if (attempt == 1) throw IllegalStateException("db locked")
+                emit(listOf(golf))
+            }
+        }
+        states(MutableStateFlow(signedIn), MutableStateFlow(false), items).test {
+            // The flow survives the failure (no crash, nothing skipped) with a safe, name-free state.
+            assertEquals(DueWidgetState(0, emptyList(), locked = false, signedIn = true), awaitItem())
+            // The retry re-subscribes the query, and its success reaches the same collection.
+            assertEquals(listOf("Golf"), awaitItem().rows.map { it.objectName })
+        }
+        assertEquals(2, attempt)
+    }
+
     @Test fun `a lock setting that cannot be read counts as locked`() = runTest {
         val failing = flow<Boolean> { throw IllegalStateException("datastore read failed") }
         states(MutableStateFlow(signedIn), failing) { MutableStateFlow(listOf(golf)) }.test {

@@ -5,6 +5,7 @@ import dev.logb.android.core.auth.Session
 import dev.logb.android.feature.reminders.DueItem
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 
 /**
  * What a placed widget shows, as a flow rather than a one-off read.
@@ -25,6 +27,9 @@ import kotlinx.coroutines.flow.map
  */
 object DueWidgetFlow {
     private const val TAG = "LogB"
+
+    /** Backoff before re-subscribing to a query that just threw, so a persistently broken read doesn't spin. */
+    private const val RETRY_DELAY_MS = 5_000L
 
     /**
      * Before anything is known: locked, so the first frame can never carry a name. The count is
@@ -60,8 +65,18 @@ object DueWidgetFlow {
                 } else {
                     items()
                         .map { true to it }
-                        // A failed read keeps the last state on screen rather than inventing "nothing due".
-                        .catch { e -> if (e is CancellationException) throw e; Log.w(TAG, "widget read failed", e) }
+                        // A failed read must not end this flow for the rest of the Glance session -- a plain
+                        // catch() that only logs lets the flow complete, and the widget would never hear about
+                        // a later, successful read. retryWhen re-subscribes the query instead, so once it
+                        // recovers the widget catches up; meanwhile a safe signed-in/nothing-due pair covers
+                        // the gap without inventing rows or leaking a stale name.
+                        .retryWhen { e, _ ->
+                            if (e is CancellationException) throw e
+                            Log.w(TAG, "widget read failed, retrying", e)
+                            emit(true to emptyList())
+                            delay(RETRY_DELAY_MS)
+                            true
+                        }
                 }
             }
         return combine(due, locked) { (signedIn, list), isLocked ->
