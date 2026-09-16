@@ -10,6 +10,7 @@ import dev.logb.android.core.network.dto.NewToken
 import dev.logb.android.core.network.dto.User
 import dev.logb.android.core.alerts.NoopReminderNotificationsClearer
 import dev.logb.android.core.alerts.ReminderNotificationsClearer
+import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,11 @@ class SessionRepository @Inject constructor(
     private val apiFactory: ApiFactory,
     private val widgetRefresher: WidgetRefresher = NoopWidgetRefresher,
     private val notifications: ReminderNotificationsClearer = NoopReminderNotificationsClearer,
+    // Injected directly (not through a tiny interface like WidgetRefresher / ReminderNotificationsClearer
+    // above) because ServerCapabilities is already a plain core.server singleton with no dependency
+    // back on core.auth, so there is no cycle to break; those interfaces exist to keep core.auth from
+    // depending on feature-layer, platform-backed implementations, which does not apply here.
+    private val capabilities: ServerCapabilities = ServerCapabilities(serverStore),
 ) {
     private val _session = MutableStateFlow<Session>(Session.Loading)
     val session: StateFlow<Session> = _session.asStateFlow()
@@ -91,9 +97,11 @@ class SessionRepository @Inject constructor(
         if (record != null) serverStore.write(record.copy(tokenId = null))
         _session.value = Session.SignedOut(record?.serverUrl ?: (current as? Session.SignedIn)?.serverUrl ?: "", record?.username)
         // Neither a placed widget nor a posted notification may keep showing the account's data
-        // past the moment it signs out.
+        // past the moment it signs out, and a later account signing into this same server must
+        // not inherit this one's server-capabilities guard or in-memory version either.
         widgetRefresher.requestImmediateRefresh()
         notifications.clearAll()
+        capabilities.clear()
     }
 
     /**
@@ -123,6 +131,7 @@ class SessionRepository @Inject constructor(
         _session.value = Session.SignedOut(record?.serverUrl ?: "", record?.username, reason = "unauthorized")
         widgetRefresher.requestImmediateRefresh()
         notifications.clearAll()
+        capabilities.clear()
     }
 
     /** Forget the server too: back to the first-run screen. */

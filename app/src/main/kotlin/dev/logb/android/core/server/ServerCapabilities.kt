@@ -23,7 +23,10 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
      * URL of the server whose version [refresh] most recently wrote, if any. Guards against a
      * slower, concurrent [load] for that same server clobbering it with a stale read. The guard
      * is per-server, not sticky: signing into a different server makes [load] read the store
-     * again, so a stale value from a previous server can never linger.
+     * again, so a stale value from a previous server can never linger. It is keyed on the URL
+     * alone, not the account, so [clear] must be called whenever the session leaves signed in --
+     * otherwise a second account signing into the *same* server would still match this guard and
+     * [load] would skip, keeping the first account's version and capabilities.
      */
     private val refreshedUrl = AtomicReference<String?>(null)
 
@@ -32,6 +35,17 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
         val record = serverStore.read()
         if (record != null && record.serverUrl == refreshedUrl.get()) return
         set(record?.serverVersion)
+    }
+
+    /**
+     * Drops the refresh guard and the in-memory value. Called whenever the session leaves signed
+     * in (sign-out, or the token being rejected), so the next account to sign into this same
+     * server -- or the same account offline until its own [refresh] succeeds -- never inherits a
+     * stale [version] or [current] left by whoever was signed in before.
+     */
+    fun clear() {
+        refreshedUrl.set(null)
+        set(null)
     }
 
     /**

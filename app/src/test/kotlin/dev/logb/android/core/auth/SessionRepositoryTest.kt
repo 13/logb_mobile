@@ -2,6 +2,7 @@ package dev.logb.android.core.auth
 
 import dev.logb.android.core.network.ApiClient
 import dev.logb.android.core.alerts.ReminderNotificationsClearer
+import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.test.runTest
@@ -315,6 +316,45 @@ class SessionRepositoryTest {
 
         assertIs<Session.SignedOut>(repo.session.value)
         assertEquals(1, notifications.cleared)
+    }
+
+    @Test
+    fun `sign out clears the server capabilities guard so a later account on the same server is not skipped`() = runTest {
+        val capabilities = ServerCapabilities(serverStore)
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, capabilities = capabilities)
+        serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9, serverVersion = "0.7.1"))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        capabilities.load()
+        assertEquals("0.7.1", capabilities.version.value)
+        server.enqueue(json("{}", code = 204))
+
+        repo.signOut()
+
+        assertIs<Session.SignedOut>(repo.session.value)
+        // A different account's record for the same server must be picked up, not skipped in
+        // favour of what the first account last had.
+        serverStore.write(ServerRecord(server.url("/").toString(), 2, "ann", 10, serverVersion = "0.9.0"))
+        capabilities.load()
+        assertEquals("0.9.0", capabilities.version.value)
+    }
+
+    @Test
+    fun `onUnauthorized clears the server capabilities guard so a later account on the same server is not skipped`() = runTest {
+        val capabilities = ServerCapabilities(serverStore)
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, capabilities = capabilities)
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9, serverVersion = "0.7.1"))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        capabilities.load()
+        assertEquals("0.7.1", capabilities.version.value)
+
+        repo.onUnauthorized()
+
+        assertIs<Session.SignedOut>(repo.session.value)
+        serverStore.write(ServerRecord("https://logb.example/", 2, "ann", 10, serverVersion = "0.9.0"))
+        capabilities.load()
+        assertEquals("0.9.0", capabilities.version.value)
     }
 
     @Test
