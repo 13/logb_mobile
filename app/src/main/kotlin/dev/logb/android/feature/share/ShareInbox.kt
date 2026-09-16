@@ -34,6 +34,9 @@ data class LaunchRequest(val target: LaunchTarget, val objectUuid: String?) {
     }
 }
 
+/** A `logb://pair` link plus when it was offered -- [dev.logb.android.feature.pairing.PairingConfirmViewModel] drops it, unshown, once it is older than the server's own code lifetime. */
+data class PendingPairing(val link: PairingLink, val arrivedAtMs: Long)
+
 /** Files shared into the app, waiting for the person to say which object they belong to; and launch targets waiting for the nav host. */
 @Singleton
 class ShareInbox @Inject constructor() {
@@ -49,12 +52,12 @@ class ShareInbox @Inject constructor() {
     // person actually answers the confirmation -- confirm() or cancel() is what finally takes it.
     // A link that arrives during the lock screen simply waits: PairingConfirmViewModel's caller
     // is only composed once the app is unlocked, exactly like ShareInbox.target above.
-    private val _pendingPairing = MutableStateFlow<PairingLink?>(null)
-    val pendingPairing: StateFlow<PairingLink?> = _pendingPairing
+    private val _pendingPairing = MutableStateFlow<PendingPairing?>(null)
+    val pendingPairing: StateFlow<PendingPairing?> = _pendingPairing
 
-    fun offer(intent: Intent?): Boolean {
+    fun offer(intent: Intent?, nowMs: Long = System.currentTimeMillis()): Boolean {
         LaunchRequest.from(intent)?.let { _target.value = it; return true }
-        pairingLinkFrom(intent)?.let { _pendingPairing.value = it; return true }
+        pairingLinkFrom(intent)?.let { _pendingPairing.value = PendingPairing(it, nowMs); return true }
         val uris: List<Uri> = when (intent?.action) {
             Intent.ACTION_SEND -> listOfNotNull(extra(intent))
             Intent.ACTION_SEND_MULTIPLE -> extras(intent)
@@ -69,7 +72,7 @@ class ShareInbox @Inject constructor() {
     fun takeTarget(): LaunchRequest? = _target.value.also { _target.value = null }
 
     /** The pending `logb://pair` link, once -- taken by [dev.logb.android.feature.pairing.PairingConfirmViewModel] before it decides what to ask. */
-    fun takePendingPairing(): PairingLink? = _pendingPairing.value.also { _pendingPairing.value = null }
+    fun takePendingPairing(): PairingLink? = _pendingPairing.value?.link.also { _pendingPairing.value = null }
 
     private fun pairingLinkFrom(intent: Intent?): PairingLink? {
         if (intent?.action != Intent.ACTION_VIEW) return null

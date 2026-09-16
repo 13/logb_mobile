@@ -23,8 +23,17 @@ class ShareInboxTest {
 
         assertTrue(offered)
         val pending = inbox.pendingPairing.value
-        assertEquals("https://logb.example.org/", pending?.serverUrl)
-        assertEquals("abc123", pending?.code)
+        assertEquals("https://logb.example.org/", pending?.link?.serverUrl)
+        assertEquals("abc123", pending?.link?.code)
+    }
+
+    @Test fun `the arrival time is recorded when the link is offered, not read later`() {
+        val inbox = ShareInbox()
+        val arrivedAt = 1_000_000L
+
+        inbox.offer(viewIntent(pairUri()), nowMs = arrivedAt)
+
+        assertEquals(arrivedAt, inbox.pendingPairing.value?.arrivedAtMs)
     }
 
     @Test fun `takePendingPairing hands it over once`() {

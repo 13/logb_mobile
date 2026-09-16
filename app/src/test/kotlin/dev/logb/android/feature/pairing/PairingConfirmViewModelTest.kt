@@ -226,4 +226,114 @@ class PairingConfirmViewModelTest {
         assertEquals("192.168.1.5:8080", PairingConfirmViewModel.hostOf("http://192.168.1.5:8080/"))
         assertEquals("localhost:8090", PairingConfirmViewModel.hostOf("http://localhost:8090/"))
     }
+
+    @Test
+    fun `hostOf brackets an IPv6 literal, unlike an IPv4 address or a plain domain`() {
+        assertEquals("[::1]:8080", PairingConfirmViewModel.hostOf("http://[::1]:8080/"))
+        assertEquals("192.168.1.5:8080", PairingConfirmViewModel.hostOf("http://192.168.1.5:8080/"))
+        assertEquals("logb.example.org", PairingConfirmViewModel.hostOf("https://logb.example.org/"))
+    }
+
+    @Test
+    fun `confirm() called twice gives exactly one redeem request`() = runTest(dispatcher) {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}""")) // redeem
+        server.enqueue(json("""{"id":1,"username":"ben","is_admin":false,"lang":"en"}""")) // me
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")) // settings
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}""")) // health (version)
+
+        shareInbox.offer(pairIntent())
+        drain()
+        viewModel.confirm()
+        viewModel.confirm() // the busy guard must make this a no-op, not a second redeem
+        awaitUntil { !viewModel.state.value.busy }
+
+        assertEquals(5, server.requestCount, "one redeem's worth of requests, not two")
+    }
+
+    @Test
+    fun `a second link arriving while busy gives one redeem for the first, then a fresh prompt for the second`() = runTest(dispatcher) {
+        val second = MockWebServer()
+        second.start()
+        server.enqueue(json("{}")) // health (first)
+        server.enqueue(json("""{"token":"logb_pat_first","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}""")) // redeem (first)
+        server.enqueue(json("""{"id":1,"username":"ben","is_admin":false,"lang":"en"}""")) // me (first)
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")) // settings (first)
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}""")) // health-version (first)
+
+        shareInbox.offer(pairIntent())
+        drain()
+        viewModel.confirm() // busy from here on, until the first redeem settles
+
+        // Arrives mid-redeem: must not replace the busy prompt or reset busy.
+        shareInbox.offer(pairIntent(server = second.url("/").toString(), code = "second-code"))
+        drain()
+        assertEquals(true, viewModel.state.value.busy, "the second link must not reset busy")
+
+        awaitUntil { !viewModel.state.value.busy }
+
+        assertEquals(0, second.requestCount, "the second link must not itself have been redeemed")
+        assertIs<Session.SignedIn>(sessions.session.value, "the first link's redeem must have gone through")
+        // The first redeem signed this phone in -- the fresh prompt for the second link reflects
+        // *that*, current, reality (a replace), not whatever the session was when the second link
+        // first arrived.
+        val prompt = assertIs<PairingPrompt.Replace>(viewModel.state.value.prompt, "a fresh prompt for the second link is shown once the first settles")
+        assertEquals(server.url("/").host + ":" + server.url("/").port, prompt.fromHost)
+        assertEquals(second.url("/").host + ":" + second.url("/").port, prompt.toHost)
+
+        second.close()
+    }
+
+    @Test
+    fun `a link older than five minutes is dropped without a prompt`() = runTest(dispatcher) {
+        val sixMinutesAgo = System.currentTimeMillis() - 6 * 60 * 1000L
+        shareInbox.offer(pairIntent(), nowMs = sixMinutesAgo)
+        drain()
+
+        assertEquals(null, viewModel.state.value.prompt)
+        assertNull(shareInbox.pendingPairing.value, "the stale link must be dropped, not just left unshown")
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `the session changing kind after the dialog is shown blocks confirm and shows the updated dialog instead`() = runTest(dispatcher) {
+        shareInbox.offer(pairIntent())
+        drain()
+        assertIs<PairingPrompt.SignIn>(viewModel.state.value.prompt)
+
+        // The session changes underneath the still-showing SignIn dialog -- nothing re-collects
+        // shareInbox.pendingPairing (it hasn't changed), so the dialog itself stays stale until
+        // confirm() is actually tapped.
+        val oldServer = MockWebServer()
+        oldServer.start()
+        serverStore.write(ServerRecord(oldServer.url("/").toString(), 1, "ben", 9))
+        tokenStore.write("logb_pat_existing")
+        sessions.restore()
+
+        viewModel.confirm()
+        drain()
+
+        assertEquals(0, server.requestCount, "confirm() must not have redeemed against the stale prompt")
+        assertEquals(0, oldServer.requestCount, "nor signed out, against the stale prompt")
+        assertIs<Session.SignedIn>(sessions.session.value, "signOut() must not have run either")
+        val prompt = assertIs<PairingPrompt.Replace>(viewModel.state.value.prompt, "the corrected (replace) dialog is shown instead")
+        assertEquals(oldServer.url("/").host + ":" + oldServer.url("/").port, prompt.fromHost)
+
+        // Tapping confirm again, now that the dialog matches reality, proceeds normally.
+        oldServer.enqueue(json("", code = 204)) // signOut()'s revoke-by-id
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":22,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
+        server.enqueue(json("""{"id":2,"username":"ann","is_admin":false,"lang":"en"}""")) // me
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")) // settings
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}""")) // health (version)
+
+        viewModel.confirm()
+        awaitUntil { !viewModel.state.value.busy }
+
+        val signedIn = assertIs<Session.SignedIn>(sessions.session.value)
+        assertEquals("ann", signedIn.user.username)
+        assertEquals(5, server.requestCount)
+
+        oldServer.close()
+    }
 }
