@@ -7,7 +7,12 @@ import java.net.URISyntaxException
 import java.net.URLDecoder
 
 /** A `logb://pair` link scanned from a QR code or opened as a deep link. */
-data class PairingLink(val serverUrl: String, val code: String)
+data class PairingLink(val serverUrl: String, val code: String) {
+    // The code is the proof that redeems for a live token; it must never end up in a log line
+    // via an incidental toString() -- e.g. a caller logging "got $link" -- the way the generated
+    // data class one would.
+    override fun toString(): String = "PairingLink(serverUrl=$serverUrl, code=<redacted>)"
+}
 
 /**
  * Parses `logb://pair?server=<percent-encoded base URL>&code=<code>` links.

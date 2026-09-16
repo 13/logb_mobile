@@ -3,6 +3,7 @@ package dev.logb.android.core.auth
 import org.junit.Test
 import java.net.URLEncoder
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class PairingLinkTest {
@@ -96,4 +97,10 @@ class PairingLinkTest {
 
     @Test fun `a mixed-case scheme does not let userinfo slip past the check`() =
         assertNull(PairingLinks.parse(pairUri("HTTPS://evil.com@logb.example/")))
+
+    @Test fun `toString redacts the code`() {
+        val link = PairingLink("https://logb.example/", "super-secret-code")
+        assertEquals("PairingLink(serverUrl=https://logb.example/, code=<redacted>)", link.toString())
+        assertFalse(link.toString().contains("super-secret-code"))
+    }
 }
