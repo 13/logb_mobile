@@ -85,7 +85,7 @@ class UpdateRepository @Inject constructor(
         val there = AppVersion.parse(release.tagName)
             ?: return@withContext UpdateCheck.Failed(UpdateFailure.UNREADABLE_VERSION, release.htmlUrl)
         if (there <= here) return@withContext UpdateCheck.UpToDate
-        val apk = release.apk ?: return@withContext UpdateCheck.Failed(UpdateFailure.NO_APK, release.htmlUrl)
+        val apk = release.apkFor(there) ?: return@withContext UpdateCheck.Failed(UpdateFailure.NO_APK, release.htmlUrl)
         UpdateCheck.Available(there, apk, release.htmlUrl)
     }
 

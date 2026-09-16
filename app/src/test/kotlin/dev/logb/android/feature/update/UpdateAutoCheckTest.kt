@@ -52,7 +52,11 @@ class UpdateAutoCheckTest {
         return UpdateAutoCheck(prefs, UpdateRepository(api, OkHttpClient(), ApplicationProvider.getApplicationContext(), signatures))
     }
 
-    private fun release(tag: String) = GitHubRelease(tag, "https://github.com/13/logb_mobile/releases/tag/$tag", assets = listOf(GitHubAsset("LogB.apk", 1, "https://example.invalid/a.apk")))
+    private fun release(tag: String) = GitHubRelease(
+        tag,
+        "https://github.com/13/logb_mobile/releases/tag/$tag",
+        assets = listOf(GitHubAsset("LogB-${tag.removePrefix("v")}.apk", 1, "https://example.invalid/a.apk")),
+    )
 
     @Test fun `a found update is recorded with the time`() = runTest {
         val prefs = FakePrefs()

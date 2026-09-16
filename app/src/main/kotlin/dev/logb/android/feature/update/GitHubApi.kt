@@ -26,8 +26,12 @@ data class GitHubRelease(
     val body: String? = null,
     val assets: List<GitHubAsset> = emptyList(),
 ) {
-    /** The APK to install; null for a release without one, which the caller reports. */
-    val apk: GitHubAsset? get() = assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
+    /**
+     * The APK named for [version] by the release workflow ("LogB-<version>.apk"); null when no
+     * asset matches, which the caller reports. Never the first `.apk` asset found: a release can
+     * carry other APKs (a debug build, say) that must never be installed in its place.
+     */
+    fun apkFor(version: AppVersion): GitHubAsset? = assets.firstOrNull { it.name.equals("LogB-$version.apk", ignoreCase = true) }
 }
 
 @Serializable

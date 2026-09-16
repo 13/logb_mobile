@@ -117,6 +117,17 @@ class UpdateRepositoryTest {
         assertEquals("https://github.com/13/logb_mobile/releases/tag/v0.8.0", failed.releaseUrl)
     }
 
+    @Test fun `a release whose only asset is not named for it fails but still offers its page`() = runTest {
+        val misnamed = GitHubRelease(
+            tagName = "v0.8.0",
+            htmlUrl = "https://github.com/13/logb_mobile/releases/tag/v0.8.0",
+            assets = listOf(GitHubAsset("Other.apk", payload.size.toLong(), "https://example.invalid/a.apk")),
+        )
+        val failed = repository(FakeGitHub { misnamed }).check("0.7.1") as UpdateCheck.Failed
+        assertEquals(UpdateFailure.NO_APK, failed.failure)
+        assertEquals("https://github.com/13/logb_mobile/releases/tag/v0.8.0", failed.releaseUrl)
+    }
+
     @Test fun `an unreachable GitHub is a network failure`() = runTest {
         assertEquals(UpdateFailure.NETWORK, (repository(FakeGitHub { throw IOException("offline") }).check("0.7.1") as UpdateCheck.Failed).failure)
     }
@@ -178,13 +189,16 @@ class UpdateRepositoryTest {
     }
 
     @Test fun `a release asset name cannot steer the download outside the cache directory`() = runTest {
-        val escapee = GitHubRelease(
-            tagName = "v0.8.0",
-            htmlUrl = "https://github.com/13/logb_mobile/releases/tag/v0.8.0",
-            assets = listOf(GitHubAsset("../escape.apk", payload.size.toLong(), "https://example.invalid/a.apk", "sha256:$payloadSha")),
+        // download() writes to a fixed file name regardless of what the asset is called, so this
+        // targets download() directly with a maliciously named asset rather than going through
+        // check() (whose own asset-selection logic is exercised elsewhere).
+        val escapee = UpdateCheck.Available(
+            version = AppVersion(0, 8, 0),
+            asset = GitHubAsset("../escape.apk", payload.size.toLong(), "https://example.invalid/a.apk", "sha256:$payloadSha"),
+            releaseUrl = "https://github.com/13/logb_mobile/releases/tag/v0.8.0",
         )
-        val repo = repository(FakeGitHub { escapee })
-        val done = repo.download(repo.check("0.7.1") as UpdateCheck.Available).toList().last() as DownloadProgress.Done
+        val repo = repository(FakeGitHub { error("must not be called") })
+        val done = repo.download(escapee).toList().last() as DownloadProgress.Done
         val target = File(context.cacheDir, "updates/update.apk")
         assertEquals(target.canonicalPath, done.file.canonicalPath)
         assertFalse(File(context.cacheDir, "escape.apk").exists())
