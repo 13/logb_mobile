@@ -10,6 +10,10 @@ class PairingLinkTest {
     private fun httpPairUri(host: String): String =
         "logb://pair?server=" + URLEncoder.encode("http://$host", "UTF-8") + "&code=c"
 
+    /** `logb://pair?server=<serverUrl>&code=c`, with an arbitrary server URL percent-encoded as a real QR payload would carry it. */
+    private fun pairUri(serverUrl: String): String =
+        "logb://pair?server=" + URLEncoder.encode(serverUrl, "UTF-8") + "&code=c"
+
     @Test fun `parses a pairing uri`() =
         assertEquals(
             PairingLink("https://logb.example/", "abc_-9"),
@@ -71,4 +75,25 @@ class PairingLinkTest {
             assertEquals("http://$host/", PairingLinks.parse(httpPairUri(host))!!.serverUrl, host)
         }
     }
+
+    @Test fun `userinfo in front of a private host is refused, not silently dropped`() =
+        assertNull(PairingLinks.parse(pairUri("http://evil.com@192.168.1.5")))
+
+    @Test fun `userinfo in front of a public host is refused, not silently dropped`() =
+        assertNull(PairingLinks.parse(pairUri("https://evil.com@logb.example/")))
+
+    @Test fun `a query on the server url is refused`() =
+        assertNull(PairingLinks.parse(pairUri("https://logb.example/?x=1")))
+
+    @Test fun `a fragment on the server url is refused`() =
+        assertNull(PairingLinks.parse(pairUri("https://logb.example/#frag")))
+
+    @Test fun `port 0 is refused`() =
+        assertNull(PairingLinks.parse(pairUri("http://192.168.1.5:0")))
+
+    @Test fun `a port above 65535 is refused`() =
+        assertNull(PairingLinks.parse(pairUri("http://192.168.1.5:70000")))
+
+    @Test fun `a mixed-case scheme does not let userinfo slip past the check`() =
+        assertNull(PairingLinks.parse(pairUri("HTTPS://evil.com@logb.example/")))
 }

@@ -1,6 +1,7 @@
 package dev.logb.android.core.auth
 
 import dev.logb.android.core.network.ApiClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URI
 import java.net.URISyntaxException
 import java.net.URLDecoder
@@ -56,6 +57,13 @@ object PairingLinks {
         val uri = parseUri(rawServer) ?: return null
         val scheme = uri.scheme ?: return null
         val host = uri.host ?: return null
+        // Userinfo, a query or a fragment on the server URL itself has no legitimate use here and
+        // is exactly how a decoy host gets smuggled in front of the real one (e.g.
+        // "http://evil.com@192.168.1.5" parses with host "192.168.1.5" but a browser -- and a
+        // careless label in this app -- would show "evil.com"). A malformed port (0, or above
+        // 65535) is rejected too: java.net.URI accepts digits without range-checking them.
+        if (uri.rawUserInfo != null || uri.rawQuery != null || uri.rawFragment != null) return null
+        if (uri.port != -1 && uri.port !in 1..65535) return null
         val allowed = when {
             scheme.equals("https", ignoreCase = true) -> true
             scheme.equals("http", ignoreCase = true) -> isLocalOrPrivate(host)
@@ -66,7 +74,13 @@ object PairingLinks {
         // a lowercase "http://"/"https://" prefix and would otherwise treat e.g. "HTTPS://" as
         // schemeless and prepend another "https://" in front of it.
         val lowerSchemeUrl = scheme.lowercase() + rawServer.substring(scheme.length)
-        return ApiClient.normalizeBaseUrl(lowerSchemeUrl)
+        val normalized = ApiClient.normalizeBaseUrl(lowerSchemeUrl)
+        // Belt and braces: java.net.URI and OkHttp's own parser must agree on the host, or the
+        // string that reaches Retrofit later could resolve somewhere this check never looked at.
+        val reparsed = normalized.toHttpUrlOrNull() ?: return null
+        val checkedHost = host.removePrefix("[").removeSuffix("]").lowercase()
+        if (reparsed.host != checkedHost) return null
+        return normalized
     }
 
     private fun isLocalOrPrivate(host: String): Boolean {
