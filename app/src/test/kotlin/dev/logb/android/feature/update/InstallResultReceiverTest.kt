@@ -3,7 +3,9 @@ package dev.logb.android.feature.update
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -48,5 +50,12 @@ class InstallResultReceiverTest {
         assertEquals(confirm, InstallResultReceiver.consumePendingConfirmation())
         assertNull(InstallResultReceiver.pendingConfirmation.value)
         assertNull(InstallResultReceiver.consumePendingConfirmation())
+    }
+
+    /** Defence in depth: only a broadcast carrying this receiver's own action is a real install result. */
+    @Test fun `only the receiver's own action is accepted`() {
+        assertTrue(InstallResultReceiver.isOwnAction(InstallResultReceiver.ACTION))
+        assertFalse(InstallResultReceiver.isOwnAction("android.intent.action.PACKAGE_REPLACED"))
+        assertFalse(InstallResultReceiver.isOwnAction(null))
     }
 }

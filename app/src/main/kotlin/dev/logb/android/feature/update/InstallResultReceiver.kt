@@ -23,6 +23,7 @@ sealed interface InstallResult {
  */
 class InstallResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (!isOwnAction(intent.action)) return
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, Int.MIN_VALUE)
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             // Android always asks the user itself; this is that request. Recording it before the
@@ -39,6 +40,13 @@ class InstallResultReceiver : BroadcastReceiver() {
 
     companion object {
         const val ACTION = "dev.logb.android.INSTALL_RESULT"
+
+        /**
+         * Defence in depth: this receiver is only ever registered for [ACTION], but a stray
+         * broadcast with the same extras (or a manifest change down the line) should not be
+         * treated as an install result.
+         */
+        fun isOwnAction(action: String?): Boolean = action == ACTION
 
         private val mutableResults = MutableSharedFlow<InstallResult>(extraBufferCapacity = 4)
         val results: SharedFlow<InstallResult> = mutableResults
