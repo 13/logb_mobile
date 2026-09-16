@@ -63,6 +63,20 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
+        <!--
+          zxing-android-embedded's own manifest locks this to sensorLandscape; overridden to
+          fullSensor so scanning works in whatever orientation the phone is actually held in
+          (this app has no other landscape-only screen to match). Never exported: it is only ever
+          launched with ScanContract's own explicit Intent, from ServerScreen's "Scan QR code"
+          button; see OnboardingScreens.kt.
+        -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="fullSensor"
+            android:exported="false"
+            tools:replace="android:screenOrientation"
+            tools:ignore="DiscouragedApi" />
+
         <!-- Where the platform installer reports the outcome of an update it was handed. -->
         <receiver
             android:name=".feature.update.InstallResultReceiver"
