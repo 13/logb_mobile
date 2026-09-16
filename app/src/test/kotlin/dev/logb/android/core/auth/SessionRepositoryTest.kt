@@ -89,6 +89,20 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `sign in remembers the server's announced features`() = runTest {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}"""))
+
+        assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
+
+        assertEquals(listOf("pairing"), serverStore.read()!!.features)
+    }
+
+    @Test
     fun `sign in succeeds when health has no version`() = runTest {
         server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
         server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))

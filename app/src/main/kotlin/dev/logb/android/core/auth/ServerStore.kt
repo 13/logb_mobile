@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
@@ -19,8 +20,10 @@ data class ServerRecord(
     val username: String? = null,
     val tokenId: Long? = null,
     val currency: String = "EUR",
-    /** The last version `/api/health` reported; decides which features the app shows. */
+    /** The last version `/api/health` reported; decides which version-gated features the app shows. */
     val serverVersion: String? = null,
+    /** The last `features` list `/api/health` reported, e.g. `["pairing"]`; see [dev.logb.android.core.server.Capabilities]. */
+    val features: List<String> = emptyList(),
 )
 
 interface ServerStore {
@@ -28,8 +31,8 @@ interface ServerStore {
     suspend fun write(record: ServerRecord)
     suspend fun clear()
 
-    /** Writes only the version, and only while the stored server is still [serverUrl]. */
-    suspend fun setVersion(serverUrl: String, version: String?)
+    /** Writes only the version and features, and only while the stored server is still [serverUrl]. */
+    suspend fun setVersion(serverUrl: String, version: String?, features: List<String> = emptyList())
 }
 
 private val Context.serverDataStore: DataStore<Preferences> by preferencesDataStore(name = "server")
@@ -42,11 +45,12 @@ class DataStoreServerStore @Inject constructor(@ApplicationContext private val c
     private val tokenId = longPreferencesKey("token_id")
     private val currency = stringPreferencesKey("currency")
     private val serverVersion = stringPreferencesKey("server_version")
+    private val features = stringSetPreferencesKey("features")
 
     override suspend fun read(): ServerRecord? {
         val p = context.serverDataStore.data.first()
         val server = p[url] ?: return null
-        return ServerRecord(server, p[userId], p[username], p[tokenId], p[currency] ?: "EUR", p[serverVersion])
+        return ServerRecord(server, p[userId], p[username], p[tokenId], p[currency] ?: "EUR", p[serverVersion], p[features]?.toList() ?: emptyList())
     }
 
     override suspend fun write(record: ServerRecord) {
@@ -57,6 +61,7 @@ class DataStoreServerStore @Inject constructor(@ApplicationContext private val c
             record.tokenId?.let { p[tokenId] = it } ?: p.remove(tokenId)
             p[currency] = record.currency
             record.serverVersion?.let { p[serverVersion] = it } ?: p.remove(serverVersion)
+            if (record.features.isNotEmpty()) p[features] = record.features.toSet() else p.remove(features)
         }
     }
 
@@ -64,10 +69,11 @@ class DataStoreServerStore @Inject constructor(@ApplicationContext private val c
         context.serverDataStore.edit { it.clear() }
     }
 
-    override suspend fun setVersion(serverUrl: String, version: String?) {
+    override suspend fun setVersion(serverUrl: String, version: String?, features: List<String>) {
         context.serverDataStore.edit { p ->
             if (p[url] == serverUrl) {
                 version?.let { p[serverVersion] = it } ?: p.remove(serverVersion)
+                if (features.isNotEmpty()) p[this.features] = features.toSet() else p.remove(this.features)
             }
         }
     }

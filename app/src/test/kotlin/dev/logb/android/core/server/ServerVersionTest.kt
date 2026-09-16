@@ -22,11 +22,16 @@ class ServerVersionTest {
         assertEquals(ServerVersion.ZERO, ServerVersion.parse("banana"))
     }
 
-    @Test fun `capabilities follow the thresholds`() {
+    @Test fun `capabilities follow the version thresholds`() {
         assertEquals(Capabilities.NONE, Capabilities.of("0.7.1"))
         assertEquals(Capabilities(tags = true, ownTypes = true, pairing = false), Capabilities.of("0.8.0"))
         assertEquals(Capabilities(tags = true, ownTypes = true, pairing = false), Capabilities.of("0.10.0"))
-        assertEquals(Capabilities(tags = true, ownTypes = true, pairing = true), Capabilities.of("0.11.0"))
         assertFalse(Capabilities.of(null).tags)
+    }
+
+    @Test fun `pairing comes from the server's announced features, not its version`() {
+        assertTrue(Capabilities.of("0.7.1", listOf("pairing")).pairing, "an old server can announce pairing")
+        assertFalse(Capabilities.of("0.11.0").pairing, "no features field means no pairing")
+        assertFalse(Capabilities.of("0.11.0", emptyList()).pairing, "a high version number alone is not enough")
     }
 }

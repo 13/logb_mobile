@@ -3,6 +3,7 @@ package dev.logb.android.core.server
 import dev.logb.android.core.auth.FakeServerStore
 import dev.logb.android.core.auth.ServerRecord
 import dev.logb.android.core.auth.ServerStore
+import dev.logb.android.core.network.dto.HealthInfo
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
@@ -34,7 +35,7 @@ class ServerCapabilitiesTest {
         }
         override suspend fun write(record: ServerRecord) = delegate.write(record)
         override suspend fun clear() = delegate.clear()
-        override suspend fun setVersion(serverUrl: String, version: String?) = delegate.setVersion(serverUrl, version)
+        override suspend fun setVersion(serverUrl: String, version: String?, features: List<String>) = delegate.setVersion(serverUrl, version, features)
     }
 
     @Test fun `load reads the stored version`() = runBlocking {
@@ -44,19 +45,40 @@ class ServerCapabilitiesTest {
         assertEquals("0.8.0", caps.version.value)
     }
 
+    @Test fun `load reads the stored features`() = runBlocking {
+        val caps = ServerCapabilities(FakeServerStore(record.copy(serverVersion = "0.11.0", features = listOf("pairing"))))
+        caps.load()
+        assertTrue(caps.current.value.pairing)
+    }
+
+    @Test fun `no features field means no pairing, even on a version that once implied it`() = runBlocking {
+        val caps = ServerCapabilities(FakeServerStore(record.copy(serverVersion = "0.11.0")))
+        caps.load()
+        assertFalse(caps.current.value.pairing)
+    }
+
     @Test fun `refresh stores the new version and reports a gained capability once`() = runBlocking {
         val store = FakeServerStore(record)
         val caps = ServerCapabilities(store)
         caps.load()
-        assertTrue(caps.refresh { "0.8.0" }, "0.7.1 -> 0.8.0 gains tags")
+        assertTrue(caps.refresh { HealthInfo(version = "0.8.0") }, "0.7.1 -> 0.8.0 gains tags")
         assertEquals("0.8.0", store.read()!!.serverVersion)
-        assertFalse(caps.refresh { "0.8.0" }, "no change the second time")
+        assertFalse(caps.refresh { HealthInfo(version = "0.8.0") }, "no change the second time")
     }
 
-    @Test fun `pairing alone is not a reason to bootstrap`() = runBlocking {
+    @Test fun `refresh stores the fetched features and sign-in stores them the same way`() = runBlocking {
+        val store = FakeServerStore(record)
+        val caps = ServerCapabilities(store)
+        caps.load()
+        caps.refresh { HealthInfo(version = "0.7.1", features = listOf("pairing")) }
+        assertEquals(listOf("pairing"), store.read()!!.features)
+        assertTrue(caps.current.value.pairing)
+    }
+
+    @Test fun `pairing feature alone is not a reason to bootstrap`() = runBlocking {
         val caps = ServerCapabilities(FakeServerStore(record.copy(serverVersion = "0.8.0")))
         caps.load()
-        assertFalse(caps.refresh { "0.11.0" })
+        assertFalse(caps.refresh { HealthInfo(version = "0.8.0", features = listOf("pairing")) })
         assertTrue(caps.current.value.pairing)
     }
 
@@ -71,14 +93,14 @@ class ServerCapabilitiesTest {
         val caps = ServerCapabilities(FakeServerStore(null))
         caps.load()
         assertEquals(Capabilities.NONE, caps.current.value)
-        assertFalse(caps.refresh { "0.9.0" }, "nothing to store the version in")
+        assertFalse(caps.refresh { HealthInfo(version = "0.9.0") }, "nothing to store the version in")
     }
 
     @Test fun `store cleared during the fetch is left cleared and refresh reports no gain`() = runBlocking {
         val store = FakeServerStore(record)
         val caps = ServerCapabilities(store)
         caps.load()
-        assertFalse(caps.refresh { store.clear(); "0.8.0" })
+        assertFalse(caps.refresh { store.clear(); HealthInfo(version = "0.8.0") })
         assertEquals(null, store.read())
         assertEquals("0.7.1", caps.version.value, "in-memory value untouched")
     }
@@ -92,7 +114,7 @@ class ServerCapabilitiesTest {
         // completion and writes 0.9.0; only then is load()'s stale 0.7.1 read let through. Without
         // the guard, load() would apply it and clobber refresh()'s 0.9.0 back down to 0.7.1.
         val loadJob = launch(start = CoroutineStart.UNDISPATCHED) { caps.load() }
-        assertTrue(caps.refresh { "0.9.0" })
+        assertTrue(caps.refresh { HealthInfo(version = "0.9.0") })
         gate.complete(Unit)
         loadJob.join()
 
@@ -103,7 +125,7 @@ class ServerCapabilitiesTest {
         val store = FakeServerStore(record)
         val caps = ServerCapabilities(store)
         caps.load()
-        assertTrue(caps.refresh { "0.8.0" })
+        assertTrue(caps.refresh { HealthInfo(version = "0.8.0") })
         assertEquals("0.8.0", caps.version.value)
 
         val other = ServerRecord("https://other.example/", userId = 2, username = "ann", serverVersion = "0.9.0")
@@ -118,13 +140,13 @@ class ServerCapabilitiesTest {
         val store = FakeServerStore(record) // server S, account A, 0.7.1
         val caps = ServerCapabilities(store)
         caps.load()
-        assertTrue(caps.refresh { "0.8.0" }) // A refreshes: refreshedUrl now points at S
+        assertTrue(caps.refresh { HealthInfo(version = "0.8.0") }) // A refreshes: refreshedUrl now points at S
         assertEquals("0.8.0", caps.version.value)
 
         caps.clear() // account A signs out
 
-        // Account B signs into the same server S; its own record, with its own version, lands in the store.
-        val accountB = record.copy(userId = 2, username = "ann", serverVersion = "0.11.0")
+        // Account B signs into the same server S; its own record, with its own version and features, lands in the store.
+        val accountB = record.copy(userId = 2, username = "ann", serverVersion = "0.11.0", features = listOf("pairing"))
         store.write(accountB)
         caps.load()
 
@@ -137,7 +159,7 @@ class ServerCapabilitiesTest {
         val caps = ServerCapabilities(store)
         caps.load()
         val other = ServerRecord("https://other.example/", userId = 2, username = "ann", serverVersion = null)
-        assertFalse(caps.refresh { store.write(other); "0.8.0" })
+        assertFalse(caps.refresh { store.write(other); HealthInfo(version = "0.8.0") })
         assertEquals(other, store.read(), "the other server's record is untouched")
         assertEquals("0.7.1", caps.version.value, "in-memory value untouched")
     }

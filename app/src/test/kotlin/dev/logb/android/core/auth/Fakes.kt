@@ -4,8 +4,8 @@ class FakeServerStore(private var record: ServerRecord? = null) : ServerStore {
     override suspend fun read(): ServerRecord? = record
     override suspend fun write(record: ServerRecord) { this.record = record }
     override suspend fun clear() { record = null }
-    override suspend fun setVersion(serverUrl: String, version: String?) {
-        record?.let { if (it.serverUrl == serverUrl) record = it.copy(serverVersion = version) }
+    override suspend fun setVersion(serverUrl: String, version: String?, features: List<String>) {
+        record?.let { if (it.serverUrl == serverUrl) record = it.copy(serverVersion = version, features = features) }
     }
 }
 

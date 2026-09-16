@@ -46,4 +46,4 @@ data class UserPatch(val password: String)
 
 /** `GET /api/health`, for the server version shown on the Account screen. */
 @Serializable
-data class HealthInfo(val version: String = "", val status: String = "")
+data class HealthInfo(val version: String = "", val status: String = "", val features: List<String> = emptyList())

@@ -63,7 +63,7 @@ object SyncModule {
                         // Refreshes the stored version so the app knows what the server supports; the
                         // bootstrap that brings existing tags and own types into the mirror arrives with
                         // the Room v2 migration in release 0.8.0.
-                        capabilities.refresh { runCatching { accounts.api.healthInfo().version }.getOrNull()?.takeIf { it.isNotBlank() } }
+                        capabilities.refresh { runCatching { accounts.api.healthInfo() }.getOrNull()?.takeIf { it.version.isNotBlank() } }
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
                         PushEngine(db, accounts.api, blobs, capabilities.current.value).run()
                         PullEngine(db, accounts.api, deviceId).run()

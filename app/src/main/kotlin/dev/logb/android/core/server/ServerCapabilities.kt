@@ -1,6 +1,7 @@
 package dev.logb.android.core.server
 
 import dev.logb.android.core.auth.ServerStore
+import dev.logb.android.core.network.dto.HealthInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +35,7 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
     suspend fun load() {
         val record = serverStore.read()
         if (record != null && record.serverUrl == refreshedUrl.get()) return
-        set(record?.serverVersion)
+        set(record?.serverVersion, record?.features ?: emptyList())
     }
 
     /**
@@ -45,29 +46,32 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
      */
     fun clear() {
         refreshedUrl.set(null)
-        set(null)
+        set(null, emptyList())
     }
 
     /**
-     * Asks the server for its version and stores it. The result tells whether tags or own types
-     * became available with this call.
+     * Asks the server for its version and feature list (one `/api/health` call, via [fetch]) and
+     * stores them. The result tells whether tags or own types became available with this call --
+     * gaining [Capabilities.pairing] alone does not count, since it needs no mirror bootstrap.
      */
-    suspend fun refresh(fetchVersion: suspend () -> String?): Boolean {
+    suspend fun refresh(fetch: suspend () -> HealthInfo?): Boolean {
         val record = serverStore.read() ?: return false
         val url = record.serverUrl
-        val fetched = fetchVersion() ?: return false
+        val fetched = fetch() ?: return false
         val stillSameServer = serverStore.read()?.serverUrl == url
         if (!stillSameServer) return false
-        val before = Capabilities.of(record.serverVersion)
-        if (fetched != record.serverVersion) serverStore.setVersion(url, fetched)
+        val before = Capabilities.of(record.serverVersion, record.features)
+        if (fetched.version != record.serverVersion || fetched.features != record.features) {
+            serverStore.setVersion(url, fetched.version, fetched.features)
+        }
         refreshedUrl.set(url)
-        set(fetched)
-        val after = Capabilities.of(fetched)
+        set(fetched.version, fetched.features)
+        val after = Capabilities.of(fetched.version, fetched.features)
         return (after.tags && !before.tags) || (after.ownTypes && !before.ownTypes)
     }
 
-    private fun set(version: String?) {
+    private fun set(version: String?, features: List<String>) {
         _version.value = version
-        _current.value = Capabilities.of(version)
+        _current.value = Capabilities.of(version, features)
     }
 }

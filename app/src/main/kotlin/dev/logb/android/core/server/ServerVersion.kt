@@ -26,16 +26,19 @@ class ServerVersion private constructor(private val parts: List<Int>) : Comparab
     }
 }
 
-/** What the signed-in server supports, from its version. */
+/**
+ * What the signed-in server supports. [tags] and [ownTypes] follow the version (every server from
+ * 0.8.0 on has them); [pairing] does not -- it is announced by the server itself, in `/api/health`'s
+ * `features` list, since QR sign-in was not part of any particular version release.
+ */
 data class Capabilities(val tags: Boolean, val ownTypes: Boolean, val pairing: Boolean) {
     companion object {
         val NONE = Capabilities(tags = false, ownTypes = false, pairing = false)
         private val TAGS = ServerVersion.parse("0.8.0")
-        private val PAIRING = ServerVersion.parse("0.11.0")
 
-        fun of(version: String?): Capabilities {
+        fun of(version: String?, features: List<String> = emptyList()): Capabilities {
             val v = ServerVersion.parse(version)
-            return Capabilities(tags = v >= TAGS, ownTypes = v >= TAGS, pairing = v >= PAIRING)
+            return Capabilities(tags = v >= TAGS, ownTypes = v >= TAGS, pairing = "pairing" in features)
         }
     }
 }
