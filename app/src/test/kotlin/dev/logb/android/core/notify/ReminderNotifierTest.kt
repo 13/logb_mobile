@@ -136,7 +136,7 @@ class ReminderNotifierTest {
         val golf = child("golf")
         val house = child("house")
         val reading = child("reading", actions = listOf(NotificationAction.LogReading))
-        notifier.post(DigestNotifications(DigestText("Golf: Oil change due · 2 more", null), listOf(golf, house, reading), total = 3), lockOn = true)
+        notifier.post(DigestNotifications(DigestText("Golf: Oil change due · 2 more", null), listOf(golf, house, reading)), lockOn = true)
 
         val active = manager.activeNotifications
         assertEquals(4, active.size)

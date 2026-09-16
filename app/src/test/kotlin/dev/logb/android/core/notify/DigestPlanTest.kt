@@ -28,7 +28,6 @@ class DigestPlanTest {
         val items = (1..7).map { DueFixtures.service("r$it", "Object $it", "Task $it", due = it <= 3, soonestDays = it.toLong()) }
         val p = plan(items)
         assertEquals(5, p.children.size)
-        assertEquals(7, p.total, "the count a locked phone sees covers every item, not just the children shown")
         assertEquals(listOf("r1", "r2", "r3", "r4", "r5"), p.children.map { it.reminderUuid })
         // 7 items, 5 shown as children: 2 hidden.
         assertTrue(p.summary!!.title.startsWith("Object 1: Task 1"))
