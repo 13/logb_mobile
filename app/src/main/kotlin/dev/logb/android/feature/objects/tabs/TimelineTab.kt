@@ -26,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +40,7 @@ import dev.logb.android.R
 import dev.logb.android.core.db.entity.ActivityEntity
 import dev.logb.android.core.design.components.EmptyState
 import dev.logb.android.core.design.components.TagChips
+import dev.logb.android.core.design.components.TagFilterRow
 import dev.logb.android.core.design.theme.figureLabel
 import dev.logb.android.core.design.theme.figureSmall
 import dev.logb.android.core.domain.Tags
@@ -75,10 +75,7 @@ fun TimelineTab(state: ObjectDetailUiState, onFilter: (String?) -> Unit, onEntry
             }
         }
         if (state.tagFilter != null) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.tags_filter, state.tagFilter), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { onTag(null) }) { Text(stringResource(R.string.tags_clear)) }
-            }
+            TagFilterRow(state.tagFilter, onClear = { onTag(null) })
         }
         if (state.loaded && state.years.isEmpty()) {
             EmptyState(

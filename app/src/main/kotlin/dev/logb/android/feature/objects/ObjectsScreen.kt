@@ -68,6 +68,7 @@ import dev.logb.android.core.design.components.LogbTopBar
 import dev.logb.android.core.design.components.ObjectTypeIcon
 import dev.logb.android.core.design.components.SyncLine
 import dev.logb.android.core.design.components.TagChips
+import dev.logb.android.core.design.components.TagFilterRow
 import dev.logb.android.core.design.theme.LocalWarnColor
 import dev.logb.android.core.design.theme.figureSmall
 import dev.logb.android.core.format.formatCents
@@ -126,10 +127,7 @@ fun ObjectsContent(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         )
         if (state.tagFilter != null) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.tags_filter, state.tagFilter), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = { onTag(null) }) { Text(stringResource(R.string.tags_clear)) }
-            }
+            TagFilterRow(state.tagFilter, onClear = { onTag(null) })
         }
         PullToRefreshBox(isRefreshing = state.sync is SyncStatus.Syncing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
