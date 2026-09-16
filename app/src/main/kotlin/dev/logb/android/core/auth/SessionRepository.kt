@@ -15,9 +15,11 @@ import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -144,8 +146,14 @@ class SessionRepository @Inject constructor(
         val existing = serverStore.read()?.takeIf { it.serverUrl == base }
         val serverVersion = fetchedHealth?.version ?: existing?.serverVersion
         val features = fetchedHealth?.features ?: existing?.features ?: emptyList()
-        tokenStore.write(token)
-        serverStore.write(ServerRecord(base, me.id, me.username, tokenId, currency, serverVersion, features))
+        // Both writes must land together or not at all: a cancellation landing between them (the
+        // caller's coroutine scope going away mid-sign-in, e.g. a screen rotation racing the
+        // network call) must never leave a token on the phone with no server record to use it
+        // with, or a server record with no token stored for it.
+        withContext(NonCancellable) {
+            tokenStore.write(token)
+            serverStore.write(ServerRecord(base, me.id, me.username, tokenId, currency, serverVersion, features))
+        }
         _session.value = Session.SignedIn(base, me, token, currency)
     }
 

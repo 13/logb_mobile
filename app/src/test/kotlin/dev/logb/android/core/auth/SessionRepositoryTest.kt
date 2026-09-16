@@ -5,6 +5,8 @@ import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -424,6 +426,36 @@ class SessionRepositoryTest {
         assertEquals("/api/auth/tokens/9", server.takeRequest().url.encodedPath)
         assertIs<Session.SignedOut>(repo.session.value)
         assertNull(tokenStore.read())
+    }
+
+    @Test
+    fun `the token write and the server-record write land together even when cancelled between them`() = runTest {
+        // A gate around the (fake) token write, so the test can cancel the launching coroutine
+        // while finishSigningIn() is suspended inside its withContext(NonCancellable) block --
+        // the only way to actually exercise the guard: a plain sequential write/write, with
+        // nothing to preempt it, would pass this assertion even without NonCancellable.
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val gatingTokenStore = object : TokenStore {
+            override suspend fun read(): String? = tokenStore.read()
+            override suspend fun write(token: String) {
+                started.complete(Unit)
+                gate.await()
+                tokenStore.write(token)
+            }
+            override suspend fun clear() = tokenStore.clear()
+        }
+        val repo = SessionRepository(serverStore, gatingTokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) })
+        enqueueSignIn()
+
+        val job = launch { repo.signIn(server.url("/").toString(), "ben", "correct horse") }
+        started.await() // finishSigningIn is now inside withContext(NonCancellable), paused on the gate
+        job.cancel() // requests cancellation of the coroutine that is sitting inside that block
+        gate.complete(Unit) // let the write proceed; NonCancellable must let it run to completion anyway
+        job.join()
+
+        assertEquals("logb_pat_abcdef", tokenStore.read())
+        assertEquals(9, serverStore.read()?.tokenId)
     }
 
     private fun enqueueSignIn(token: String = "logb_pat_abcdef") {
