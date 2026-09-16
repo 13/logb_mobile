@@ -1,5 +1,6 @@
 package dev.logb.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
@@ -24,6 +25,7 @@ import dev.logb.android.core.design.theme.LogbTheme
 import dev.logb.android.feature.onboarding.BootstrapScreen
 import dev.logb.android.feature.onboarding.ServerScreen
 import dev.logb.android.feature.onboarding.SignInScreen
+import dev.logb.android.core.auth.PairingLinks
 import dev.logb.android.feature.pairing.PairingConfirmHost
 import dev.logb.android.navigation.AppNavHost
 
@@ -31,15 +33,15 @@ import dev.logb.android.navigation.AppNavHost
 class MainActivity : AppCompatActivity() {
     @javax.inject.Inject lateinit var shareInbox: dev.logb.android.feature.share.ShareInbox
 
-    override fun onNewIntent(intent: android.content.Intent) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        shareInbox.offer(intent)
+        if (shouldOffer(intent)) shareInbox.offer(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) shareInbox.offer(intent)
+        if (savedInstanceState == null && shouldOffer(intent)) shareInbox.offer(intent)
         setContent {
             val root: RootViewModel = hiltViewModel()
             val appearance by root.appearance.collectAsStateWithLifecycle()
@@ -81,6 +83,23 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    companion object {
+        /**
+         * `false` only for a `logb://pair` link relaunched from Recents
+         * ([Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY]): the activity is merely being brought
+         * back to the foreground, not handed a fresh intent by whatever sent the link, and the
+         * code it names may already be spent (or a newer one may have arrived since). Any other
+         * intent -- a share, a launch target, or a pairing link that genuinely just arrived -- is
+         * unaffected; onCreate()'s own `savedInstanceState == null` check still covers a plain
+         * configuration change separately.
+         */
+        internal fun shouldOffer(intent: Intent?): Boolean {
+            if (intent == null) return true
+            val isPairingLink = intent.action == Intent.ACTION_VIEW && PairingLinks.parse(intent.dataString ?: "") != null
+            return !isPairingLink || (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
         }
     }
 }
