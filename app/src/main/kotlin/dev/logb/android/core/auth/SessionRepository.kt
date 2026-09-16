@@ -19,6 +19,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -61,6 +63,17 @@ class SessionRepository @Inject constructor(
     private val _session = MutableStateFlow<Session>(Session.Loading)
     val session: StateFlow<Session> = _session.asStateFlow()
 
+    // Serialises signIn/signInWithPairing/signOut so two flows -- a password sign-in racing a
+    // scanned code's redeem, say -- can never interleave their token and record writes. Only
+    // these three public entry points ever acquire it; each delegates to a private "*Locked"
+    // twin that does the actual work, and signInWithPairing()'s own call to sign the old account
+    // out goes straight to signOutLocked() rather than back through the public signOut() --
+    // kotlinx.coroutines' Mutex is not reentrant, so acquiring it a second time from inside a
+    // coroutine that already holds it would suspend forever. changePassword() and
+    // signOutEverywhere() call the public signIn()/signOut() from outside any lock they hold
+    // themselves, so they still serialise normally through it.
+    private val mutex = Mutex()
+
     /** What the stores say. Called once at start-up; no network. */
     suspend fun restore() {
         val record = serverStore.read()
@@ -82,7 +95,9 @@ class SessionRepository @Inject constructor(
         base
     }
 
-    suspend fun signIn(rawUrl: String, username: String, password: String): Result<Unit> = runCatching {
+    suspend fun signIn(rawUrl: String, username: String, password: String): Result<Unit> = mutex.withLock { signInLocked(rawUrl, username, password) }
+
+    private suspend fun signInLocked(rawUrl: String, username: String, password: String): Result<Unit> = runCatching {
         val base = ApiClient.normalizeBaseUrl(rawUrl)
         val jar = InMemoryCookieJar()
         val cookieApi = apiFactory.create(base, { null }, jar)
@@ -127,12 +142,16 @@ class SessionRepository @Inject constructor(
      * ([SessionRepository.signIn]'s `NewToken` naming applies here too), so the user can find and
      * revoke it from the web's token list if this happens.
      */
-    suspend fun signInWithPairing(link: PairingLink, deviceName: String): Result<Unit> = runCatching {
+    suspend fun signInWithPairing(link: PairingLink, deviceName: String): Result<Unit> = mutex.withLock { signInWithPairingLocked(link, deviceName) }
+
+    private suspend fun signInWithPairingLocked(link: PairingLink, deviceName: String): Result<Unit> = runCatching {
         val base = ApiClient.normalizeBaseUrl(link.serverUrl)
         val anonApi = apiFactory.create(base, { null }, null)
         anonApi.health()
         val redeemed = redeemPairing(anonApi, link.code, deviceName)
-        if (_session.value is Session.SignedIn) signOut()
+        // signOutLocked(), not the public signOut(): this coroutine already holds mutex, and
+        // Mutex is not reentrant -- acquiring it again here would deadlock.
+        if (_session.value is Session.SignedIn) signOutLocked()
         finishSigningIn(base, redeemed.token, redeemed.tokenId)
     }.recoverCatching { e ->
         // The server's own words for anything that isn't PairingUnsupported/PairingInvalid/
@@ -179,7 +198,9 @@ class SessionRepository @Inject constructor(
     }
 
     /** Revokes the token (best effort) and forgets it. The mirror is the caller's business. */
-    suspend fun signOut() {
+    suspend fun signOut() = mutex.withLock { signOutLocked() }
+
+    private suspend fun signOutLocked() {
         val current = _session.value
         val record = serverStore.read()
         if (current is Session.SignedIn && record?.tokenId != null) {

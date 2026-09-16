@@ -525,6 +525,78 @@ class SessionRepositoryTest {
         assertEquals(9, serverStore.read()?.tokenId)
     }
 
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `a second sign-in waits for the mutex, never running concurrently with the first`() = runTest(kotlinx.coroutines.test.UnconfinedTestDispatcher()) {
+        // A fake LogbApi (NoopLogbApi below), not MockWebServer: this needs to prove a genuine
+        // *absence* -- that the second call makes not even its own first request while the first
+        // is still in flight -- and a real network round trip's own wall-clock time would turn
+        // that into a race (a check made "too early" would pass for the wrong reason). Deterministic,
+        // in-memory suspend functions plus UnconfinedTestDispatcher's eager-until-first-real-suspension
+        // scheduling instead make the assertion mean what it says: if the mutex did not block
+        // job2, there is nothing left to explain a still-zero call count.
+        var pairHealthCalls = 0
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val benBase = "https://ben.example/"
+        val pairBase = "https://pair.example/"
+        val benApi = object : NoopLogbApi() {
+            override suspend fun login(body: dev.logb.android.core.network.dto.Credentials) = dev.logb.android.core.network.dto.User(1, "ben")
+            override suspend fun createToken(body: dev.logb.android.core.network.dto.NewToken): dev.logb.android.core.network.dto.NewApiToken {
+                // Paused here, inside signIn()'s own critical section, mutex still held -- exactly
+                // the point at which a second, concurrent call must not be able to run alongside it.
+                started.complete(Unit)
+                gate.await()
+                return dev.logb.android.core.network.dto.NewApiToken(id = 9, name = "LogB Android", prefix = "logb_pat_ab", createdAt = "x", token = "logb_pat_abcdef")
+            }
+            override suspend fun logout(): retrofit2.Response<Unit> = retrofit2.Response.success(Unit)
+            override suspend fun me() = dev.logb.android.core.network.dto.User(1, "ben")
+            override suspend fun settings() = dev.logb.android.core.network.dto.Settings(currency = "CHF")
+            override suspend fun healthInfo() = dev.logb.android.core.network.dto.HealthInfo(version = "0.7.1")
+            override suspend fun revokeToken(id: Long): retrofit2.Response<Unit> = retrofit2.Response.success(Unit)
+        }
+        val pairApi = object : NoopLogbApi() {
+            override suspend fun health(): retrofit2.Response<Unit> {
+                pairHealthCalls++
+                return retrofit2.Response.success(Unit)
+            }
+            override suspend fun redeemPairing(body: dev.logb.android.core.network.dto.PairRedeem) =
+                dev.logb.android.core.network.dto.PairRedeemed(token = "logb_pat_paired", tokenId = 22, user = dev.logb.android.core.network.dto.User(2, "ann"))
+            override suspend fun me() = dev.logb.android.core.network.dto.User(2, "ann")
+            override suspend fun settings() = dev.logb.android.core.network.dto.Settings(currency = "CHF")
+            override suspend fun healthInfo() = dev.logb.android.core.network.dto.HealthInfo(version = "0.11.0", features = listOf("pairing"))
+        }
+        val apiFactory = ApiFactory { base, _, _ ->
+            when (base) {
+                benBase -> benApi
+                pairBase -> pairApi
+                else -> error("unexpected base $base")
+            }
+        }
+        val localServerStore = FakeServerStore()
+        val localTokenStore = FakeTokenStore()
+        val repo = SessionRepository(localServerStore, localTokenStore, apiFactory)
+
+        val job1 = launch { repo.signIn(benBase, "ben", "correct horse") }
+        started.await() // signIn is now paused inside createToken(), mutex still held
+
+        val job2 = launch { repo.signInWithPairing(PairingLink(pairBase, "abc123"), "Pixel 8") }
+        assertEquals(0, pairHealthCalls, "the second call must wait for the mutex -- it must not have made even its own first request yet")
+
+        gate.complete(Unit) // let the first sign-in proceed; the second was only ever waiting on the mutex, not on this gate
+        job1.join()
+        job2.join()
+
+        // Both calls ran to completion, one strictly after the other -- the session, the token
+        // and the stored record all agree on the same (second, later) account, never a mix of
+        // the two calls' writes.
+        assertEquals(1, pairHealthCalls)
+        val signedIn = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("ann", signedIn.user.username)
+        assertEquals("logb_pat_paired", localTokenStore.read())
+        assertEquals(22L, localServerStore.read()?.tokenId)
+    }
+
     private fun enqueueSignIn(token: String = "logb_pat_abcdef") {
         server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
         server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"$token"}""", code = 201))
@@ -631,5 +703,42 @@ class SessionRepositoryTest {
 
         assertIs<Session.NeedsServer>(repo.session.value)
         assertEquals(1, notifications.cleared)
+    }
+
+    /**
+     * Every [dev.logb.android.core.network.LogbApi] method, each refusing to be called -- for a
+     * test that only cares about a handful of them and wants no real network at all (see the
+     * mutex test above). Subclasses override just the methods their scenario actually reaches.
+     */
+    private abstract class NoopLogbApi : dev.logb.android.core.network.LogbApi {
+        private fun unused(): Nothing = error("not stubbed by this fake")
+        override suspend fun health(): retrofit2.Response<Unit> = unused()
+        override suspend fun healthInfo(): dev.logb.android.core.network.dto.HealthInfo = unused()
+        override suspend fun logoutAll(): retrofit2.Response<Unit> = unused()
+        override suspend fun updateUser(id: Long, body: dev.logb.android.core.network.dto.UserPatch): retrofit2.Response<Unit> = unused()
+        override suspend fun login(body: dev.logb.android.core.network.dto.Credentials): dev.logb.android.core.network.dto.User = unused()
+        override suspend fun me(): dev.logb.android.core.network.dto.User = unused()
+        override suspend fun createToken(body: dev.logb.android.core.network.dto.NewToken): dev.logb.android.core.network.dto.NewApiToken = unused()
+        override suspend fun redeemPairing(body: dev.logb.android.core.network.dto.PairRedeem): dev.logb.android.core.network.dto.PairRedeemed = unused()
+        override suspend fun revokeToken(id: Long): retrofit2.Response<Unit> = unused()
+        override suspend fun logout(): retrofit2.Response<Unit> = unused()
+        override suspend fun settings(): dev.logb.android.core.network.dto.Settings = unused()
+        override suspend fun bootstrap(): dev.logb.android.core.network.dto.BootstrapResult = unused()
+        override suspend fun pull(since: Long, epoch: String?, limit: Int): dev.logb.android.core.network.dto.PullResult = unused()
+        override suspend fun push(body: dev.logb.android.core.network.dto.PushBody): dev.logb.android.core.network.dto.PushResult = unused()
+        override suspend fun createObject(body: dev.logb.android.core.network.dto.ObjectInput): dev.logb.android.core.network.dto.ObjectDto = unused()
+        override suspend fun createActivity(objectId: Long, body: dev.logb.android.core.network.dto.ActivityInput): dev.logb.android.core.network.dto.ActivityDto = unused()
+        override suspend fun createReminder(objectId: Long, body: dev.logb.android.core.network.dto.ReminderInput): dev.logb.android.core.network.dto.ReminderDto = unused()
+        override suspend fun createType(body: dev.logb.android.core.network.dto.TypeBody): dev.logb.android.core.network.dto.TypeDto = unused()
+        override suspend fun downloadOriginal(fileId: Long): okhttp3.ResponseBody = unused()
+        override suspend fun downloadThumb(fileId: Long): okhttp3.ResponseBody = unused()
+        override suspend fun export(objectId: Long): okhttp3.ResponseBody = unused()
+        override suspend fun upload(objectId: Long, file: okhttp3.MultipartBody.Part, fields: Map<String, okhttp3.RequestBody>): dev.logb.android.core.network.dto.AttachmentDto = unused()
+        override suspend fun listTokens(): List<dev.logb.android.core.network.dto.ApiToken> = unused()
+        override suspend fun exportAll(): okhttp3.ResponseBody = unused()
+        override suspend fun importZip(body: okhttp3.RequestBody): dev.logb.android.core.network.dto.ImportCounts = unused()
+        override suspend fun notifications(): dev.logb.android.core.network.dto.ServerNotifications = unused()
+        override suspend fun saveNotifications(body: dev.logb.android.core.network.dto.ServerNotificationsIn): dev.logb.android.core.network.dto.ServerNotifications = unused()
+        override suspend fun testNotifications(): dev.logb.android.core.network.dto.NotificationTest = unused()
     }
 }
