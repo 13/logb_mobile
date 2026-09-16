@@ -391,22 +391,17 @@ class SyncContractTest {
     /**
      * The app's own sign-out sends exactly `DELETE /api/auth/tokens/{id}` with its own bearer
      * (see [SessionRepository.signOut]); this proves it actually revokes against a real server
-     * that accepts a token's own bearer for that call (server commit e8ae22f). Guarded by
-     * [serverSupportsSelfRevoke] so CI's contract job, which builds `logb` `main` without that
-     * change, stays green.
+     * that announces `token-self-revoke`. Skipped only when the server does not announce it (CI's
+     * contract job builds `logb` `main`); a server that announces it and then keeps the token
+     * alive fails this test.
      */
     @Test
     fun signOutRevokesTheTokenOnTheServer() = runBlocking {
+        assumeSelfRevokeAnnounced()
         call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
         val factory = ApiFactory { b, t, j -> ApiClient.create(b, t, j) }
         val sessions = SessionRepository(FakeServerStore(), FakeTokenStore(), factory)
         check(sessions.signIn(base, "ben", "correct horse").isSuccess)
-
-        assumeTrue(
-            "this logb binary predates self-revoke (DELETE /api/auth/tokens/{id} still rejects a " +
-                "bearer token; server commit e8ae22f not present)",
-            serverSupportsSelfRevoke(sessions, factory),
-        )
 
         val token = (sessions.session.value as Session.SignedIn).token
         sessions.signOut()
@@ -421,7 +416,7 @@ class SyncContractTest {
 
     /**
      * The pairing flow's own token is a bearer just like a password sign-in's, so signing out of
-     * it revokes it on the server the same way. Same self-revoke assumption as
+     * it revokes it on the server the same way. Same `token-self-revoke` assumption as
      * [signOutRevokesTheTokenOnTheServer], plus [pairingSignsThePhoneIn]'s own pairing-feature
      * assumption.
      */
@@ -434,16 +429,10 @@ class SyncContractTest {
             health.contains("\"pairing\""),
         )
 
+        assumeSelfRevokeAnnounced()
+
         call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
         val factory = ApiFactory { b, t, j -> ApiClient.create(b, t, j) }
-        val ownerSessions = SessionRepository(FakeServerStore(), FakeTokenStore(), factory)
-        check(ownerSessions.signIn(base, "ben", "correct horse").isSuccess)
-
-        assumeTrue(
-            "this logb binary predates self-revoke (DELETE /api/auth/tokens/{id} still rejects a " +
-                "bearer token; server commit e8ae22f not present)",
-            serverSupportsSelfRevoke(ownerSessions, factory),
-        )
 
         val paired = call("POST", "/auth/pair", "{}")
         val link = PairingLinks.parse(uriOf(paired)) ?: error("could not parse pairing uri from: $paired")
@@ -465,19 +454,17 @@ class SyncContractTest {
         Regex("\"uri\":\"([^\"]+)\"").find(pairJson)!!.groupValues[1]
 
     /**
-     * True on a server whose `DELETE /api/auth/tokens/{id}` accepts the calling token's own
-     * bearer (server commit e8ae22f, "a bearer token may revoke itself, so a phone can sign
-     * out"). Detected without mutating anything that matters: mint a throwaway token over a
-     * password session, then have that very token try to delete itself. 204 means supported, and
-     * the token is already gone; 401 means the old, cookie-only behaviour, and the throwaway
-     * token is cleaned up through a fresh password session before returning either way.
+     * Skips unless `/api/health` lists `token-self-revoke` under `features` -- the server's own
+     * promise that `DELETE /api/auth/tokens/{id}` accepts the calling token's own bearer. No probe:
+     * once announced, a failing revoke must fail the test, never skip it. (Server commit e8ae22f
+     * already revokes but does not announce it, so it is skipped here.)
      */
-    private suspend fun serverSupportsSelfRevoke(sessions: SessionRepository, factory: ApiFactory): Boolean {
-        val created = PasswordSession(sessions, factory).run("correct horse") { it.createToken(NewToken("self-revoke-probe")) }.getOrThrow()
-        val probeApi = ApiClient.create(base, { created.token })
-        val supported = runCatching { probeApi.revokeToken(created.id) }.isSuccess
-        if (!supported) PasswordSession(sessions, factory).run("correct horse") { it.revokeToken(created.id) }.getOrThrow()
-        return supported
+    private suspend fun assumeSelfRevokeAnnounced() {
+        val features = ApiClient.create(base, { null }).healthInfo().features
+        assumeTrue(
+            "this logb binary does not announce \"token-self-revoke\" in /api/health's features: $features",
+            "token-self-revoke" in features,
+        )
     }
 
     /**
