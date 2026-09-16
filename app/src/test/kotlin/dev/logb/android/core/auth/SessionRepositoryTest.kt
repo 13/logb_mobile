@@ -403,6 +403,36 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `signed in as A, a pairing whose me fails revokes only the new token id 11 with its own bearer and leaves A alone`() = runTest {
+        val base = server.url("/").toString()
+        val recordA = ServerRecord(base, 1, "ben", 9, "CHF", "0.11.0", listOf("pairing"))
+        serverStore.write(recordA)
+        tokenStore.write("logb_pat_a")
+        repo.restore()
+        val before = assertIs<Session.SignedIn>(repo.session.value)
+
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_new","token_id":11,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
+        server.enqueue(json("", code = 500)) // me fails
+        server.enqueue(json("{}", code = 204)) // best-effort revoke of the new token
+
+        val result = repo.signInWithPairing(PairingLink(base, "abc123"), "Pixel 8")
+
+        assertTrue(result.isFailure)
+        assertEquals(4, server.requestCount, "health, redeem, me, one revoke -- nothing else")
+        val sent = List(4) { server.takeRequest() }
+        val revokes = sent.filter { it.method == "DELETE" }
+        assertEquals(1, revokes.size)
+        assertEquals("/api/auth/tokens/11", revokes.single().url.encodedPath)
+        assertEquals("Bearer logb_pat_new", revokes.single().headers["Authorization"])
+        assertTrue(sent.none { it.url.encodedPath == "/api/auth/tokens/9" }, "A's token id 9 is never touched")
+        assertTrue(sent.none { it.headers["Authorization"] == "Bearer logb_pat_a" }, "A's bearer is never sent")
+        assertEquals("logb_pat_a", tokenStore.read())
+        assertEquals(recordA, serverStore.read())
+        assertEquals(before, repo.session.value)
+    }
+
+    @Test
     fun `signInWithPairing on a 400 from redeem reports PairingRejected with the server's message and stores nothing`() = runTest {
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"error":"bad_request","message":"device_name must not be empty"}""", code = 400))
