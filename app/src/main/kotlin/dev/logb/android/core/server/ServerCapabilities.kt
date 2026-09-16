@@ -4,6 +4,7 @@ import dev.logb.android.core.auth.ServerStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,7 +19,14 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
     private val _current = MutableStateFlow(Capabilities.NONE)
     val current: StateFlow<Capabilities> = _current.asStateFlow()
 
-    suspend fun load() = set(serverStore.read()?.serverVersion)
+    /** Set once [refresh] has written a version: guards against a slower, concurrent [load] then clobbering it. */
+    private val refreshed = AtomicBoolean(false)
+
+    /** What's persisted, unless a concurrent or earlier [refresh] already produced a fresher value. */
+    suspend fun load() {
+        if (refreshed.get()) return
+        set(serverStore.read()?.serverVersion)
+    }
 
     /**
      * Asks the server for its version and stores it. The result tells whether tags or own types
@@ -32,6 +40,7 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
         if (!stillSameServer) return false
         val before = Capabilities.of(record.serverVersion)
         if (fetched != record.serverVersion) serverStore.setVersion(url, fetched)
+        refreshed.set(true)
         set(fetched)
         val after = Capabilities.of(fetched)
         return (after.tags && !before.tags) || (after.ownTypes && !before.ownTypes)

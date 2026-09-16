@@ -2,6 +2,10 @@ package dev.logb.android.core.server
 
 import dev.logb.android.core.auth.FakeServerStore
 import dev.logb.android.core.auth.ServerRecord
+import dev.logb.android.core.auth.ServerStore
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -10,6 +14,19 @@ import kotlin.test.assertTrue
 
 class ServerCapabilitiesTest {
     private val record = ServerRecord("https://logb.example/", userId = 1, username = "ben", serverVersion = "0.7.1")
+
+    /** Gates only the very first [read] call, so a test can start [load] mid-flight, let a
+     * concurrent [refresh] finish, and only then let the stalled read return. */
+    private class GatedServerStore(private val delegate: ServerStore, private val gate: CompletableDeferred<Unit>) : ServerStore {
+        private var firstRead = true
+        override suspend fun read(): ServerRecord? {
+            if (firstRead) { firstRead = false; gate.await() }
+            return delegate.read()
+        }
+        override suspend fun write(record: ServerRecord) = delegate.write(record)
+        override suspend fun clear() = delegate.clear()
+        override suspend fun setVersion(serverUrl: String, version: String?) = delegate.setVersion(serverUrl, version)
+    }
 
     @Test fun `load reads the stored version`() = runBlocking {
         val caps = ServerCapabilities(FakeServerStore(record.copy(serverVersion = "0.8.0")))
@@ -55,6 +72,19 @@ class ServerCapabilitiesTest {
         assertFalse(caps.refresh { store.clear(); "0.8.0" })
         assertEquals(null, store.read())
         assertEquals("0.7.1", caps.version.value, "in-memory value untouched")
+    }
+
+    @Test fun `a refresh that finishes while a slower load is still reading is not clobbered`() = runBlocking {
+        val gate = CompletableDeferred<Unit>()
+        val store = GatedServerStore(FakeServerStore(record), gate)
+        val caps = ServerCapabilities(store)
+
+        val loadJob = launch(start = CoroutineStart.UNDISPATCHED) { caps.load() }
+        assertTrue(caps.refresh { "0.9.0" })
+        gate.complete(Unit)
+        loadJob.join()
+
+        assertEquals("0.9.0", caps.version.value)
     }
 
     @Test fun `server url changed during the fetch is not overwritten with the new version`() = runBlocking {
