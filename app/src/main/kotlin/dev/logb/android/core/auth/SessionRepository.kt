@@ -34,6 +34,12 @@ class PairingUnsupported(message: String) : Exception(message)
 /** [SessionRepository.signInWithPairing]: the server answered 401 -- the code is unknown, expired or already used. */
 class PairingInvalid(message: String) : Exception(message)
 
+/** [SessionRepository.signInWithPairing]: the server answered 400 -- it refused the redeem outright (a malformed device name, say). */
+class PairingRejected(message: String) : Exception(message)
+
+/** [SessionRepository.signInWithPairing]: the server answered 429 -- too many redeem attempts from this IP, too quickly. */
+class PairingRateLimited(message: String) : Exception(message)
+
 /**
  * Who is signed in, and how that changes. Signing in is one online exchange: a password buys a
  * session cookie, the cookie mints a personal access token, the cookie session is ended, and
@@ -102,14 +108,14 @@ class SessionRepository @Inject constructor(
      * leaves whatever was signed in before -- its session, its token, its stored record --
      * completely untouched; there is nothing to undo.
      *
-     * The 404/401 -> unsupported/invalid mapping below applies only to the redeem call itself. If
-     * [finishSigningIn] then fails -- say `me()` hits a 401, or a 5xx -- that is an ordinary
-     * error, reported the same way [signIn]'s own post-token failures are: this phone's redeemed
-     * token is already live on the server at that point, exactly as a freshly minted password
-     * token would be if the same call failed there. (When this happens while replacing an
-     * existing account, that account has already been signed out by this point, same as it would
-     * be if the network simply dropped right after a successful password-based [signIn]'s own
-     * token mint.)
+     * The 404/401/400/429 -> unsupported/invalid/rejected/rate-limited mapping below applies only
+     * to the redeem call itself. If [finishSigningIn] then fails -- say `me()` hits a 401, or a
+     * 5xx -- that is an ordinary error, reported the same way [signIn]'s own post-token failures
+     * are: this phone's redeemed token is already live on the server at that point, exactly as a
+     * freshly minted password token would be if the same call failed there. (When this happens
+     * while replacing an existing account, that account has already been signed out by this
+     * point, same as it would be if the network simply dropped right after a successful
+     * password-based [signIn]'s own token mint.)
      *
      * Unlike [signIn], there is no cookie session here to end, so nothing on the server is ever
      * told this attempt failed: the token stays live with nothing stored on the phone to show for
@@ -129,18 +135,21 @@ class SessionRepository @Inject constructor(
         if (_session.value is Session.SignedIn) signOut()
         finishSigningIn(base, redeemed.token, redeemed.tokenId)
     }.recoverCatching { e ->
-        // The server's own words for anything that isn't PairingUnsupported/PairingInvalid --
-        // the same mapping signIn() applies to its own post-token failures.
+        // The server's own words for anything that isn't PairingUnsupported/PairingInvalid/
+        // PairingRejected/PairingRateLimited -- the same mapping signIn() applies to its own
+        // post-token failures.
         throw if (e is ApiException) IllegalStateException(e.message, e) else e
     }
 
-    /** Only the redeem call maps 404/401 to [PairingUnsupported]/[PairingInvalid]; a 500 here, or any failure past this point, is an ordinary error. */
+    /** Only the redeem call maps 404/401/400/429 to [PairingUnsupported]/[PairingInvalid]/[PairingRejected]/[PairingRateLimited]; a 500 here, or any failure past this point, is an ordinary error. */
     private suspend fun redeemPairing(api: LogbApi, code: String, deviceName: String): PairRedeemed = try {
         api.redeemPairing(PairRedeem(code, deviceName))
     } catch (e: ApiException) {
         throw when (e.status) {
             404 -> PairingUnsupported(e.message)
             401 -> PairingInvalid(e.message)
+            400 -> PairingRejected(e.message)
+            429 -> PairingRateLimited(e.message)
             else -> e
         }
     }

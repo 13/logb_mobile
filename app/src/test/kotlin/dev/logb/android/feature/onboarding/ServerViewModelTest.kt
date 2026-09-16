@@ -24,6 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -116,6 +117,29 @@ class ServerViewModelTest {
         awaitUntil { viewModel.state.value.pairError != null }
 
         assertEquals(PairError.Invalid, viewModel.state.value.pairError)
+    }
+
+    @Test
+    fun `a 400 from redeem reports the server's own rejection message`() = runTest(dispatcher) {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"bad_request","message":"device_name must not be empty"}""", 400))
+
+        viewModel.onScanned(link())
+        awaitUntil { viewModel.state.value.pairError != null }
+
+        val error = assertIs<PairError.Rejected>(viewModel.state.value.pairError)
+        assertEquals("device_name must not be empty", error.message)
+    }
+
+    @Test
+    fun `a 429 from redeem reports pair_rate_limited`() = runTest(dispatcher) {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"too_many_requests","message":"too many requests"}""", 429))
+
+        viewModel.onScanned(link())
+        awaitUntil { viewModel.state.value.pairError != null }
+
+        assertEquals(PairError.RateLimited, viewModel.state.value.pairError)
     }
 
     @Test

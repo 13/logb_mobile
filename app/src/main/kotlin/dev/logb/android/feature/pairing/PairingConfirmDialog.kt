@@ -21,6 +21,8 @@ fun pairErrorMessage(error: PairError): String = when (error) {
     PairError.NotACode -> stringResource(R.string.pair_not_a_code)
     PairError.Unsupported -> stringResource(R.string.pair_unsupported)
     PairError.Invalid -> stringResource(R.string.pair_invalid)
+    PairError.RateLimited -> stringResource(R.string.pair_rate_limited)
+    is PairError.Rejected -> error.message ?: stringResource(R.string.pair_rejected)
     PairError.Unreachable -> stringResource(R.string.server_unreachable)
     PairError.CameraPermissionDenied -> stringResource(R.string.pair_camera_permission_denied)
 }

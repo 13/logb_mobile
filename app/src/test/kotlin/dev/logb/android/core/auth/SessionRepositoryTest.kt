@@ -266,6 +266,33 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `signInWithPairing on a 400 from redeem reports PairingRejected with the server's message and stores nothing`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"bad_request","message":"device_name must not be empty"}""", code = 400))
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        val e = assertIs<PairingRejected>(result.exceptionOrNull())
+        assertEquals("device_name must not be empty", e.message)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+    }
+
+    @Test
+    fun `signInWithPairing on a 429 from redeem reports PairingRateLimited and stores nothing`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"too_many_requests","message":"too many requests"}""", code = 429))
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertIs<PairingRateLimited>(result.exceptionOrNull())
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+    }
+
+    @Test
     fun `signInWithPairing on a 500 from redeem reports a generic error, not unsupported or invalid`() = runTest {
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"error":"server_error","message":"something broke"}""", code = 500))

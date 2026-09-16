@@ -16,6 +16,8 @@
     <string name="pair_not_a_code">Dieser QR-Code ist kein LogB-Anmeldecode.</string>
     <string name="pair_unsupported">Dieser Server unterstützt keine Anmeldung per QR-Code. Melde dich mit deinem Passwort an.</string>
     <string name="pair_invalid">Dieser Code ist abgelaufen oder wurde schon benutzt. Zeige in der Web-App einen neuen an.</string>
+    <string name="pair_rate_limited">Zu viele Versuche. Versuche es in einer Minute noch einmal.</string>
+    <string name="pair_rejected">Der Server hat diese Anmeldung abgelehnt.</string>
     <string name="pair_camera_permission_denied">LogB braucht die Kamera, um den Code zu scannen. Erlaube sie in den Systemeinstellungen oder gib die Serveradresse ein.</string>
     <string name="pair_confirm_signin_title">Bei %1$s anmelden?</string>
     <string name="pair_replace_title">Konto wechseln?</string>
