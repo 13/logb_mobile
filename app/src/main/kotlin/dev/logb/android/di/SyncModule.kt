@@ -35,11 +35,16 @@ object SyncModule {
     @Singleton
     fun connectivity(impl: Connectivity): ConnectivityMonitor = impl
 
-    /** The downloader for whoever is signed in, for on-demand fetches from the image loader. */
+    /**
+     * The downloader for whoever is signed in, for on-demand fetches from the image loader.
+     * [ActiveAccount.bound] reads the mirror and the client together, in one synchronised step --
+     * `accounts.db` and `accounts.api` read separately could otherwise straddle a switch and pair
+     * one account's mirror with another's client.
+     */
     @Provides
     @Singleton
     fun downloaderProvider(accounts: ActiveAccount, connectivity: ConnectivityMonitor, blobs: BlobStore, blobPrefs: BlobPrefs): () -> BlobDownloader? = {
-        accounts.signedIn?.let { BlobDownloader(accounts.db, accounts.api, blobs, connectivity) { blobPrefs.current() } }
+        accounts.bound()?.let { (_, db, api) -> BlobDownloader(db, api, blobs, connectivity) { blobPrefs.current() } }
     }
 
     @Provides
