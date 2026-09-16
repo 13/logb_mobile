@@ -171,6 +171,92 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `signInWithPairing redeems the code and leaves the same state a password sign-in would`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}"""))
+        server.enqueue(json(me))
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich","timezone_locked":false}"""))
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}"""))
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+        assertTrue(result.isSuccess, result.toString())
+
+        val health = server.takeRequest()
+        assertEquals("/api/health", health.url.encodedPath)
+        val redeem = server.takeRequest()
+        assertEquals("/api/auth/pair/redeem", redeem.url.encodedPath)
+        assertEquals("""{"code":"abc123","device_name":"Pixel 8"}""", redeem.body?.utf8())
+        assertNull(redeem.headers["Authorization"])
+        val meReq = server.takeRequest()
+        assertEquals("/api/auth/me", meReq.url.encodedPath)
+        assertEquals("Bearer logb_pat_paired", meReq.headers["Authorization"])
+        server.takeRequest() // settings
+        server.takeRequest() // health (version/features)
+
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("ben", s.user.username)
+        assertEquals(1, s.user.id)
+        assertEquals("CHF", s.currency)
+        assertEquals("logb_pat_paired", tokenStore.read())
+
+        val record = serverStore.read()!!
+        assertEquals(server.url("/").toString(), record.serverUrl)
+        assertEquals(1, record.userId)
+        assertEquals("ben", record.username)
+        assertEquals(11, record.tokenId)
+        assertEquals("CHF", record.currency)
+        assertEquals("0.11.0", record.serverVersion)
+        assertEquals(listOf("pairing"), record.features)
+    }
+
+    @Test
+    fun `signInWithPairing on a 404 reports PairingUnsupported and stores nothing`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"not_found","message":"no such route"}""", code = 404))
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertIs<PairingUnsupported>(result.exceptionOrNull())
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+        assertIs<Session.Loading>(repo.session.value)
+    }
+
+    @Test
+    fun `signInWithPairing on a 401 reports PairingInvalid and stores nothing`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"unauthorized","message":"invalid or expired code"}""", code = 401))
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertIs<PairingInvalid>(result.exceptionOrNull())
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+        assertIs<Session.Loading>(repo.session.value)
+    }
+
+    @Test
+    fun `signInWithPairing on a network failure stores nothing`() = runTest {
+        val deadServer = MockWebServer()
+        deadServer.start()
+        val deadUrl = deadServer.url("/").toString()
+        deadServer.close() // nothing is listening on this port any more
+
+        val link = PairingLink(deadUrl, "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertTrue(result.isFailure)
+        assertNull(result.exceptionOrNull() as? PairingUnsupported)
+        assertNull(result.exceptionOrNull() as? PairingInvalid)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+        assertIs<Session.Loading>(repo.session.value)
+    }
+
+    @Test
     fun `restore reads the stores without touching the network`() = runTest {
         serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9, "EUR"))
         tokenStore.write("logb_pat_x")

@@ -14,6 +14,8 @@ import dev.logb.android.core.network.dto.NewApiToken
 import dev.logb.android.core.network.dto.NewToken
 import dev.logb.android.core.network.dto.ObjectDto
 import dev.logb.android.core.network.dto.ObjectInput
+import dev.logb.android.core.network.dto.PairRedeem
+import dev.logb.android.core.network.dto.PairRedeemed
 import dev.logb.android.core.network.dto.PullResult
 import dev.logb.android.core.network.dto.PushBody
 import dev.logb.android.core.network.dto.PushResult
@@ -58,6 +60,9 @@ interface LogbApi {
     @GET("api/auth/me") suspend fun me(): User
 
     @POST("api/auth/tokens") suspend fun createToken(@Body body: NewToken): NewApiToken
+
+    /** Swaps a QR/deep-link pairing code for a token; no session or bearer token needed. A 404 means the server predates pairing, a 401 means the code is unknown, expired or used. */
+    @POST("api/auth/pair/redeem") suspend fun redeemPairing(@Body body: PairRedeem): PairRedeemed
 
     @DELETE("api/auth/tokens/{id}") suspend fun revokeToken(@Path("id") id: Long): Response<Unit>
 

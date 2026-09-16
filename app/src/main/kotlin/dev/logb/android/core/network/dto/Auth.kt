@@ -47,3 +47,11 @@ data class UserPatch(val password: String)
 /** `GET /api/health`, for the server version shown on the Account screen. */
 @Serializable
 data class HealthInfo(val version: String = "", val status: String = "", val features: List<String> = emptyList())
+
+/** `POST /api/auth/pair/redeem`: the code scanned from a QR code (or opened as a deep link), and this phone's name. */
+@Serializable
+data class PairRedeem(val code: String, @SerialName("device_name") val deviceName: String)
+
+/** The pairing code swapped for a token, exactly as a password sign-in would mint one. */
+@Serializable
+data class PairRedeemed(val token: String, @SerialName("token_id") val tokenId: Long, val user: User)

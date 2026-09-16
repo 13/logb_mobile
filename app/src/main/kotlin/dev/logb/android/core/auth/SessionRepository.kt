@@ -7,6 +7,7 @@ import dev.logb.android.core.network.ApiException
 import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.network.dto.Credentials
 import dev.logb.android.core.network.dto.NewToken
+import dev.logb.android.core.network.dto.PairRedeem
 import dev.logb.android.core.network.dto.User
 import dev.logb.android.core.alerts.NoopReminderNotificationsClearer
 import dev.logb.android.core.alerts.ReminderNotificationsClearer
@@ -23,6 +24,12 @@ import javax.inject.Singleton
 fun interface ApiFactory {
     fun create(baseUrl: String, tokenProvider: () -> String?, cookieJar: okhttp3.CookieJar?): LogbApi
 }
+
+/** [SessionRepository.signInWithPairing]: the server answered 404 -- it has no pairing endpoint. */
+class PairingUnsupported(message: String) : Exception(message)
+
+/** [SessionRepository.signInWithPairing]: the server answered 401 -- the code is unknown, expired or already used. */
+class PairingInvalid(message: String) : Exception(message)
 
 /**
  * Who is signed in, and how that changes. Signing in is one online exchange: a password buys a
@@ -73,19 +80,50 @@ class SessionRepository @Inject constructor(
         cookieApi.login(Credentials(username, password))
         val minted = cookieApi.createToken(NewToken("LogB Android · ${Build.MODEL}"))
         runCatching { cookieApi.logout() } // best effort: the token is what matters
-        val bearerApi = apiFactory.create(base, { minted.token }, null)
+        finishSigningIn(base, minted.token, minted.id)
+    }.recoverCatching { e ->
+        // The server's own words for a wrong password; anything else is a connection problem.
+        throw if (e is ApiException) IllegalStateException(e.message, e) else e
+    }
+
+    /**
+     * Redeems a `logb://pair` code scanned from a QR code (or opened as a deep link) for a token,
+     * and signs in with it -- leaving exactly the state [signIn] leaves. No password or session
+     * cookie is involved: the code itself, freshly minted by a signed-in browser, is the proof.
+     */
+    suspend fun signInWithPairing(link: PairingLink, deviceName: String): Result<Unit> = runCatching {
+        val base = ApiClient.normalizeBaseUrl(link.serverUrl)
+        val anonApi = apiFactory.create(base, { null }, null)
+        anonApi.health()
+        val redeemed = anonApi.redeemPairing(PairRedeem(link.code, deviceName))
+        finishSigningIn(base, redeemed.token, redeemed.tokenId)
+    }.recoverCatching { e ->
+        throw when (e) {
+            !is ApiException -> e // a connection problem: the same shape signIn's failure has
+            else -> when (e.status) {
+                404 -> PairingUnsupported(e.message)
+                401 -> PairingInvalid(e.message)
+                else -> IllegalStateException(e.message, e)
+            }
+        }
+    }
+
+    /**
+     * The tail [signIn] and [signInWithPairing] share once each has its own token in hand: fetch
+     * who that token belongs to and what the server supports, then store everything and flip the
+     * session to signed in.
+     */
+    private suspend fun finishSigningIn(base: String, token: String, tokenId: Long) {
+        val bearerApi = apiFactory.create(base, { token }, null)
         val me = bearerApi.me()
         val currency = runCatching { bearerApi.settings().currency }.getOrDefault("EUR")
         val fetchedHealth = runCatching { bearerApi.healthInfo() }.getOrNull()?.takeIf { it.version.isNotBlank() }
         val existing = serverStore.read()?.takeIf { it.serverUrl == base }
         val serverVersion = fetchedHealth?.version ?: existing?.serverVersion
         val features = fetchedHealth?.features ?: existing?.features ?: emptyList()
-        tokenStore.write(minted.token)
-        serverStore.write(ServerRecord(base, me.id, me.username, minted.id, currency, serverVersion, features))
-        _session.value = Session.SignedIn(base, me, minted.token, currency)
-    }.recoverCatching { e ->
-        // The server's own words for a wrong password; anything else is a connection problem.
-        throw if (e is ApiException) IllegalStateException(e.message, e) else e
+        tokenStore.write(token)
+        serverStore.write(ServerRecord(base, me.id, me.username, tokenId, currency, serverVersion, features))
+        _session.value = Session.SignedIn(base, me, token, currency)
     }
 
     /** Revokes the token (best effort) and forgets it. The mirror is the caller's business. */
