@@ -65,9 +65,12 @@ class SyncManagerTest {
         assertTrue(m.syncNow().isFailure)
         assertIs<Session.SignedIn>(sessions.session.value)
         assertEquals("t", tokenStore.read())
+        // Ignored, not shown as a sign-out: onUnauthorized never returned true for it.
+        assertEquals(SyncStatus.Failed("gone"), m.status.value)
         val m2 = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw UnauthorizedException("no bearer at all") } }, backgroundScope)
         assertTrue(m2.syncNow().isFailure)
         assertIs<Session.SignedIn>(sessions.session.value)
+        assertEquals(SyncStatus.Failed("no bearer at all"), m2.status.value)
     }
 
     @Test fun `a sync stopped by an account change reports SyncInterrupted, which a worker retries`() = runTest {

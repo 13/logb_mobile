@@ -77,9 +77,10 @@ class SyncManager(
         if (unauthorized != null) {
             // Outside the gate: onUnauthorized takes SessionRepository's mutex, which a switch
             // holds while it waits on the gate. It only signs out if the refused token is still
-            // the stored one.
-            sessions.onUnauthorized(unauthorized.token)
-            _status.value = SyncStatus.SignedOut
+            // the stored one -- a 401 for a token that has since been replaced or cleared says
+            // nothing about the account that is signed in now, and must not be shown as such.
+            val signedOut = sessions.onUnauthorized(unauthorized.token)
+            _status.value = if (signedOut) SyncStatus.SignedOut else SyncStatus.Failed(unauthorized.message)
         }
         outcome
     }
