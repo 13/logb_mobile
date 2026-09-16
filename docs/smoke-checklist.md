@@ -130,3 +130,9 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › About shows *QR sign-in: yes* against a server with the feature, *no* against one without it.
 - [ ] Denying the camera permission while scanning shows a message instead of a blank screen.
 - [ ] Signing out makes the phone's token disappear from the web's API access page (server with self-revoke).
+- [ ] A failed switch keeps the old account: signed in, open an expired or used code and confirm *Switch account?* — the error dialog shows and the first account is still signed in, its logbook intact.
+- [ ] A code pointing to a plain `http://` address outside the local network is refused with "This code points to an unencrypted address outside your local network…".
+- [ ] Redeeming wrong codes in quick succession eventually answers "Too many attempts. Try again in a minute."
+- [ ] A Tailscale code (`http://100.x.y.z:…`) is accepted and signs in.
+- [ ] The Settings hub scrolls to its last row on a small screen or with a large font.
+- [ ] Switching accounts while a sync runs (pull to refresh, then confirm a pairing link at once) keeps the accounts' data apart: the new account shows only its own objects, the first account's pending edits appear on the web only under the first account, and switching back shows the first account's logbook unchanged.

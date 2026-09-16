@@ -64,12 +64,14 @@ app lock when one is set. This needs a logb release whose `/api/health` lists `p
 a reverse proxy, set `LOGB_PUBLIC_URL` on
 the server so the QR code and link carry the address a phone can actually reach, not the proxy's
 internal one. If sign-in fails right after a code is redeemed (the network drops between minting
-the token and the phone finishing sign-in), the app makes a best-effort attempt to revoke the
-freshly minted, device-named token with its own bearer -- on a logb release that lets a token
-revoke itself this actually removes it; on an older server the call is simply refused and the
-token is left live with nothing to show for it on the phone, so find and revoke it from the web's
-Settings › API access token list instead. Signing out does the same self-revoke for the phone's
-own token, on the same terms.
+the token and the phone finishing sign-in), the app makes a best-effort attempt (at most five
+seconds) to revoke the freshly minted, device-named token with its own bearer.
+
+A server supports this token self-revoke when its `/api/health` lists `token-self-revoke` under
+`features`. There, signing out also revokes the phone's own token, and a failed QR sign-in
+removes the token it just minted. On a server without it the call is refused and the token stays
+live with nothing to show for it on the phone: remove it from the web's Settings › API access
+page instead.
 
 ## Reminders outside the app
 
