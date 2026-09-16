@@ -4,7 +4,7 @@ import dev.logb.android.core.auth.ServerStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,13 +19,19 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
     private val _current = MutableStateFlow(Capabilities.NONE)
     val current: StateFlow<Capabilities> = _current.asStateFlow()
 
-    /** Set once [refresh] has written a version: guards against a slower, concurrent [load] then clobbering it. */
-    private val refreshed = AtomicBoolean(false)
+    /**
+     * URL of the server whose version [refresh] most recently wrote, if any. Guards against a
+     * slower, concurrent [load] for that same server clobbering it with a stale read. The guard
+     * is per-server, not sticky: signing into a different server makes [load] read the store
+     * again, so a stale value from a previous server can never linger.
+     */
+    private val refreshedUrl = AtomicReference<String?>(null)
 
-    /** What's persisted, unless a concurrent or earlier [refresh] already produced a fresher value. */
+    /** What's persisted, unless a concurrent or earlier [refresh] for this same server already produced a fresher value. */
     suspend fun load() {
-        if (refreshed.get()) return
-        set(serverStore.read()?.serverVersion)
+        val record = serverStore.read()
+        if (record != null && record.serverUrl == refreshedUrl.get()) return
+        set(record?.serverVersion)
     }
 
     /**
@@ -40,7 +46,7 @@ class ServerCapabilities @Inject constructor(private val serverStore: ServerStor
         if (!stillSameServer) return false
         val before = Capabilities.of(record.serverVersion)
         if (fetched != record.serverVersion) serverStore.setVersion(url, fetched)
-        refreshed.set(true)
+        refreshedUrl.set(url)
         set(fetched)
         val after = Capabilities.of(fetched)
         return (after.tags && !before.tags) || (after.ownTypes && !before.ownTypes)

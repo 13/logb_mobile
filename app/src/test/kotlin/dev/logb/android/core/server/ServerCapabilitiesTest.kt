@@ -87,6 +87,21 @@ class ServerCapabilitiesTest {
         assertEquals("0.9.0", caps.version.value)
     }
 
+    @Test fun `load after refresh for one server picks up a different server's version`() = runBlocking {
+        val store = FakeServerStore(record)
+        val caps = ServerCapabilities(store)
+        caps.load()
+        assertTrue(caps.refresh { "0.8.0" })
+        assertEquals("0.8.0", caps.version.value)
+
+        val other = ServerRecord("https://other.example/", userId = 2, username = "ann", serverVersion = "0.9.0")
+        store.write(other)
+        caps.load()
+
+        assertEquals("0.9.0", caps.version.value, "load must not skip just because a previous server was refreshed")
+        assertTrue(caps.current.value.ownTypes)
+    }
+
     @Test fun `server url changed during the fetch is not overwritten with the new version`() = runBlocking {
         val store = FakeServerStore(record)
         val caps = ServerCapabilities(store)
