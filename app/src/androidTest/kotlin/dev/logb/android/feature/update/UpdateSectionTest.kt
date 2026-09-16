@@ -29,6 +29,7 @@ class UpdateSectionTest {
                 onGrantPermission = { clicked = "grant" },
                 onRetryInstall = { clicked = "retry" },
                 onOpenReleasePage = { clicked = "page" },
+                onOpenConfirmation = { clicked = "confirm" },
             )
         }
     }
@@ -88,6 +89,15 @@ class UpdateSectionTest {
         rule.onNodeWithTag("update_status").assertIsDisplayed()
         rule.onNodeWithTag("update_action").performClick()
         assertEquals("check", clicked)
+        rule.onNodeWithTag("update_release_page").assertIsDisplayed()
+    }
+
+    /** Android 14+ can block the receiver's background activity start; this is the way out. */
+    @Test fun aBlockedInstallConfirmationCanBeOpenedByHand() {
+        show(UpdateUiState.NeedsConfirmation(RELEASE_URL))
+        rule.onNodeWithTag("update_status").assertIsDisplayed()
+        rule.onNodeWithTag("update_action").performClick()
+        assertEquals("confirm", clicked)
         rule.onNodeWithTag("update_release_page").assertIsDisplayed()
     }
 

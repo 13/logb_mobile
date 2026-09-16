@@ -63,6 +63,8 @@ fun UpdateSection(modifier: Modifier = Modifier, viewModel: UpdateViewModel = hi
             onGrantPermission = { context.startActivity(viewModel.unknownSourcesIntent()) },
             onRetryInstall = viewModel::retryInstall,
             onOpenReleasePage = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
+            // A foreground activity may always start this, unlike the receiver's background attempt.
+            onOpenConfirmation = { viewModel.confirmationIntent()?.let { context.startActivity(it) } },
         )
     }
 }
@@ -77,6 +79,7 @@ fun UpdateRow(
     onGrantPermission: () -> Unit,
     onRetryInstall: () -> Unit,
     onOpenReleasePage: (String) -> Unit,
+    onOpenConfirmation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth().testTag("update_row"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -109,6 +112,7 @@ fun UpdateRow(
                         Action.INSTALL -> onInstall()
                         Action.GRANT -> onGrantPermission()
                         Action.RETRY_INSTALL -> onRetryInstall()
+                        Action.OPEN_CONFIRMATION -> onOpenConfirmation()
                     }
                 },
                 modifier = Modifier.fillMaxWidth().testTag("update_action"),
@@ -126,7 +130,7 @@ fun UpdateRow(
     }
 }
 
-private enum class Action { CHECK, DOWNLOAD, INSTALL, GRANT, RETRY_INSTALL }
+private enum class Action { CHECK, DOWNLOAD, INSTALL, GRANT, RETRY_INSTALL, OPEN_CONFIRMATION }
 
 @Composable
 private fun statusText(state: UpdateUiState): String? = when (state) {
@@ -139,6 +143,7 @@ private fun statusText(state: UpdateUiState): String? = when (state) {
         if (state.digestVerified) stringResource(R.string.update_ready, state.version.toString())
         else stringResource(R.string.update_ready_unverified, state.version.toString())
     UpdateUiState.Installing -> stringResource(R.string.update_installing)
+    is UpdateUiState.NeedsConfirmation -> stringResource(R.string.update_needs_confirmation)
     is UpdateUiState.NeedsPermission -> stringResource(R.string.update_needs_permission)
     is UpdateUiState.Failed -> stringResource(
         when (state.failure) {
@@ -162,6 +167,7 @@ private fun actionFor(state: UpdateUiState): Pair<Int, Action>? = when (state) {
     is UpdateUiState.Downloading -> null
     is UpdateUiState.Ready -> R.string.update_install to Action.INSTALL
     UpdateUiState.Installing -> null
+    is UpdateUiState.NeedsConfirmation -> R.string.update_open_confirmation to Action.OPEN_CONFIRMATION
     is UpdateUiState.NeedsPermission -> R.string.update_grant_permission to Action.GRANT
     is UpdateUiState.Failed -> R.string.update_check to Action.CHECK
     is UpdateUiState.InstallFailed -> R.string.update_retry to Action.RETRY_INSTALL

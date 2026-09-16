@@ -461,6 +461,8 @@
     <string name="update_ready_unverified">Version %1$s ready · published without a checksum</string>
     <string name="update_install">Install</string>
     <string name="update_installing">Android will ask you to confirm</string>
+    <string name="update_needs_confirmation">Android did not show its confirmation. Open it to finish the update.</string>
+    <string name="update_open_confirmation">Open the install confirmation</string>
     <string name="update_needs_permission">Android has to let LogB install apps</string>
     <string name="update_grant_permission">Allow</string>
     <string name="update_open_release">Open the release page</string>

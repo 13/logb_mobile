@@ -461,6 +461,8 @@
     <string name="update_ready_unverified">Version %1$s bereit · ohne Prüfsumme veröffentlicht</string>
     <string name="update_install">Installieren</string>
     <string name="update_installing">Android fragt gleich nach der Bestätigung</string>
+    <string name="update_needs_confirmation">Android hat die Bestätigung nicht angezeigt. Öffne sie, um das Update abzuschließen.</string>
+    <string name="update_open_confirmation">Installationsbestätigung öffnen</string>
     <string name="update_needs_permission">Android muss LogB erlauben, Apps zu installieren</string>
     <string name="update_grant_permission">Erlauben</string>
     <string name="update_open_release">Release-Seite öffnen</string>

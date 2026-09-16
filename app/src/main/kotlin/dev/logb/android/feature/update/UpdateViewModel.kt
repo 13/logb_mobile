@@ -1,5 +1,6 @@
 package dev.logb.android.feature.update
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -46,6 +47,13 @@ sealed interface UpdateUiState {
 
     /** Handed to the platform installer, which is now showing its own confirmation. */
     data object Installing : UpdateUiState
+
+    /**
+     * Android was supposed to show its own confirmation but a background activity start on
+     * Android 14+ may have been blocked, leaving nothing on screen. [UpdateViewModel.confirmationIntent]
+     * opens it by hand.
+     */
+    data class NeedsConfirmation(override val releaseUrl: String) : UpdateUiState
 
     /** The user has not granted permission to install packages, so nothing can be handed over yet. */
     data class NeedsPermission(override val releaseUrl: String) : UpdateUiState
@@ -170,11 +178,30 @@ class UpdateViewModel @Inject constructor(
      * Called when the app comes back to the foreground. Granting the permission happens in the
      * system's settings, so without this the row would still be asking for something the user has
      * already given, with no way forward but to open that screen again.
+     *
+     * The same trip back to the foreground is also how a blocked install confirmation (Android
+     * 14+ can refuse the receiver's background activity start) is noticed: if the row is still on
+     * `Installing` and a confirm intent is waiting, the person left and came back without ever
+     * seeing Android's dialog, so the row now offers to open it by hand.
      */
     fun onResumed() {
-        if (mutableState.value is UpdateUiState.NeedsPermission && installer.canInstall()) {
+        val current = mutableState.value
+        if (current is UpdateUiState.NeedsPermission && installer.canInstall()) {
             mutableState.value = ready ?: UpdateUiState.Idle
+        } else if (current == UpdateUiState.Installing && InstallResultReceiver.pendingConfirmation.value != null) {
+            ready?.let { mutableState.value = UpdateUiState.NeedsConfirmation(it.releaseUrl) }
         }
+    }
+
+    /**
+     * The confirm intent Android could not bring to the front on its own. Reading it also
+     * consumes it and returns the row to `Installing`, since a foreground activity is always free
+     * to start it and this is a one-time hand-off.
+     */
+    fun confirmationIntent(): Intent? {
+        val intent = InstallResultReceiver.consumePendingConfirmation() ?: return null
+        mutableState.value = UpdateUiState.Installing
+        return intent
     }
 
     fun unknownSourcesIntent() = installer.unknownSourcesIntent()

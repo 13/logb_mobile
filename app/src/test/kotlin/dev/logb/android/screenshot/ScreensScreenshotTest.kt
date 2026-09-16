@@ -156,7 +156,7 @@ class ScreensScreenshotTest {
             updateSection = {
                 UpdateRow(
                     UpdateUiState.Available(AppVersion(0, 8, 0), 9_509_668, "https://github.com/13/logb_mobile/releases/tag/v0.8.0"),
-                    onCheck = {}, onDownload = {}, onInstall = {}, onGrantPermission = {}, onRetryInstall = {}, onOpenReleasePage = {},
+                    onCheck = {}, onDownload = {}, onInstall = {}, onGrantPermission = {}, onRetryInstall = {}, onOpenReleasePage = {}, onOpenConfirmation = {},
                 )
             },
         )
