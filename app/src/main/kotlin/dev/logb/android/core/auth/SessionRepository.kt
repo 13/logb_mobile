@@ -306,7 +306,20 @@ class SessionRepository @Inject constructor(
      * pairing, say -- nothing happens and false is returned: the new account stays signed in.
      */
     suspend fun signOut(expected: Session? = null, afterSignOut: (suspend () -> Unit)? = null): Boolean = mutex.withLock {
-        if (expected != null && !sameAccount(expected, _session.value)) return@withLock false
+        val current = _session.value
+        if (expected != null && !sameAccount(expected, current)) {
+            // A 401 (or another sign-out) may already have signed this very account out while the
+            // confirm dialog waited for a tap: nothing left to sign out, but "remove local data" --
+            // afterSignOut -- is still honoured for the account the person actually meant, found by
+            // the stored record rather than the (now stale) session.
+            if (expected is Session.SignedIn && current is Session.SignedOut) {
+                val record = serverStore.read()
+                if (record != null && record.serverUrl == expected.serverUrl && record.userId == expected.user.id) {
+                    withContext(NonCancellable) { accountGate.whileChanging { afterSignOut?.invoke() } }
+                }
+            }
+            return@withLock false
+        }
         withContext(NonCancellable) {
             accountGate.whileChanging {
                 signOutLocked()

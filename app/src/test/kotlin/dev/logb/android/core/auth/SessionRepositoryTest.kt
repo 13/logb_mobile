@@ -15,6 +15,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -917,6 +918,48 @@ class SessionRepositoryTest {
         assertEquals("logb_pat_paired", tokenStore.read())
         assertEquals(22L, serverStore.read()?.tokenId)
         assertEquals(listOf(9L), revoked, "only ben's token was revoked, by the switch itself")
+    }
+
+    @Test
+    fun `signOut still runs afterSignOut when a 401 already signed the expected account out first`() = runTest {
+        serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        val ben = assertIs<Session.SignedIn>(repo.session.value)
+
+        // A 401 signs ben out (server and user id kept) while a confirm dialog for "sign out and
+        // remove local data" is still open, captured with the session shown at that time.
+        repo.onUnauthorized("logb_pat_x")
+        assertIs<Session.SignedOut>(repo.session.value)
+
+        var afterSignOutRan = false
+        val result = repo.signOut(expected = ben) { afterSignOutRan = true }
+
+        assertEquals(false, result, "nothing left to sign out")
+        assertTrue(afterSignOutRan, "the local mirror for the account the dialog was about is still removed")
+        assertIs<Session.SignedOut>(repo.session.value)
+    }
+
+    @Test
+    fun `signOut does not run afterSignOut when a different account is the one that ended up signed out`() = runTest {
+        val benBase = server.url("/").toString()
+        serverStore.write(ServerRecord(benBase, 1, "ben", 9))
+        tokenStore.write("logb_pat_ben")
+        repo.restore()
+        val ben = assertIs<Session.SignedIn>(repo.session.value)
+
+        // ann replaces ben (same server, a switch), then ann herself signs out -- a 401, say.
+        serverStore.write(ServerRecord(benBase, 2, "ann", 10))
+        tokenStore.write("logb_pat_ann")
+        repo.restore()
+        repo.onUnauthorized("logb_pat_ann")
+        assertIs<Session.SignedOut>(repo.session.value)
+
+        var afterSignOutRan = false
+        val result = repo.signOut(expected = ben) { afterSignOutRan = true }
+
+        assertEquals(false, result)
+        assertFalse(afterSignOutRan, "ben's mirror must not be deleted for ann's sign-out")
     }
 
     @Test
