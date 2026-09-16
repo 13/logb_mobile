@@ -15,6 +15,7 @@ import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -76,6 +78,13 @@ class SessionRepository @Inject constructor(
     // signOutEverywhere() call the public signIn()/signOut() from outside any lock they hold
     // themselves, so they still serialise normally through it.
     private val mutex = Mutex()
+
+    /**
+     * The whole budget for one best-effort token revoke. Both revokes run while [mutex] (and, for
+     * a switch or sign-out, the sync gate) is held; with OkHttp's own 15 s connect + 60 s read
+     * timeouts a server that never answers would otherwise hold everything up for ~75 s.
+     */
+    internal var revokeTimeoutMs: Long = 5_000
 
     /** Everything [fetchSignInData] learns about a token, before anything is written down. */
     private data class SignInData(val me: User, val currency: String, val serverVersion: String?, val features: List<String>)
@@ -208,8 +217,21 @@ class SessionRepository @Inject constructor(
      * guarded function, so there is nothing here that could deadlock on it.
      */
     private suspend fun revokeRedeemedToken(base: String, token: String, tokenId: Long) = withContext(NonCancellable) {
-        runCatching { apiFactory.create(base, { token }, null).revokeToken(tokenId) }
-        Unit
+        bestEffortRevoke(base, token, tokenId)
+    }
+
+    /**
+     * `DELETE /api/auth/tokens/{tokenId}` with [token]'s own bearer; any failure is swallowed, and
+     * the call is cancelled -- the OkHttp call itself, via Retrofit's suspend support -- once
+     * [revokeTimeoutMs] has passed. Timed on [Dispatchers.IO], i.e. in real time, whatever
+     * dispatcher the caller runs on.
+     */
+    private suspend fun bestEffortRevoke(base: String, token: String, tokenId: Long) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                withTimeoutOrNull(revokeTimeoutMs) { apiFactory.create(base, { token }, null).revokeToken(tokenId) }
+            }
+        }
     }
 
     /** Only the redeem call maps 404/401/400/429 to [PairingUnsupported]/[PairingInvalid]/[PairingRejected]/[PairingRateLimited]; a 500 here, or any failure past this point, is an ordinary error. */
@@ -302,7 +324,7 @@ class SessionRepository @Inject constructor(
         val current = _session.value
         val record = serverStore.read()
         if (current is Session.SignedIn && record?.tokenId != null) {
-            runCatching { apiFactory.create(current.serverUrl, { current.token }, null).revokeToken(record.tokenId) }
+            bestEffortRevoke(current.serverUrl, current.token, record.tokenId)
         }
         tokenStore.clear()
         if (record != null) serverStore.write(record.copy(tokenId = null))
