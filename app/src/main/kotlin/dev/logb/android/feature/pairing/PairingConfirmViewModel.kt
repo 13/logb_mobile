@@ -78,7 +78,7 @@ class PairingConfirmViewModel @Inject constructor(
         }
     }
 
-    /** Redeems the code first, with no local change; only once that succeeds does it sign out whichever account was already signed in (keeping the mirror -- see [SessionRepository.signInWithPairing]). A failed redeem leaves the phone exactly as it was. */
+    /** Redeems the code first, with no local change; only once that succeeds *and* the new token's own data has been fetched does it sign out whichever account was already signed in (keeping the mirror -- see [SessionRepository.signInWithPairing]). A failed redeem, or a failed fetch for the new account, leaves the phone exactly as it was. */
     fun confirm() {
         if (_state.value.busy) return
         val current = link ?: return
@@ -101,12 +101,13 @@ class PairingConfirmViewModel @Inject constructor(
         viewModelScope.launch {
             // signInWithPairing() redeems first, with no local change; it only signs the old
             // account out (SessionRepository.signOut()'s full cleanup) once that redeem has
-            // actually succeeded. If this coroutine is torn down right here -- the activity
-            // finishing mid-confirm, say, which cancels viewModelScope -- while that sign-out is
-            // running, it may complete without ever showing an error dialog for it. Accepted: the
-            // redeem itself has already gone through by then, so this is the same risk any other
-            // sign-out in this app already carries if it is killed a moment too soon, and there is
-            // no server-side state left dangling by it either way.
+            // actually succeeded *and* the new token's own data has been fetched successfully. If
+            // this coroutine is torn down right here -- the activity finishing mid-confirm, say,
+            // which cancels viewModelScope -- while that sign-out is running, it may complete
+            // without ever showing an error dialog for it. Accepted: the redeem itself has already
+            // gone through by then, so this is the same risk any other sign-out in this app
+            // already carries if it is killed a moment too soon, and there is no server-side state
+            // left dangling by it either way.
             val result = sessions.signInWithPairing(current, DeviceName.current())
             if (result.isSuccess) capabilities.load()
             settle(if (result.isSuccess) null else classifyPairingError(result.exceptionOrNull()))

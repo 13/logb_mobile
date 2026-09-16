@@ -74,6 +74,9 @@ class SessionRepository @Inject constructor(
     // themselves, so they still serialise normally through it.
     private val mutex = Mutex()
 
+    /** Everything [fetchSignInData] learns about a token, before anything is written down. */
+    private data class SignInData(val me: User, val currency: String, val serverVersion: String?, val features: List<String>)
+
     /** What the stores say. Called once at start-up; no network. */
     suspend fun restore() {
         val record = serverStore.read()
@@ -104,7 +107,8 @@ class SessionRepository @Inject constructor(
         cookieApi.login(Credentials(username, password))
         val minted = cookieApi.createToken(NewToken("LogB Android · ${Build.MODEL}"))
         runCatching { cookieApi.logout() } // best effort: the token is what matters
-        finishSigningIn(base, minted.token, minted.id)
+        val data = fetchSignInData(base, minted.token)
+        commitSignIn(base, minted.token, minted.id, data)
     }.recoverCatching { e ->
         // The server's own words for a wrong password; anything else is a connection problem.
         throw if (e is ApiException) IllegalStateException(e.message, e) else e
@@ -115,22 +119,25 @@ class SessionRepository @Inject constructor(
      * and signs in with it -- leaving exactly the state [signIn] leaves. No password or session
      * cookie is involved: the code itself, freshly minted by a signed-in browser, is the proof.
      *
-     * Health and redeem run first, with no local change at all. Only once redemption has actually
-     * succeeded -- a fresh token already minted on the server -- is it safe to touch anything on
-     * this phone: if an account was already signed in, it is signed out first (exactly
-     * [signOut]'s own cleanup: revoke attempt, widget refresh, notifications cleared, capabilities
-     * cleared), then the new account is stored via [finishSigningIn]. A failed redeem therefore
-     * leaves whatever was signed in before -- its session, its token, its stored record --
-     * completely untouched; there is nothing to undo.
+     * Health and redeem run first, with no local change at all. Once redemption has actually
+     * succeeded -- a fresh token already minted on the server -- its data is fetched
+     * ([fetchSignInData]), still with no local change: only once *that* has also succeeded is it
+     * safe to touch anything on this phone, because only then is it known the new account can
+     * actually be signed in. If an account was already signed in, it is signed out at that point
+     * (exactly [signOut]'s own cleanup: revoke attempt, widget refresh, notifications cleared,
+     * capabilities cleared), then the new account is stored ([commitSignIn]). A failed redeem, or
+     * a failed fetch of the new token's own data, therefore both leave whatever was signed in
+     * before -- its session, its token, its stored record -- completely untouched; there is
+     * nothing to undo.
      *
      * The 404/401/400/429 -> unsupported/invalid/rejected/rate-limited mapping below applies only
-     * to the redeem call itself. If [finishSigningIn] then fails -- say `me()` hits a 401, or a
+     * to the redeem call itself. If [fetchSignInData] then fails -- say `me()` hits a 401, or a
      * 5xx -- that is an ordinary error, reported the same way [signIn]'s own post-token failures
      * are: this phone's redeemed token is already live on the server at that point, exactly as a
-     * freshly minted password token would be if the same call failed there. (When this happens
-     * while replacing an existing account, that account has already been signed out by this
-     * point, same as it would be if the network simply dropped right after a successful
-     * password-based [signIn]'s own token mint.)
+     * freshly minted password token would be if the same call failed there. Unlike a plain
+     * [signIn] failing there, nothing on this phone has been touched yet at that point even while
+     * replacing an existing account -- the old account's sign-out only ever runs after the fetch
+     * has already succeeded.
      *
      * Unlike [signIn], there is no cookie session here to end, so nothing on the server is ever
      * told this attempt failed except a best-effort self-revoke of the freshly redeemed token
@@ -147,14 +154,22 @@ class SessionRepository @Inject constructor(
         val anonApi = apiFactory.create(base, { null }, null)
         anonApi.health()
         val redeemed = redeemPairing(anonApi, link.code, deviceName)
-        try {
-            // signOutLocked(), not the public signOut(): this coroutine already holds mutex, and
-            // Mutex is not reentrant -- acquiring it again here would deadlock.
-            if (_session.value is Session.SignedIn) signOutLocked()
-            finishSigningIn(base, redeemed.token, redeemed.tokenId)
+        val data = try {
+            fetchSignInData(base, redeemed.token)
         } catch (e: Exception) {
+            // Nothing has been touched locally yet -- whatever was signed in before (if anything)
+            // stays exactly as it was. Only the freshly redeemed, now-orphaned token needs
+            // cleaning up.
             revokeRedeemedToken(base, redeemed.token, redeemed.tokenId)
             throw e
+        }
+        // From here on nothing may fail partway: either the old account (if any) ends up signed
+        // out and the new one stored, or -- if cancelled -- both complete anyway. signOutLocked(),
+        // not the public signOut(): this coroutine already holds mutex, and Mutex is not
+        // reentrant -- acquiring it again here would deadlock.
+        withContext(NonCancellable) {
+            if (_session.value is Session.SignedIn) signOutLocked()
+            commitSignIn(base, redeemed.token, redeemed.tokenId, data)
         }
     }.recoverCatching { e ->
         // The server's own words for anything that isn't PairingUnsupported/PairingInvalid/
@@ -168,8 +183,8 @@ class SessionRepository @Inject constructor(
      * health, a network error, a 5xx) then failed: the token is already live on the server with
      * nothing stored on the phone to show for it. Revokes it with its own bearer, exactly the
      * call [signOutLocked] makes for a token it already knows about -- this is the same
-     * `DELETE /api/auth/tokens/{id}` call, just against the token that never made it into
-     * [finishSigningIn]. `runCatching` so an older server's refusal (still cookie-only) never
+     * `DELETE /api/auth/tokens/{id}` call, just against the token that never made it past
+     * [fetchSignInData]. `runCatching` so an older server's refusal (still cookie-only) never
      * surfaces here or changes the error already being reported to the caller; `NonCancellable` so
      * a cancelled sign-in flow still attempts it. Called from inside [signInWithPairingLocked],
      * which already holds [mutex] -- this only ever talks to the network, never back into another
@@ -194,27 +209,39 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * The tail [signIn] and [signInWithPairing] share once each has its own token in hand: fetch
-     * who that token belongs to and what the server supports, then store everything and flip the
-     * session to signed in.
+     * The network half of what [signIn] and [signInWithPairing] both need once a token is in
+     * hand: who it belongs to, and what the server supports. Touches no store and no [session] --
+     * a caller can find out whether a token actually works before disturbing anything already
+     * signed in on this phone. `me()` and `settings()` (the account's own identity and currency)
+     * must both succeed, same as a failed token mint would; `healthInfo()` (server version and
+     * announced features) is best-effort, same as it always has been -- an old or momentarily
+     * flaky server simply keeps whatever this phone already knew (or null/empty, for a brand new
+     * one), never fails the sign-in over it.
      */
-    private suspend fun finishSigningIn(base: String, token: String, tokenId: Long) {
+    private suspend fun fetchSignInData(base: String, token: String): SignInData {
         val bearerApi = apiFactory.create(base, { token }, null)
         val me = bearerApi.me()
-        val currency = runCatching { bearerApi.settings().currency }.getOrDefault("EUR")
+        val currency = bearerApi.settings().currency
         val fetchedHealth = runCatching { bearerApi.healthInfo() }.getOrNull()?.takeIf { it.version.isNotBlank() }
         val existing = serverStore.read()?.takeIf { it.serverUrl == base }
         val serverVersion = fetchedHealth?.version ?: existing?.serverVersion
         val features = fetchedHealth?.features ?: existing?.features ?: emptyList()
-        // Both writes must land together or not at all: a cancellation landing between them (the
-        // caller's coroutine scope going away mid-sign-in, e.g. a screen rotation racing the
-        // network call) must never leave a token on the phone with no server record to use it
-        // with, or a server record with no token stored for it.
+        return SignInData(me, currency, serverVersion, features)
+    }
+
+    /**
+     * The store half: write the token and record down, and flip [session] to signed in. Both
+     * writes must land together or not at all: a cancellation landing between them (the caller's
+     * coroutine scope going away mid-sign-in, e.g. a screen rotation racing the network call) must
+     * never leave a token on the phone with no server record to use it with, or a server record
+     * with no token stored for it.
+     */
+    private suspend fun commitSignIn(base: String, token: String, tokenId: Long, data: SignInData) {
         withContext(NonCancellable) {
             tokenStore.write(token)
-            serverStore.write(ServerRecord(base, me.id, me.username, tokenId, currency, serverVersion, features))
+            serverStore.write(ServerRecord(base, data.me.id, data.me.username, tokenId, data.currency, data.serverVersion, data.features))
         }
-        _session.value = Session.SignedIn(base, me, token, currency)
+        _session.value = Session.SignedIn(base, data.me, token, data.currency)
     }
 
     /** Revokes the token (best effort) and forgets it. The mirror is the caller's business. */
