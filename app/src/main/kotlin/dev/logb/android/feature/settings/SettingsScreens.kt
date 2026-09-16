@@ -107,25 +107,27 @@ fun SettingsHubContent(state: SettingsUiState, onOpen: (SettingsPage) -> Unit, u
     Column(Modifier.fillMaxSize()) {
         LogbTopBar(title = stringResource(R.string.nav_settings))
         val rows = settingsRows(state.session, state.appearance, state.sync, language, state.version, failed = state.deadOps.size, showTypes = showTypes)
-        rows.forEach { row ->
-            val (title, icon) = when (row.page) {
-                SettingsPage.Appearance -> R.string.settings_appearance to Icons.Outlined.Palette
-                SettingsPage.Account -> R.string.settings_account to Icons.Outlined.Person
-                SettingsPage.Sync -> R.string.settings_sync to Icons.Outlined.Sync
-                SettingsPage.Notifications -> R.string.settings_notifications to Icons.Outlined.Notifications
-                SettingsPage.Types -> R.string.settings_types to Icons.Outlined.Category
-                SettingsPage.Data -> R.string.settings_data to Icons.Outlined.Archive
-                SettingsPage.ApiAccess -> R.string.tokens_title to Icons.Outlined.Key
-                SettingsPage.About -> R.string.settings_about to Icons.Outlined.Info
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            rows.forEach { row ->
+                val (title, icon) = when (row.page) {
+                    SettingsPage.Appearance -> R.string.settings_appearance to Icons.Outlined.Palette
+                    SettingsPage.Account -> R.string.settings_account to Icons.Outlined.Person
+                    SettingsPage.Sync -> R.string.settings_sync to Icons.Outlined.Sync
+                    SettingsPage.Notifications -> R.string.settings_notifications to Icons.Outlined.Notifications
+                    SettingsPage.Types -> R.string.settings_types to Icons.Outlined.Category
+                    SettingsPage.Data -> R.string.settings_data to Icons.Outlined.Archive
+                    SettingsPage.ApiAccess -> R.string.tokens_title to Icons.Outlined.Key
+                    SettingsPage.About -> R.string.settings_about to Icons.Outlined.Info
+                }
+                val value = when (row.page) {
+                    SettingsPage.Appearance -> "${themeLabel(state.appearance.theme)} · ${language.uppercase()}"
+                    SettingsPage.Sync -> if (state.deadOps.isNotEmpty()) pluralStringResource(R.plurals.sync_could_not_save, state.deadOps.size, state.deadOps.size) else syncValueLabel(state.sync)
+                    SettingsPage.Notifications -> if (state.notifications.enabled) stringResource(R.string.notify_daily_at, state.notifications.time) else stringResource(R.string.off)
+                    SettingsPage.About -> updateAvailable?.let { stringResource(R.string.update_hub_available, row.value.orEmpty(), it) } ?: row.value
+                    else -> row.value
+                }
+                HubRow(icon, stringResource(title), value) { onOpen(row.page) }
             }
-            val value = when (row.page) {
-                SettingsPage.Appearance -> "${themeLabel(state.appearance.theme)} · ${language.uppercase()}"
-                SettingsPage.Sync -> if (state.deadOps.isNotEmpty()) pluralStringResource(R.plurals.sync_could_not_save, state.deadOps.size, state.deadOps.size) else syncValueLabel(state.sync)
-                SettingsPage.Notifications -> if (state.notifications.enabled) stringResource(R.string.notify_daily_at, state.notifications.time) else stringResource(R.string.off)
-                SettingsPage.About -> updateAvailable?.let { stringResource(R.string.update_hub_available, row.value.orEmpty(), it) } ?: row.value
-                else -> row.value
-            }
-            HubRow(icon, stringResource(title), value) { onOpen(row.page) }
         }
     }
 }
