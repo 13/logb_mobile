@@ -841,6 +841,43 @@ class SessionRepositoryTest {
         assertEquals(1, notifications.cleared)
     }
 
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `forgetServer waits for a sign-in in progress instead of landing between its writes`() = runTest(kotlinx.coroutines.test.UnconfinedTestDispatcher()) {
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val base = "https://ben.example/"
+        val api = object : NoopLogbApi() {
+            override suspend fun login(body: dev.logb.android.core.network.dto.Credentials) = dev.logb.android.core.network.dto.User(1, "ben")
+            override suspend fun createToken(body: dev.logb.android.core.network.dto.NewToken) =
+                dev.logb.android.core.network.dto.NewApiToken(id = 9, name = "LogB Android", prefix = "logb_pat_ab", createdAt = "x", token = "logb_pat_abcdef")
+            override suspend fun logout(): retrofit2.Response<Unit> = retrofit2.Response.success(Unit)
+            override suspend fun me(): dev.logb.android.core.network.dto.User {
+                started.complete(Unit)
+                gate.await() // mutex held, token not yet written
+                return dev.logb.android.core.network.dto.User(1, "ben")
+            }
+            override suspend fun settings() = dev.logb.android.core.network.dto.Settings(currency = "CHF")
+            override suspend fun healthInfo() = dev.logb.android.core.network.dto.HealthInfo(version = "0.7.1")
+        }
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { _, _, _ -> api })
+
+        val signIn = launch { repo.signIn(base, "ben", "correct horse") }
+        started.await()
+        val forget = launch { repo.forgetServer() }
+        assertTrue(forget.isActive, "forgetServer must wait for the sign-in's mutex")
+        assertIs<Session.Loading>(repo.session.value)
+
+        gate.complete(Unit)
+        signIn.join()
+        forget.join()
+
+        // Forgotten after the sign-in, completely: no token left beside a missing record.
+        assertIs<Session.NeedsServer>(repo.session.value)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+    }
+
     /**
      * Every [dev.logb.android.core.network.LogbApi] method, each refusing to be called -- for a
      * test that only cares about a handful of them and wants no real network at all (see the

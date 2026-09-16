@@ -66,7 +66,7 @@ class SessionRepository @Inject constructor(
     private val _session = MutableStateFlow<Session>(Session.Loading)
     val session: StateFlow<Session> = _session.asStateFlow()
 
-    // Serialises signIn/signInWithPairing/signOut/onUnauthorized so two flows -- a password sign-in racing a
+    // Serialises signIn/signInWithPairing/signOut/onUnauthorized/forgetServer so two flows -- a password sign-in racing a
     // scanned code's redeem, say -- can never interleave their token and record writes. Only
     // these three public entry points ever acquire it; each delegates to a private "*Locked"
     // twin that does the actual work, and signInWithPairing()'s own call to sign the old account
@@ -326,8 +326,8 @@ class SessionRepository @Inject constructor(
         true
     }
 
-    /** Forget the server too: back to the first-run screen. */
-    suspend fun forgetServer() {
+    /** Forget the server too: back to the first-run screen. Serialised with sign-in, so it never lands between a sign-in's writes. */
+    suspend fun forgetServer() = mutex.withLock {
         tokenStore.clear()
         serverStore.clear()
         _session.value = Session.NeedsServer
