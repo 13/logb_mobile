@@ -53,6 +53,21 @@ displaying. Both sync both ways under the same field-level last-write-wins as ev
 and both work fully offline: a type minted on the phone gets its object key (`custom:<uuid>`)
 before ever reaching the server, and tags queue like any other field edit.
 
+## QR sign-in
+
+On the server screen, *Scan QR code* reads a code shown on the web's signed-in Account page and
+signs the phone in with no address or password typed; the same `logb://pair` link also works as
+a deep link (a share, a chat message). Because any app can fire that link, opening one from
+outside the app always asks first, naming the server it would sign into, and is gated behind the
+app lock when one is set. This needs a LogB server carrying the pairing feature (the logb
+`pairing` branch, or a released version once it ships one) -- an older server answers "This
+server does not support QR sign-in." Running behind a reverse proxy, set `LOGB_PUBLIC_URL` on
+the server so the QR code and link carry the address a phone can actually reach, not the proxy's
+internal one. If sign-in fails right after a code is redeemed (the network drops between minting
+the token and the phone finishing sign-in), the freshly minted, device-named token is left live
+on the server with nothing to show for it on the phone -- find and revoke it from the web's
+Settings › API access token list.
+
 ## Reminders outside the app
 
 The daily notification for what is due now acts, not just informs: a service reminder's

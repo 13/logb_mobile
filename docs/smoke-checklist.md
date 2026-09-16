@@ -117,3 +117,14 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › About: the links line up with the section text, and the build date is hidden when unknown.
 - [ ] Tag filters still work from both the Objects list and a timeline.
 - [ ] Editing a type that was deleted elsewhere says it no longer exists.
+
+## Release 0.14.0 (QR sign-in)
+
+- [ ] Scanning a QR code from the web's Account page signs the phone in, with no address or password typed.
+- [ ] Opening a `logb://pair` link from outside the app (a share, a chat message, Recents) always asks first, naming the host, whether signed in or out.
+- [ ] Already signed in: a pairing link asks *Switch account?*, naming both servers; confirming signs out of the first and into the second.
+- [ ] A used or expired code shows an error dialog with an *OK* button, not *Cancel*.
+- [ ] With the app lock on: a pairing link arriving while locked shows no dialog over the lock screen; unlocking shows the confirmation exactly once.
+- [ ] Against a server without the pairing feature: redeeming answers "This server does not support QR sign-in."
+- [ ] Settings › About shows *QR sign-in: yes* against a server with the feature, *no* against one without it.
+- [ ] Denying the camera permission while scanning shows a message instead of a blank screen.
