@@ -14,6 +14,7 @@
     <string name="server_unreachable">Could not reach a LogB server at this address</string>
     <string name="pair_scan">Scan QR code</string>
     <string name="pair_not_a_code">That QR code is not a LogB sign-in code.</string>
+    <string name="pair_unsafe_address">This code points to an unencrypted address outside your local network. LogB only accepts such codes for addresses on your own network.</string>
     <string name="pair_unsupported">This server does not support QR sign-in. Sign in with your password.</string>
     <string name="pair_invalid">This code has expired or was already used. Show a new one in the web app.</string>
     <string name="pair_rate_limited">Too many attempts. Try again in a minute.</string>

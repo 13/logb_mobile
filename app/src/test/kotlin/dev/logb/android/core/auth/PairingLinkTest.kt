@@ -98,6 +98,40 @@ class PairingLinkTest {
     @Test fun `a mixed-case scheme does not let userinfo slip past the check`() =
         assertNull(PairingLinks.parse(pairUri("HTTPS://evil.com@logb.example/")))
 
+    @Test fun `a refused http address is its own outcome, not lumped in with not-a-code`() {
+        assertEquals(PairingLinks.Outcome.UnsafeAddress, PairingLinks.classify(httpPairUri("example.org")))
+        assertEquals(PairingLinks.Outcome.NotACode, PairingLinks.classify("not a QR code at all"))
+        assertEquals(PairingLinks.Outcome.NotACode, PairingLinks.classify("logb://pair?server=ftp%3A%2F%2Fa&code=c"))
+    }
+
+    @Test fun `the tailscale CGNAT range is accepted over http, canonical octets still required`() {
+        listOf("100.64.0.1", "100.100.100.100", "100.127.255.255").forEach { host ->
+            assertEquals("http://$host/", PairingLinks.parse(httpPairUri(host))!!.serverUrl, host)
+        }
+        listOf("100.63.255.255", "100.128.0.0", "100.064.0.1").forEach { host ->
+            assertNull(PairingLinks.parse(httpPairUri(host)), host)
+            assertEquals(PairingLinks.Outcome.UnsafeAddress, PairingLinks.classify(httpPairUri(host)), host)
+        }
+    }
+
+    @Test fun `ipv6 unique-local addresses (fc00--7) are accepted over http`() {
+        listOf("fc00::1", "fd12:3456:789a::1", "fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff").forEach { host ->
+            assertEquals(
+                "http://[$host]/",
+                PairingLinks.parse("logb://pair?server=" + java.net.URLEncoder.encode("http://[$host]", "UTF-8") + "&code=c")!!.serverUrl,
+                host,
+            )
+        }
+    }
+
+    @Test fun `an ipv6 address just outside fc00--7 is refused over http`() {
+        listOf("fbff::1", "fe00::1").forEach { host ->
+            val uri = "logb://pair?server=" + java.net.URLEncoder.encode("http://[$host]", "UTF-8") + "&code=c"
+            assertNull(PairingLinks.parse(uri), host)
+            assertEquals(PairingLinks.Outcome.UnsafeAddress, PairingLinks.classify(uri), host)
+        }
+    }
+
     @Test fun `toString redacts the code`() {
         val link = PairingLink("https://logb.example/", "super-secret-code")
         assertEquals("PairingLink(serverUrl=https://logb.example/, code=<redacted>)", link.toString())

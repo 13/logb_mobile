@@ -10,6 +10,9 @@ package dev.logb.android.core.auth
  */
 sealed interface PairError {
     data object NotACode : PairError
+
+    /** [PairingLinks.classify] returned [PairingLinks.Outcome.UnsafeAddress]: a well-formed code, but its `http` address is outside every range the safety rule accepts for cleartext. */
+    data object UnsafeAddress : PairError
     data object Unsupported : PairError
     data object Invalid : PairError
 

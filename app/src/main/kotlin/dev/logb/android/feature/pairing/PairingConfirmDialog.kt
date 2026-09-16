@@ -19,6 +19,7 @@ import dev.logb.android.core.auth.PairError
 @Composable
 fun pairErrorMessage(error: PairError): String = when (error) {
     PairError.NotACode -> stringResource(R.string.pair_not_a_code)
+    PairError.UnsafeAddress -> stringResource(R.string.pair_unsafe_address)
     PairError.Unsupported -> stringResource(R.string.pair_unsupported)
     PairError.Invalid -> stringResource(R.string.pair_invalid)
     PairError.RateLimited -> stringResource(R.string.pair_rate_limited)

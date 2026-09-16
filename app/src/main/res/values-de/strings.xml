@@ -14,6 +14,7 @@
     <string name="server_unreachable">Unter dieser Adresse ist kein LogB-Server erreichbar</string>
     <string name="pair_scan">QR-Code scannen</string>
     <string name="pair_not_a_code">Dieser QR-Code ist kein LogB-Anmeldecode.</string>
+    <string name="pair_unsafe_address">Dieser Code zeigt auf eine unverschlüsselte Adresse außerhalb deines lokalen Netzes. LogB akzeptiert solche Codes nur für Adressen in deinem eigenen Netz.</string>
     <string name="pair_unsupported">Dieser Server unterstützt keine Anmeldung per QR-Code. Melde dich mit deinem Passwort an.</string>
     <string name="pair_invalid">Dieser Code ist abgelaufen oder wurde schon benutzt. Zeige in der Web-App einen neuen an.</string>
     <string name="pair_rate_limited">Zu viele Versuche. Versuche es in einer Minute noch einmal.</string>

@@ -97,6 +97,18 @@ class ServerViewModelTest {
     }
 
     @Test
+    fun `a scanned code whose http address is refused reports pair_unsafe_address, not pair_not_a_code, and touches no server`() = runTest(dispatcher) {
+        val uri = "logb://pair?server=" + java.net.URLEncoder.encode("http://example.org", "UTF-8") + "&code=abc123"
+
+        viewModel.onScanned(uri)
+        drain()
+
+        assertEquals(dev.logb.android.core.auth.PairError.UnsafeAddress, viewModel.state.value.pairError)
+        assertEquals(false, viewModel.state.value.pairing)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun `a 404 from redeem reports pair_unsupported`() = runTest(dispatcher) {
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"error":"not_found","message":"no such route"}""", 404))

@@ -59,10 +59,16 @@ class ServerViewModel @Inject constructor(
      */
     fun onScanned(raw: String) {
         if (_state.value.pairing) return
-        val link = PairingLinks.parse(raw)
-        if (link == null) {
-            _state.update { it.copy(pairError = PairError.NotACode) }
-            return
+        val link = when (val outcome = PairingLinks.classify(raw)) {
+            is PairingLinks.Outcome.Parsed -> outcome.link
+            PairingLinks.Outcome.NotACode -> {
+                _state.update { it.copy(pairError = PairError.NotACode) }
+                return
+            }
+            PairingLinks.Outcome.UnsafeAddress -> {
+                _state.update { it.copy(pairError = PairError.UnsafeAddress) }
+                return
+            }
         }
         _state.update { it.copy(pairing = true, pairError = null) }
         viewModelScope.launch {
