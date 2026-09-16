@@ -8,6 +8,7 @@ import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.network.dto.Credentials
 import dev.logb.android.core.network.dto.NewToken
 import dev.logb.android.core.network.dto.PairRedeem
+import dev.logb.android.core.network.dto.PairRedeemed
 import dev.logb.android.core.network.dto.User
 import dev.logb.android.core.alerts.NoopReminderNotificationsClearer
 import dev.logb.android.core.alerts.ReminderNotificationsClearer
@@ -90,21 +91,43 @@ class SessionRepository @Inject constructor(
      * Redeems a `logb://pair` code scanned from a QR code (or opened as a deep link) for a token,
      * and signs in with it -- leaving exactly the state [signIn] leaves. No password or session
      * cookie is involved: the code itself, freshly minted by a signed-in browser, is the proof.
+     *
+     * The 404/401 -> unsupported/invalid mapping below applies only to the redeem call itself.
+     * If [finishSigningIn] then fails -- say `me()` hits a 401, or a 5xx -- that is an ordinary
+     * error, reported the same way [signIn]'s own post-token failures are: this phone's redeemed
+     * token is already live on the server at that point, exactly as a freshly minted password
+     * token would be if the same call failed there.
+     *
+     * Unlike [signIn], there is no cookie session here to end, so nothing on the server is ever
+     * told this attempt failed: the token stays live with nothing stored on the phone to show for
+     * it. It cannot be revoked from here either -- `DELETE /api/auth/tokens/{id}` needs an
+     * interactive password session, and logb's `POST /api/auth/logout` only ends the caller's
+     * cookie session, not the bearer token that authenticated the request (see the server's
+     * `logout` handler in `src/api/auth.rs`, which reads the session cookie and never looks at
+     * the `Authorization` header at all). The token is named after the device
+     * ([SessionRepository.signIn]'s `NewToken` naming applies here too), so the user can find and
+     * revoke it from the web's token list if this happens.
      */
     suspend fun signInWithPairing(link: PairingLink, deviceName: String): Result<Unit> = runCatching {
         val base = ApiClient.normalizeBaseUrl(link.serverUrl)
         val anonApi = apiFactory.create(base, { null }, null)
         anonApi.health()
-        val redeemed = anonApi.redeemPairing(PairRedeem(link.code, deviceName))
+        val redeemed = redeemPairing(anonApi, link.code, deviceName)
         finishSigningIn(base, redeemed.token, redeemed.tokenId)
     }.recoverCatching { e ->
-        throw when (e) {
-            !is ApiException -> e // a connection problem: the same shape signIn's failure has
-            else -> when (e.status) {
-                404 -> PairingUnsupported(e.message)
-                401 -> PairingInvalid(e.message)
-                else -> IllegalStateException(e.message, e)
-            }
+        // The server's own words for anything that isn't PairingUnsupported/PairingInvalid --
+        // the same mapping signIn() applies to its own post-token failures.
+        throw if (e is ApiException) IllegalStateException(e.message, e) else e
+    }
+
+    /** Only the redeem call maps 404/401 to [PairingUnsupported]/[PairingInvalid]; a 500 here, or any failure past this point, is an ordinary error. */
+    private suspend fun redeemPairing(api: LogbApi, code: String, deviceName: String): PairRedeemed = try {
+        api.redeemPairing(PairRedeem(code, deviceName))
+    } catch (e: ApiException) {
+        throw when (e.status) {
+            404 -> PairingUnsupported(e.message)
+            401 -> PairingInvalid(e.message)
+            else -> e
         }
     }
 

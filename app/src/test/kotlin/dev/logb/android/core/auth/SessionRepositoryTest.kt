@@ -239,6 +239,69 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `me failing after a successful redeem leaves nothing stored and the session unchanged, and does not revoke through logout`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}""")) // redeem
+        server.enqueue(json("", code = 500)) // me fails
+
+        val before = repo.session.value
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertTrue(result.isFailure)
+        assertNull(result.exceptionOrNull() as? PairingUnsupported)
+        assertNull(result.exceptionOrNull() as? PairingInvalid)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+        assertEquals(before, repo.session.value)
+        // logb's POST /api/auth/logout only ends a cookie session; it never looks at the
+        // Authorization header, so it cannot revoke this redeemed bearer token. Confirm nothing
+        // beyond health/redeem/me was even attempted.
+        assertEquals(3, server.requestCount)
+        assertEquals("/api/health", server.takeRequest().url.encodedPath)
+        assertEquals("/api/auth/pair/redeem", server.takeRequest().url.encodedPath)
+        assertEquals("/api/auth/me", server.takeRequest().url.encodedPath)
+    }
+
+    @Test
+    fun `signInWithPairing on a 500 from redeem reports a generic error, not unsupported or invalid`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"server_error","message":"something broke"}""", code = 500))
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        val e = result.exceptionOrNull()!!
+        assertNull(e as? PairingUnsupported)
+        assertNull(e as? PairingInvalid)
+        assertEquals("something broke", e.message)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+    }
+
+    @Test
+    fun `a pre-existing signed-in record and session survive a failed pairing unchanged`() = runTest {
+        val base = server.url("/").toString()
+        val existingRecord = ServerRecord(base, 1, "ben", 9, "CHF", "0.11.0", listOf("pairing"))
+        serverStore.write(existingRecord)
+        tokenStore.write("logb_pat_existing")
+        repo.restore()
+        val before = repo.session.value
+        assertIs<Session.SignedIn>(before)
+
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"error":"unauthorized","message":"invalid or expired code"}""", code = 401)) // redeem fails
+
+        val link = PairingLink(base, "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertIs<PairingInvalid>(result.exceptionOrNull())
+        assertEquals(before, repo.session.value)
+        assertEquals("logb_pat_existing", tokenStore.read())
+        assertEquals(existingRecord, serverStore.read())
+    }
+
+    @Test
     fun `signInWithPairing on a network failure stores nothing`() = runTest {
         val deadServer = MockWebServer()
         deadServer.start()
