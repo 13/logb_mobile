@@ -129,3 +129,4 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Against a server without the pairing feature: redeeming answers "This server does not support QR sign-in."
 - [ ] Settings › About shows *QR sign-in: yes* against a server with the feature, *no* against one without it.
 - [ ] Denying the camera permission while scanning shows a message instead of a blank screen.
+- [ ] Signing out makes the phone's token disappear from the web's API access page (server with self-revoke).
