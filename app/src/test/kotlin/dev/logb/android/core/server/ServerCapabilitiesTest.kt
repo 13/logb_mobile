@@ -75,6 +75,18 @@ class ServerCapabilitiesTest {
         assertTrue(caps.current.value.pairing)
     }
 
+    @Test fun `a refresh whose health response no longer lists pairing removes it from the store`() = runBlocking {
+        val store = FakeServerStore(record.copy(features = listOf("pairing")))
+        val caps = ServerCapabilities(store)
+        caps.load()
+        assertTrue(caps.current.value.pairing)
+
+        caps.refresh { HealthInfo(version = "0.7.1", features = emptyList()) }
+
+        assertEquals(emptyList(), store.read()!!.features)
+        assertFalse(caps.current.value.pairing)
+    }
+
     @Test fun `pairing feature alone is not a reason to bootstrap`() = runBlocking {
         val caps = ServerCapabilities(FakeServerStore(record.copy(serverVersion = "0.8.0")))
         caps.load()
