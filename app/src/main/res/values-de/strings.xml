@@ -12,6 +12,13 @@
     <string name="server_url">Serveradresse</string>
     <string name="server_continue">Weiter</string>
     <string name="server_unreachable">Unter dieser Adresse ist kein LogB-Server erreichbar</string>
+    <string name="pair_scan">QR-Code scannen</string>
+    <string name="pair_not_a_code">Dieser QR-Code ist kein LogB-Anmeldecode.</string>
+    <string name="pair_unsupported">Dieser Server unterstützt keine Anmeldung per QR-Code. Melde dich mit deinem Passwort an.</string>
+    <string name="pair_invalid">Dieser Code ist abgelaufen oder wurde schon benutzt. Zeige in der Web-App einen neuen an.</string>
+    <string name="pair_confirm_signin_title">Bei %1$s anmelden?</string>
+    <string name="pair_replace_title">Konto wechseln?</string>
+    <string name="pair_replace_body">Dieses Telefon meldet sich von %1$s ab und bei %2$s an.</string>
     <string name="signin_title">Anmelden</string>
     <string name="signin_expired">Deine Anmeldung ist abgelaufen. Bitte melde dich erneut an.</string>
     <string name="username">Benutzername</string>

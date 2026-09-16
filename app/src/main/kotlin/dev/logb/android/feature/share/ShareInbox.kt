@@ -3,6 +3,8 @@ package dev.logb.android.feature.share
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import dev.logb.android.core.auth.PairingLink
+import dev.logb.android.core.auth.PairingLinks
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
@@ -41,8 +43,18 @@ class ShareInbox @Inject constructor() {
     private val _target = MutableStateFlow<LaunchRequest?>(null)
     val target: StateFlow<LaunchRequest?> = _target
 
+    // A `logb://pair` deep link -- from anywhere, another app, a browser, a chat message -- never
+    // signs the phone in by itself; see PairingConfirmViewModel, which always confirms first. It
+    // is held here (mirrored, not taken, by PairingConfirmViewModel's own collector) until the
+    // person actually answers the confirmation -- confirm() or cancel() is what finally takes it.
+    // A link that arrives during the lock screen simply waits: PairingConfirmViewModel's caller
+    // is only composed once the app is unlocked, exactly like ShareInbox.target above.
+    private val _pendingPairing = MutableStateFlow<PairingLink?>(null)
+    val pendingPairing: StateFlow<PairingLink?> = _pendingPairing
+
     fun offer(intent: Intent?): Boolean {
         LaunchRequest.from(intent)?.let { _target.value = it; return true }
+        pairingLinkFrom(intent)?.let { _pendingPairing.value = it; return true }
         val uris: List<Uri> = when (intent?.action) {
             Intent.ACTION_SEND -> listOfNotNull(extra(intent))
             Intent.ACTION_SEND_MULTIPLE -> extras(intent)
@@ -55,6 +67,14 @@ class ShareInbox @Inject constructor() {
 
     /** The launch request, once. */
     fun takeTarget(): LaunchRequest? = _target.value.also { _target.value = null }
+
+    /** The pending `logb://pair` link, once -- taken by [dev.logb.android.feature.pairing.PairingConfirmViewModel] before it decides what to ask. */
+    fun takePendingPairing(): PairingLink? = _pendingPairing.value.also { _pendingPairing.value = null }
+
+    private fun pairingLinkFrom(intent: Intent?): PairingLink? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        return PairingLinks.parse(intent.dataString ?: return null)
+    }
 
     /** Hands the files over to whoever attaches them, once. */
     fun take(): List<Uri> = _pending.value.also { _pending.value = emptyList() }

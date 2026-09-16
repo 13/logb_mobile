@@ -1,5 +1,7 @@
 package dev.logb.android.feature.onboarding
 
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -22,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -41,7 +46,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import dev.logb.android.R
+import dev.logb.android.feature.pairing.pairErrorMessage
 
 /** The narrow centred column the web app's sign-in uses: the form is the page. */
 @Composable
@@ -57,17 +65,46 @@ private fun AuthColumn(content: @Composable () -> Unit) {
 @Composable
 fun ServerScreen(viewModel: ServerViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ServerContent(state, viewModel::onUrlChange, viewModel::submit)
+    val context = LocalContext.current
+    val cameraAvailable = remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let(viewModel::onScanned) }
+    ServerContent(
+        state, viewModel::onUrlChange, viewModel::submit,
+        onScan = { scanLauncher.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false).setOrientationLocked(false)) },
+        cameraAvailable = cameraAvailable,
+    )
 }
 
-/** The server screen without its view model. */
+/** The server screen without its view model. [cameraAvailable] hides the scan button on a device with no camera ([PackageManager.FEATURE_CAMERA_ANY]) rather than offer a button that can only fail. */
 @Composable
-fun ServerContent(state: ServerUiState, onUrlChange: (String) -> Unit, onSubmit: () -> Unit) {
+fun ServerContent(
+    state: ServerUiState,
+    onUrlChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onScan: () -> Unit = {},
+    cameraAvailable: Boolean = true,
+) {
     AuthColumn {
         Text(stringResource(R.string.server_title), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
         Text(stringResource(R.string.server_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
+        if (cameraAvailable) {
+            OutlinedButton(onClick = onScan, enabled = !state.pairing && !state.checking, modifier = Modifier.fillMaxWidth()) {
+                if (state.pairing) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.pair_scan))
+                }
+            }
+            state.pairError?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(pairErrorMessage(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
         OutlinedTextField(
             value = state.url,
             onValueChange = onUrlChange,

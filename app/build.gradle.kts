@@ -180,6 +180,9 @@ dependencies {
     implementation(libs.coil.okhttp)
     implementation(libs.glance.appwidget)
     implementation(libs.glance.material3)
+    // QR sign-in: launched with ScanContract, so only its bundled CaptureActivity is ever used --
+    // never its own AppCompatActivity XML flow.
+    implementation(libs.zxing.embedded)
     // Installs the recorded baseline profile on first run; without it the profile in the APK is
     // inert.
     implementation(libs.profileinstaller)

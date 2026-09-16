@@ -9,6 +9,11 @@
     <!-- The in-app updater (feature/update) only. Restricted on the Play Store; the whole feature lives in that package. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- QR sign-in's scanner (zxing-android-embedded's CaptureActivity asks for this itself). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Not required: a phone with no camera still signs in with a password; the scan button hides itself (PackageManager.FEATURE_CAMERA_ANY). -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <!--
       No cloud backup: the mirror is rebuilt from the server on first sign-in, and the token is
       wrapped by a Keystore key that never leaves this device, so a restored copy could use neither.
@@ -42,6 +47,18 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <!--
+              A `logb://pair` link, scanned by another device or opened from a browser. No
+              android:autoVerify: a custom scheme can't be domain-verified, so this never claims
+              to be an App Link. ShareInbox always asks for confirmation before it is acted on;
+              see PairingConfirmViewModel.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="logb" android:host="pair" />
             </intent-filter>
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>

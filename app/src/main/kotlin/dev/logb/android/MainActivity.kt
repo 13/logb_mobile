@@ -24,6 +24,7 @@ import dev.logb.android.core.design.theme.LogbTheme
 import dev.logb.android.feature.onboarding.BootstrapScreen
 import dev.logb.android.feature.onboarding.ServerScreen
 import dev.logb.android.feature.onboarding.SignInScreen
+import dev.logb.android.feature.pairing.PairingConfirmHost
 import dev.logb.android.navigation.AppNavHost
 
 @AndroidEntryPoint
@@ -58,10 +59,13 @@ class MainActivity : AppCompatActivity() {
             ) {
                 Surface(Modifier.fillMaxSize()) {
                     val session by root.session.collectAsStateWithLifecycle()
+                    // PairingConfirmHost is mounted alongside every screen a `logb://pair` deep
+                    // link is allowed to reach -- never the lock screen or the bootstrap screen --
+                    // see its own doc. It renders nothing until a link actually arrives.
                     when (val s = session) {
                         Session.Loading -> Box(Modifier.fillMaxSize())
-                        Session.NeedsServer -> ServerScreen()
-                        is Session.SignedOut -> SignInScreen()
+                        Session.NeedsServer -> { ServerScreen(); PairingConfirmHost() }
+                        is Session.SignedOut -> { SignInScreen(); PairingConfirmHost() }
                         is Session.SignedIn -> {
                             // Only the very first bootstrap ever shows this; a later re-bootstrap
                             // (an import, a healed placeholder, ...) runs behind the normal UI.
@@ -71,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                                 locked != false -> if (locked == true) LockScreen(onUnlock = root::unlock) else Box(Modifier.fillMaxSize())
                                 bootstrapNeeded == null -> Box(Modifier.fillMaxSize())
                                 bootstrapNeeded == true -> BootstrapScreen()
-                                else -> AppNavHost(shareInbox)
+                                else -> { AppNavHost(shareInbox); PairingConfirmHost() }
                             }
                         }
                     }

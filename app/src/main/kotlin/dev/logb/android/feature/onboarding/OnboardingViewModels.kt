@@ -3,8 +3,13 @@ package dev.logb.android.feature.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.logb.android.core.auth.DeviceName
+import dev.logb.android.core.auth.PairError
+import dev.logb.android.core.auth.PairingLinks
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
+import dev.logb.android.core.auth.classifyPairingError
+import dev.logb.android.core.server.ServerCapabilities
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,10 +17,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class ServerUiState(val url: String = "", val checking: Boolean = false, val error: String? = null)
+data class ServerUiState(
+    val url: String = "",
+    val checking: Boolean = false,
+    val error: String? = null,
+    /** Redeeming a scanned code; see [ServerViewModel.onScanned]. Independent of [checking]: the two never run at once, but nothing enforces that beyond the UI disabling both controls while either is true. */
+    val pairing: Boolean = false,
+    val pairError: PairError? = null,
+)
 
 @HiltViewModel
-class ServerViewModel @Inject constructor(private val sessions: SessionRepository) : ViewModel() {
+class ServerViewModel @Inject constructor(
+    private val sessions: SessionRepository,
+    private val capabilities: ServerCapabilities,
+) : ViewModel() {
     private val _state = MutableStateFlow(
         ServerUiState(url = (sessions.session.value as? Session.SignedOut)?.serverUrl ?: ""),
     )
@@ -30,6 +45,30 @@ class ServerViewModel @Inject constructor(private val sessions: SessionRepositor
         viewModelScope.launch {
             val result = sessions.checkServer(url)
             _state.update { it.copy(checking = false, error = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
+        }
+    }
+
+    /**
+     * A code just scanned with the in-app "Scan QR code" button -- the person tapped it
+     * themselves, on this, the signed-out server screen, so unlike a `logb://pair` deep link
+     * ([dev.logb.android.feature.pairing.PairingConfirmViewModel]) it needs no extra confirmation.
+     */
+    fun onScanned(raw: String) {
+        if (_state.value.pairing) return
+        val link = PairingLinks.parse(raw)
+        if (link == null) {
+            _state.update { it.copy(pairError = PairError.NotACode) }
+            return
+        }
+        _state.update { it.copy(pairing = true, pairError = null) }
+        viewModelScope.launch {
+            val result = sessions.signInWithPairing(link, DeviceName.current())
+            if (result.isSuccess) {
+                capabilities.load()
+                _state.update { it.copy(pairing = false) }
+            } else {
+                _state.update { it.copy(pairing = false, pairError = classifyPairingError(result.exceptionOrNull())) }
+            }
         }
     }
 }
