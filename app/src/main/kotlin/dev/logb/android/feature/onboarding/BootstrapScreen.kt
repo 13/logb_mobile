@@ -45,7 +45,11 @@ class BootstrapViewModel @Inject constructor(private val syncManager: SyncManage
 
     fun start() = viewModelScope.launch { syncManager.syncNow() }
 
-    fun signOut() = viewModelScope.launch { sessions.signOut() }
+    /** Signs out the account whose bootstrap is on screen, and only that one (see [SessionRepository.signOut]). */
+    fun signOut() {
+        val expected = sessions.session.value as? dev.logb.android.core.auth.Session.SignedIn ?: return
+        viewModelScope.launch { sessions.signOut(expected) }
+    }
 }
 
 /** The first sync after signing in: the mirror is empty until the snapshot lands. */

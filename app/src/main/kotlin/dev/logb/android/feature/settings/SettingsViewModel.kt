@@ -167,11 +167,15 @@ class SettingsViewModel @Inject constructor(
         onResult(sessions.changePassword(newPassword).exceptionOrNull()?.message)
     }
 
-    fun signOutEverywhere() = viewModelScope.launch { sessions.signOutEverywhere() }
+    /** [expected]: the session the screen showed when the person asked; a different account signed in since is left alone. */
+    fun signOutEverywhere(expected: Session) = viewModelScope.launch { sessions.signOutEverywhere(expected) }
 
-    fun signOut(removeLocalData: Boolean) = viewModelScope.launch {
-        val s = sessions.session.value as? Session.SignedIn
-        sessions.signOut()
-        if (removeLocalData && s != null) accounts.deleteLocalData(s.serverUrl, s.user.id)
+    /**
+     * Signs [expected] -- the session the screen showed when the person asked -- out, and only
+     * that one: a switch that landed in between is left signed in, and its mirror untouched.
+     */
+    fun signOut(expected: Session, removeLocalData: Boolean) = viewModelScope.launch {
+        val s = expected as? Session.SignedIn ?: return@launch
+        sessions.signOut(expected = s, afterSignOut = if (removeLocalData) ({ accounts.deleteLocalData(s.serverUrl, s.user.id) }) else null)
     }
 }

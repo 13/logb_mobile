@@ -6,6 +6,7 @@ import dev.logb.android.core.server.ServerCapabilities
 import dev.logb.android.core.widget.NoopWidgetRefresher
 import dev.logb.android.core.widget.WidgetRefresher
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -839,6 +840,69 @@ class SessionRepositoryTest {
 
         assertIs<Session.NeedsServer>(repo.session.value)
         assertEquals(1, notifications.cleared)
+    }
+
+    @Test
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun `a sign-out queued behind a switch leaves the new account signed in`() = runTest(kotlinx.coroutines.test.UnconfinedTestDispatcher()) {
+        val started = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        val benBase = "https://ben.example/"
+        val pairBase = "https://pair.example/"
+        val revoked = mutableListOf<Long>()
+        val benApi = object : NoopLogbApi() {
+            override suspend fun revokeToken(id: Long): retrofit2.Response<Unit> { revoked += id; return retrofit2.Response.success(Unit) }
+        }
+        val pairApi = object : NoopLogbApi() {
+            override suspend fun health(): retrofit2.Response<Unit> = retrofit2.Response.success(Unit)
+            override suspend fun redeemPairing(body: dev.logb.android.core.network.dto.PairRedeem): dev.logb.android.core.network.dto.PairRedeemed {
+                started.complete(Unit)
+                gate.await() // the switch holds the mutex here
+                return dev.logb.android.core.network.dto.PairRedeemed(token = "logb_pat_paired", tokenId = 22, user = dev.logb.android.core.network.dto.User(2, "ann"))
+            }
+            override suspend fun me() = dev.logb.android.core.network.dto.User(2, "ann")
+            override suspend fun settings() = dev.logb.android.core.network.dto.Settings(currency = "CHF")
+            override suspend fun healthInfo() = dev.logb.android.core.network.dto.HealthInfo(version = "0.11.0", features = listOf("pairing"))
+            override suspend fun revokeToken(id: Long): retrofit2.Response<Unit> { revoked += id; return retrofit2.Response.success(Unit) }
+        }
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, _, _ -> if (base == benBase) benApi else pairApi })
+        serverStore.write(ServerRecord(benBase, 1, "ben", 9, "CHF"))
+        tokenStore.write("logb_pat_existing")
+        repo.restore()
+        val ben = assertIs<Session.SignedIn>(repo.session.value)
+
+        val switch = launch { repo.signInWithPairing(PairingLink(pairBase, "abc123"), "Pixel 8") }
+        started.await()
+        var afterSignOutRan = false
+        val signOut = async { repo.signOut(expected = ben) { afterSignOutRan = true } }
+        val everywhere = async { repo.signOutEverywhere(expected = ben) }
+        gate.complete(Unit)
+        switch.join()
+
+        assertEquals(false, signOut.await(), "ben was already switched away from: nothing to sign out")
+        assertEquals(false, everywhere.await())
+        assertEquals(false, afterSignOutRan, "ben's mirror is not deleted by a sign-out that did not happen")
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("ann", s.user.username)
+        assertEquals("logb_pat_paired", tokenStore.read())
+        assertEquals(22L, serverStore.read()?.tokenId)
+        assertEquals(listOf(9L), revoked, "only ben's token was revoked, by the switch itself")
+    }
+
+    @Test
+    fun `a sign-out for the account still signed in signs it out, even with a refreshed token, and runs its follow-up`() = runTest {
+        serverStore.write(ServerRecord(server.url("/").toString(), 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+        val shown = assertIs<Session.SignedIn>(repo.session.value).copy(token = "logb_pat_before_a_password_change")
+        server.enqueue(json("{}", code = 204))
+        var afterSignOutRan = false
+
+        assertTrue(repo.signOut(expected = shown) { afterSignOutRan = true })
+
+        assertIs<Session.SignedOut>(repo.session.value)
+        assertNull(tokenStore.read())
+        assertTrue(afterSignOutRan)
     }
 
     /** A server store whose writes of [failFor]'s record throw, like a full disk. */

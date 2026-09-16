@@ -274,10 +274,29 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * Revokes the token (best effort) and forgets it. The mirror is the caller's business. A
-     * running sync is stopped and joined first, and none starts again until the sign-out is done.
+     * Revokes the token (best effort) and forgets it. The mirror is the caller's business --
+     * [afterSignOut] runs right after, still under the lock and with syncs held off, so deleting
+     * the signed-out account's mirror there cannot race a sync or a new sign-in. A running sync is
+     * stopped and joined first, and none starts again until the sign-out is done.
+     *
+     * [expected] is the session the person asked to sign out of (null: whoever is signed in). If
+     * a switch has replaced it by the time this call gets the lock -- a tap queued behind a
+     * pairing, say -- nothing happens and false is returned: the new account stays signed in.
      */
-    suspend fun signOut() = mutex.withLock { withContext(NonCancellable) { accountGate.whileChanging { signOutLocked() } } }
+    suspend fun signOut(expected: Session? = null, afterSignOut: (suspend () -> Unit)? = null): Boolean = mutex.withLock {
+        if (expected != null && !sameAccount(expected, _session.value)) return@withLock false
+        withContext(NonCancellable) {
+            accountGate.whileChanging {
+                signOutLocked()
+                afterSignOut?.invoke()
+            }
+        }
+        true
+    }
+
+    /** Same account: server and user for a signed-in session (a refreshed token is still the same account); plain equality otherwise. */
+    private fun sameAccount(a: Session, b: Session): Boolean =
+        if (a is Session.SignedIn && b is Session.SignedIn) a.serverUrl == b.serverUrl && a.user.id == b.user.id else a == b
 
     private suspend fun signOutLocked() {
         val current = _session.value
@@ -308,11 +327,15 @@ class SessionRepository @Inject constructor(
         Unit
     }.recoverCatching { e -> throw if (e is ApiException) IllegalStateException(e.message, e) else e }
 
-    /** Ends every browser session on the server (best effort), then signs this phone out; the mirror stays. */
-    suspend fun signOutEverywhere() {
+    /**
+     * Ends every browser session on the server (best effort), then signs this phone out; the
+     * mirror stays. Like [signOut], does nothing when [expected] is no longer the signed-in account.
+     */
+    suspend fun signOutEverywhere(expected: Session? = null): Boolean {
         val current = _session.value
+        if (expected != null && !sameAccount(expected, current)) return false
         if (current is Session.SignedIn) runCatching { apiFactory.create(current.serverUrl, { current.token }, null).logoutAll() }
-        signOut()
+        return signOut(expected = current)
     }
 
     /**

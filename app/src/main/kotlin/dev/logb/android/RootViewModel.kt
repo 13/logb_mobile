@@ -98,7 +98,11 @@ class RootViewModel @Inject constructor(private val sessions: SessionRepository,
         viewModelScope.launch { updateAutoCheck.runIfDue() }
     }
 
-    fun signOut() = viewModelScope.launch { sessions.signOut() }
+    /** Signs out the account on screen right now, and only that one (see [SessionRepository.signOut]). */
+    fun signOut() {
+        val expected = sessions.session.value as? Session.SignedIn ?: return
+        viewModelScope.launch { sessions.signOut(expected) }
+    }
 
     companion object {
         fun firstRunPending(state: SyncStateEntity?): Boolean = state == null || state.epoch == null

@@ -187,6 +187,9 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf(false) }
     var removeData by remember { mutableStateOf(false) }
+    // The account the person is looking at when they ask to sign out: a switch landing while a
+    // dialog is open must not turn the tap into a sign-out of the new account.
+    var signOutFor by remember { mutableStateOf<Session?>(null) }
     val s = state.session as? Session.SignedIn
     val serverVersion by viewModel.serverVersion.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
@@ -224,9 +227,9 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = { changePassword = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.change_password)) }
             Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { confirm = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
+            OutlinedButton(onClick = { signOutFor = state.session; confirm = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { confirmEverywhere = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out_everywhere)) }
+            TextButton(onClick = { signOutFor = state.session; confirmEverywhere = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out_everywhere)) }
             Text(stringResource(R.string.sign_out_everywhere_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -236,7 +239,7 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
             onDismissRequest = { confirmEverywhere = false },
             title = { Text(stringResource(R.string.sign_out_everywhere)) },
             text = { Text(stringResource(R.string.sign_out_everywhere_body)) },
-            confirmButton = { Button(onClick = { confirmEverywhere = false; viewModel.signOutEverywhere() }) { Text(stringResource(R.string.sign_out_everywhere)) } },
+            confirmButton = { Button(onClick = { confirmEverywhere = false; signOutFor?.let(viewModel::signOutEverywhere) }) { Text(stringResource(R.string.sign_out_everywhere)) } },
             dismissButton = { TextButton(onClick = { confirmEverywhere = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
@@ -254,7 +257,7 @@ fun AccountScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMod
                     }
                 }
             },
-            confirmButton = { Button(onClick = { confirm = false; viewModel.signOut(removeData) }) { Text(stringResource(R.string.sign_out)) } },
+            confirmButton = { Button(onClick = { confirm = false; signOutFor?.let { viewModel.signOut(it, removeData) } }) { Text(stringResource(R.string.sign_out)) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
