@@ -179,8 +179,8 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * Best-effort cleanup for a redeem that succeeded but whose follow-up (`me()`/`settings()`/
-     * health, a network error, a 5xx) then failed: the token is already live on the server with
+     * Best-effort cleanup for a redeem that succeeded but whose follow-up (`me()`, a network
+     * error, a 5xx) then failed: the token is already live on the server with
      * nothing stored on the phone to show for it. Revokes it with its own bearer, exactly the
      * call [signOutLocked] makes for a token it already knows about -- this is the same
      * `DELETE /api/auth/tokens/{id}` call, just against the token that never made it past
@@ -212,16 +212,17 @@ class SessionRepository @Inject constructor(
      * The network half of what [signIn] and [signInWithPairing] both need once a token is in
      * hand: who it belongs to, and what the server supports. Touches no store and no [session] --
      * a caller can find out whether a token actually works before disturbing anything already
-     * signed in on this phone. `me()` and `settings()` (the account's own identity and currency)
-     * must both succeed, same as a failed token mint would; `healthInfo()` (server version and
-     * announced features) is best-effort, same as it always has been -- an old or momentarily
-     * flaky server simply keeps whatever this phone already knew (or null/empty, for a brand new
-     * one), never fails the sign-in over it.
+     * signed in on this phone. `me()` (the account's own identity) must succeed, same as a failed
+     * token mint would; `settings()` (the account's currency) and `healthInfo()` (server version
+     * and announced features) are both best-effort, same as `healthInfo()` always has been -- a
+     * momentarily flaky or old server simply falls back (`"EUR"` for currency; whatever this
+     * phone already knew, or null/empty for a brand new one, for the server version/features),
+     * never fails the sign-in over either.
      */
     private suspend fun fetchSignInData(base: String, token: String): SignInData {
         val bearerApi = apiFactory.create(base, { token }, null)
         val me = bearerApi.me()
-        val currency = bearerApi.settings().currency
+        val currency = runCatching { bearerApi.settings().currency }.getOrDefault("EUR")
         val fetchedHealth = runCatching { bearerApi.healthInfo() }.getOrNull()?.takeIf { it.version.isNotBlank() }
         val existing = serverStore.read()?.takeIf { it.serverUrl == base }
         val serverVersion = fetchedHealth?.version ?: existing?.serverVersion

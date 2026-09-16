@@ -165,6 +165,22 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `sign in succeeds with the default currency when settings fails`() = runTest {
+        server.enqueue(json(me, headers = arrayOf("Set-Cookie" to "logb_session=abc; Path=/; HttpOnly")))
+        server.enqueue(json("""{"id":9,"name":"LogB Android","prefix":"logb_pat_ab","created_at":"x","last_used_at":null,"token":"logb_pat_abcdef"}""", code = 201))
+        server.enqueue(json("{}"))
+        server.enqueue(json(me))
+        server.enqueue(json("", code = 500)) // settings fails -- best-effort, so this does not fail the sign-in
+        server.enqueue(json("""{"status":"ok","version":"0.11.0"}"""))
+
+        assertTrue(repo.signIn(server.url("/").toString(), "ben", "correct horse").isSuccess)
+
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("EUR", s.currency)
+        assertEquals("EUR", serverStore.read()!!.currency)
+    }
+
+    @Test
     fun `a wrong password surfaces the servers message and stores nothing`() = runTest {
         server.enqueue(json("""{"error":"unauthorized","message":"wrong username or password"}""", code = 401))
         val r = repo.signIn(server.url("/").toString(), "ben", "nope")
@@ -344,7 +360,7 @@ class SessionRepositoryTest {
     }
 
     @Test
-    fun `a failure fetching the new token's settings while replacing an old account leaves that old account signed in and untouched, best-effort revoking only the new token`() = runTest {
+    fun `a failure fetching the new token's settings while replacing an old account still succeeds, storing the new account with the default currency`() = runTest {
         val refresher = FakeWidgetRefresher()
         val notifications = FakeNotificationsClearer()
         val capabilities = ServerCapabilities(serverStore)
@@ -357,36 +373,30 @@ class SessionRepositoryTest {
         repo.restore()
         val before = repo.session.value
         assertIs<Session.SignedIn>(before)
+        oldServer.enqueue(json("{}", code = 204)) // the old account's revoke-by-id
 
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"token":"logb_pat_paired","token_id":22,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
         server.enqueue(json("""{"id":2,"username":"ann","is_admin":false,"lang":"en"}""")) // me succeeds
-        server.enqueue(json("", code = 500)) // settings fails
-        server.enqueue(json("{}", code = 204)) // best-effort self-revoke of the new token
+        server.enqueue(json("", code = 500)) // settings fails -- best-effort now, so this does not fail the switch
+        server.enqueue(json("""{"status":"ok","version":"0.11.0"}""")) // health (version)
 
         val link = PairingLink(server.url("/").toString(), "abc123")
         val result = repo.signInWithPairing(link, "Pixel 8")
 
-        assertTrue(result.isFailure)
-        assertNull(result.exceptionOrNull() as? PairingUnsupported)
-        assertNull(result.exceptionOrNull() as? PairingInvalid)
+        assertTrue(result.isSuccess, result.toString())
 
-        assertEquals(0, oldServer.requestCount)
-        assertEquals(0, refresher.immediate)
-        assertEquals(0, notifications.cleared)
+        // The old account was signed out exactly as a successful switch always does.
+        assertEquals("/api/auth/tokens/9", oldServer.takeRequest().url.encodedPath, "the old account's token was revoked")
+        assertEquals(1, refresher.immediate)
+        assertEquals(1, notifications.cleared)
 
-        server.takeRequest() // health
-        server.takeRequest() // redeem
-        server.takeRequest() // me
-        server.takeRequest() // settings
-        val revoke = server.takeRequest()
-        assertEquals("/api/auth/tokens/22", revoke.url.encodedPath)
-        assertEquals("DELETE", revoke.method)
-        assertEquals("Bearer logb_pat_paired", revoke.headers["Authorization"])
-
-        assertEquals("logb_pat_existing", tokenStore.read())
-        assertEquals(oldRecord, serverStore.read())
-        assertEquals(before, repo.session.value)
+        // B is signed in with the default currency, since settings() failed.
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("ann", s.user.username)
+        assertEquals("EUR", s.currency)
+        assertEquals("logb_pat_paired", tokenStore.read())
+        assertEquals("EUR", serverStore.read()!!.currency)
 
         oldServer.close()
     }
