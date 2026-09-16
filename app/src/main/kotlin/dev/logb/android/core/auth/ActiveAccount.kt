@@ -4,6 +4,8 @@ import dev.logb.android.core.db.DatabaseProvider
 import dev.logb.android.core.db.LogbDatabase
 import dev.logb.android.core.network.ApiClient
 import dev.logb.android.core.network.LogbApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -80,14 +82,23 @@ class ActiveAccount @Inject constructor(
         cachedKey = key
     }
 
-    fun deleteLocalData(serverUrl: String, userId: Long) = synchronized(this) {
-        if (cachedKey == serverUrl to userId) {
-            cachedDb?.close()
-            cachedDb = null
-            cachedApi = null
-            cachedHttp = null
-            cachedKey = null
+    /**
+     * Closes and deletes the account's mirror file. Called from [SessionRepository.signOut]'s
+     * `afterSignOut`, which runs on whatever dispatcher the caller (a ViewModel's `viewModelScope`,
+     * typically Main) used -- disk I/O has no business running there, so this hops to
+     * [Dispatchers.IO] itself rather than relying on the caller to.
+     */
+    suspend fun deleteLocalData(serverUrl: String, userId: Long) = withContext(Dispatchers.IO) {
+        synchronized(this@ActiveAccount) {
+            if (cachedKey == serverUrl to userId) {
+                cachedDb?.close()
+                cachedDb = null
+                cachedApi = null
+                cachedHttp = null
+                cachedKey = null
+            }
+            databases.delete(serverUrl, userId)
         }
-        databases.delete(serverUrl, userId)
+        Unit
     }
 }
