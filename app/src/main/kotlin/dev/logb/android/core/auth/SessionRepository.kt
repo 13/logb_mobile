@@ -179,7 +179,13 @@ class SessionRepository @Inject constructor(
         withContext(NonCancellable) {
             accountGate.whileChanging {
                 if (_session.value is Session.SignedIn) signOutLocked()
-                commitSignIn(base, redeemed.token, redeemed.tokenId, data)
+                try {
+                    commitSignIn(base, redeemed.token, redeemed.tokenId, data)
+                } catch (e: Exception) {
+                    // Not stored after all (a failing store): the redeemed token is orphaned too.
+                    revokeRedeemedToken(base, redeemed.token, redeemed.tokenId)
+                    throw e
+                }
             }
         }
     }.recoverCatching { e ->
@@ -247,11 +253,22 @@ class SessionRepository @Inject constructor(
      * coroutine scope going away mid-sign-in, e.g. a screen rotation racing the network call) must
      * never leave a token on the phone with no server record to use it with, or a server record
      * with no token stored for it.
+     *
+     * A failing write is handled the same way: if the token write fails, nothing new was stored;
+     * if the record write fails after it, the new token is cleared again -- it must never sit
+     * beside the previous account's record, where [restore] would pair the two -- and [session]
+     * is re-read from what the stores now hold (signed out) before the error propagates.
      */
     private suspend fun commitSignIn(base: String, token: String, tokenId: Long, data: SignInData) {
         withContext(NonCancellable) {
             tokenStore.write(token)
-            serverStore.write(ServerRecord(base, data.me.id, data.me.username, tokenId, data.currency, data.serverVersion, data.features))
+            try {
+                serverStore.write(ServerRecord(base, data.me.id, data.me.username, tokenId, data.currency, data.serverVersion, data.features))
+            } catch (e: Exception) {
+                runCatching { tokenStore.clear() }
+                runCatching { restore() }
+                throw e
+            }
         }
         _session.value = Session.SignedIn(base, data.me, token, data.currency)
     }

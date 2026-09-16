@@ -841,6 +841,61 @@ class SessionRepositoryTest {
         assertEquals(1, notifications.cleared)
     }
 
+    /** A server store whose writes of [failFor]'s record throw, like a full disk. */
+    private class FailingServerStore(private val inner: FakeServerStore, private val failFor: Long) : ServerStore by inner {
+        override suspend fun write(record: ServerRecord) {
+            if (record.userId == failFor) throw java.io.IOException("disk full")
+            inner.write(record)
+        }
+    }
+
+    @Test
+    fun `a failing record write during a switch never leaves the new token beside the old record`() = runTest {
+        val failing = FailingServerStore(serverStore, failFor = 2)
+        val repo = SessionRepository(failing, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) })
+        val oldServer = MockWebServer()
+        oldServer.start()
+        val oldRecord = ServerRecord(oldServer.url("/").toString(), 1, "ben", 9, "CHF")
+        serverStore.write(oldRecord)
+        tokenStore.write("logb_pat_existing")
+        repo.restore()
+        oldServer.enqueue(json("{}", code = 204)) // the old account's revoke-by-id
+
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":22,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
+        server.enqueue(json("""{"id":2,"username":"ann","is_admin":false,"lang":"en"}""")) // me
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")) // settings
+        server.enqueue(json("""{"status":"ok","version":"0.11.0"}""")) // health (version)
+        server.enqueue(json("{}", code = 204)) // best-effort revoke of the token that could not be stored
+
+        val result = repo.signInWithPairing(PairingLink(server.url("/").toString(), "abc123"), "Pixel 8")
+
+        assertIs<java.io.IOException>(result.exceptionOrNull())
+        assertNull(tokenStore.read(), "the new token was cleared again")
+        assertEquals(oldRecord.copy(tokenId = null), serverStore.read(), "the record is still the old account's, signed out")
+        assertIs<Session.SignedOut>(repo.session.value)
+        repo.restore()
+        assertIs<Session.SignedOut>(repo.session.value, "after a restart too: never ann's token with ben's record")
+        repeat(5) { server.takeRequest() }
+        val revoke = server.takeRequest()
+        assertEquals("/api/auth/tokens/22", revoke.url.encodedPath)
+        assertEquals("Bearer logb_pat_paired", revoke.headers["Authorization"])
+        oldServer.close()
+    }
+
+    @Test
+    fun `a failing record write during a password sign-in stores no token`() = runTest {
+        val repo = SessionRepository(FailingServerStore(serverStore, failFor = 1), tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) })
+        enqueueSignIn()
+
+        val result = repo.signIn(server.url("/").toString(), "ben", "correct horse")
+
+        assertTrue(result.isFailure)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+        assertIs<Session.NeedsServer>(repo.session.value)
+    }
+
     @Test
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     fun `forgetServer waits for a sign-in in progress instead of landing between its writes`() = runTest(kotlinx.coroutines.test.UnconfinedTestDispatcher()) {
