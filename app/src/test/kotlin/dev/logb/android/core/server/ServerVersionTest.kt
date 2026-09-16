@@ -25,7 +25,8 @@ class ServerVersionTest {
     @Test fun `capabilities follow the thresholds`() {
         assertEquals(Capabilities.NONE, Capabilities.of("0.7.1"))
         assertEquals(Capabilities(tags = true, ownTypes = true, pairing = false), Capabilities.of("0.8.0"))
-        assertEquals(Capabilities(tags = true, ownTypes = true, pairing = true), Capabilities.of("0.9.0"))
+        assertEquals(Capabilities(tags = true, ownTypes = true, pairing = false), Capabilities.of("0.10.0"))
+        assertEquals(Capabilities(tags = true, ownTypes = true, pairing = true), Capabilities.of("0.11.0"))
         assertFalse(Capabilities.of(null).tags)
     }
 }

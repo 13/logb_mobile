@@ -56,7 +56,7 @@ class ServerCapabilitiesTest {
     @Test fun `pairing alone is not a reason to bootstrap`() = runBlocking {
         val caps = ServerCapabilities(FakeServerStore(record.copy(serverVersion = "0.8.0")))
         caps.load()
-        assertFalse(caps.refresh { "0.9.0" })
+        assertFalse(caps.refresh { "0.11.0" })
         assertTrue(caps.current.value.pairing)
     }
 
@@ -124,11 +124,11 @@ class ServerCapabilitiesTest {
         caps.clear() // account A signs out
 
         // Account B signs into the same server S; its own record, with its own version, lands in the store.
-        val accountB = record.copy(userId = 2, username = "ann", serverVersion = "0.9.0")
+        val accountB = record.copy(userId = 2, username = "ann", serverVersion = "0.11.0")
         store.write(accountB)
         caps.load()
 
-        assertEquals("0.9.0", caps.version.value, "load after sign-out must read account B's own record, not trust account A's stale refresh guard")
+        assertEquals("0.11.0", caps.version.value, "load after sign-out must read account B's own record, not trust account A's stale refresh guard")
         assertTrue(caps.current.value.pairing)
     }
 

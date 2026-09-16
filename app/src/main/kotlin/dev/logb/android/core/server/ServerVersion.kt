@@ -31,7 +31,7 @@ data class Capabilities(val tags: Boolean, val ownTypes: Boolean, val pairing: B
     companion object {
         val NONE = Capabilities(tags = false, ownTypes = false, pairing = false)
         private val TAGS = ServerVersion.parse("0.8.0")
-        private val PAIRING = ServerVersion.parse("0.9.0")
+        private val PAIRING = ServerVersion.parse("0.11.0")
 
         fun of(version: String?): Capabilities {
             val v = ServerVersion.parse(version)
