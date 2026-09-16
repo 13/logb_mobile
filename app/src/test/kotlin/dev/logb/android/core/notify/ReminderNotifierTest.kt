@@ -5,6 +5,7 @@ import android.app.Application
 import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import dev.logb.android.feature.share.LaunchTarget
+import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -171,7 +172,7 @@ class ReminderNotifierTest {
         }
     }
 
-    @Test fun `clearAll takes every reminder notification down`() {
+    @Test fun `clearAll takes every reminder notification down`() = runTest {
         notifier.post(DigestNotifications(DigestText("2", null), listOf(child("golf"), child("house"))))
         (notifier as dev.logb.android.core.alerts.ReminderNotificationsClearer).clearAll()
         assertEquals(0, manager.activeNotifications.size)

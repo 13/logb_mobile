@@ -16,6 +16,8 @@ import dev.logb.android.MainActivity
 import dev.logb.android.R
 import dev.logb.android.core.alerts.ReminderNotificationsClearer
 import dev.logb.android.feature.share.LaunchTarget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -65,7 +67,10 @@ class ReminderNotifier @Inject constructor(@ApplicationContext private val conte
         if (activeChildIds().isEmpty()) manager.cancel(DigestPlan.SUMMARY_ID)
     }
 
-    override fun clearAll() = cancelAll()
+    // cancelAll() is Binder IPC to NotificationManager; callers of clearAll() include
+    // viewModelScope (Main), so the work happens off the caller's dispatcher here rather than
+    // asking every caller to remember to hop off it themselves.
+    override suspend fun clearAll() = withContext(Dispatchers.Default) { cancelAll() }
 
     fun cancelAll() {
         activeChildIds().forEach { manager.cancel(it) }

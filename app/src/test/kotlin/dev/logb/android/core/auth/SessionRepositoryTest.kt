@@ -25,7 +25,7 @@ class SessionRepositoryTest {
 
     private class FakeNotificationsClearer : ReminderNotificationsClearer {
         var cleared = 0
-        override fun clearAll() { cleared++ }
+        override suspend fun clearAll() { cleared++ }
     }
 
     private val server = MockWebServer()
