@@ -1,10 +1,15 @@
 package dev.logb.android.core.auth
 
 import org.junit.Test
+import java.net.URLEncoder
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class PairingLinkTest {
+    /** `logb://pair?server=http://<host>&code=c`, with the server URL percent-encoded as a real QR payload would carry it. */
+    private fun httpPairUri(host: String): String =
+        "logb://pair?server=" + URLEncoder.encode("http://$host", "UTF-8") + "&code=c"
+
     @Test fun `parses a pairing uri`() =
         assertEquals(
             PairingLink("https://logb.example/", "abc_-9"),
@@ -54,4 +59,16 @@ class PairingLinkTest {
 
     @Test fun `a decoy host that merely contains a private address is refused`() =
         assertNull(PairingLinks.parse("logb://pair?server=http%3A%2F%2F192.168.1.5.evil.com&code=c"))
+
+    @Test fun `non-canonical ipv4 octets are rejected, not leniently reparsed as octal or truncated`() {
+        listOf("010.8.8.8", "0x0a.0.0.1", "10.1", "172.32.0.1", "192.169.0.1").forEach { host ->
+            assertNull(PairingLinks.parse(httpPairUri(host)), host)
+        }
+    }
+
+    @Test fun `canonical decimal private ipv4 octets are accepted`() {
+        listOf("172.16.0.1", "172.31.255.255", "10.0.0.1", "192.168.0.1").forEach { host ->
+            assertEquals("http://$host/", PairingLinks.parse(httpPairUri(host))!!.serverUrl, host)
+        }
+    }
 }

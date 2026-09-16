@@ -76,11 +76,18 @@ object PairingLinks {
         return isPrivateIpv4(h)
     }
 
+    // A canonical decimal octet: "0", or a nonzero digit followed by up to two more digits --
+    // never a leading zero. `toIntOrNull("010")` reads as 10, but some resolvers treat a leading
+    // zero as an octal prefix (`010` == 8), so a leniently-parsed octet could name a different,
+    // possibly public, address than the one this check believes it approved.
+    private val CANONICAL_OCTET = Regex("0|[1-9]\\d{0,2}")
+
     private fun isPrivateIpv4(host: String): Boolean {
         val octets = host.split('.')
         if (octets.size != 4) return false
-        val nums = octets.map { it.toIntOrNull() ?: return false }
-        if (nums.any { it !in 0..255 }) return false
+        if (octets.any { !CANONICAL_OCTET.matches(it) }) return false
+        val nums = octets.map { it.toInt() }
+        if (nums.any { it > 255 }) return false
         val a = nums[0]
         val b = nums[1]
         return a == 10 || a == 127 || (a == 172 && b in 16..31) || (a == 192 && b == 168)
