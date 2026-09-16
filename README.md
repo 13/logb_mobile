@@ -134,6 +134,11 @@ own LogB server. Debug builds never check. The certificate check is exact, so ro
 signing key would make every future release fail it until one install is done by hand with
 the new key (or the updater itself is changed to accept it); `REQUEST_INSTALL_PACKAGES` is
 restricted on the Play Store, which is why this feature lives entirely in `feature/update`.
+Update traffic to `api.github.com`, `github.com`, `objects.githubusercontent.com` and
+`release-assets.githubusercontent.com` trusts only the system certificate store, so a
+privately installed CA cannot rewrite what an update is; a self-hosted LogB server may still
+use one, as every other host keeps system + user CAs. The updater installs only the asset
+named `LogB-<version>.apk` for the release's own version, never just the first `.apk` it finds.
 
 ## Performance and release checks
 

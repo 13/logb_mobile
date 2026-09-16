@@ -108,3 +108,11 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Settings › Account: turn on *Lock with biometrics or screen lock* — the placed widget immediately drops to a bare count, with no object or reminder names visible.
 - [ ] The widget refreshes on its own right after a sync, a local write, the daily digest, midnight, toggling the lock, and signing out (no manual refresh needed); signing out shows "Open LogB to sign in" instead of stale rows.
 - [ ] With `animator_duration_scale`/`transition_animation_scale`/`window_animation_scale` at 10x: leaving an entry form slides the two screens past each other with no double exposure of the old screen, and tapping a bottom-bar tab from a screen pushed deep in a stack switches instantly, without a slide.
+
+## Release 0.13.0 (updater hardening and clean-up)
+
+- [ ] With a user CA installed on the device, an update still installs from GitHub (the four GitHub hosts now trust only the system certificate store).
+- [ ] A release whose named APK (`LogB-<version>.apk`) is missing shows "no APK" on the Updates row, with the release page link still offered.
+- [ ] Leave the app during an install and return to it: the Updates row offers *Open the install confirmation*.
+- [ ] Settings › About: the links line up with the section text, and the build date is hidden when unknown.
+- [ ] Tag filters still work from both the Objects list and a timeline.
