@@ -362,10 +362,6 @@
         <item quantity="one">%d more</item>
         <item quantity="other">%d more</item>
     </plurals>
-    <plurals name="notify_public_count">
-        <item quantity="one">%d reminder due</item>
-        <item quantity="other">%d reminders due</item>
-    </plurals>
     <string name="notify_action_done">Done</string>
     <string name="notify_action_snooze">Snooze 7 days</string>
     <string name="notify_action_log_reading">Log reading</string>

@@ -362,10 +362,6 @@
         <item quantity="one">%d weitere</item>
         <item quantity="other">%d weitere</item>
     </plurals>
-    <plurals name="notify_public_count">
-        <item quantity="one">%d Erinnerung fällig</item>
-        <item quantity="other">%d Erinnerungen fällig</item>
-    </plurals>
     <string name="notify_action_done">Erledigt</string>
     <string name="notify_action_snooze">7 Tage verschieben</string>
     <string name="notify_action_log_reading">Stand erfassen</string>

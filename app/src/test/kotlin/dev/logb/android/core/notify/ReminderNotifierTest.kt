@@ -12,7 +12,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -132,11 +131,7 @@ class ReminderNotifierTest {
         assertEquals(LaunchTarget.Reminders.name, tap.getStringExtra(LaunchTarget.EXTRA))
     }
 
-    private fun extrasText(n: android.app.Notification): String =
-        listOf(android.app.Notification.EXTRA_TITLE, android.app.Notification.EXTRA_TEXT, android.app.Notification.EXTRA_BIG_TEXT)
-            .joinToString(" ") { n.extras.getCharSequence(it)?.toString().orEmpty() }
-
-    @Test fun `with the app lock on, every notification is private with a public version that names nothing`() {
+    @Test fun `with the app lock on, every notification is secret, hidden on a locked screen regardless of the device's own setting`() {
         val golf = child("golf")
         val house = child("house")
         val reading = child("reading", actions = listOf(NotificationAction.LogReading))
@@ -146,12 +141,8 @@ class ReminderNotifierTest {
         assertEquals(4, active.size)
         for (sbn in active) {
             val n = sbn.notification
-            assertEquals(android.app.Notification.VISIBILITY_PRIVATE, n.visibility)
-            val public = assertNotNull(n.publicVersion, "id ${sbn.id} has no public version")
-            assertEquals("LogB", public.extras.getCharSequence(android.app.Notification.EXTRA_TITLE).toString())
-            assertEquals("3 reminders due", public.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString())
-            assertFalse(extrasText(public).contains("Golf"), "public version of ${sbn.id} leaks a name: ${extrasText(public)}")
-            assertFalse(extrasText(public).contains("Oil change"))
+            assertEquals(android.app.Notification.VISIBILITY_SECRET, n.visibility)
+            assertNull(n.publicVersion, "id ${sbn.id} carries a public version, but SECRET never shows one")
         }
     }
 
