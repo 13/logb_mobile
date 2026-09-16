@@ -38,4 +38,15 @@ class CustomTypesTest {
 
     @Test fun `icons are the server list in order`() =
         assertEquals(listOf("document", "camera", "car", "e-bike", "bike", "motorcycle", "home", "appliance", "tool", "body", "object"), CustomTypes.ICONS)
+
+    @Test fun `categories round-trip through JSON`() {
+        val categories = listOf("repair", "fuel", "other")
+        assertEquals(categories, CustomTypes.categoriesFromJson(CustomTypes.categoriesToJson(categories)))
+        assertEquals("""["repair","fuel","other"]""", CustomTypes.categoriesToJson(categories))
+    }
+
+    @Test fun `malformed category JSON reads back as empty rather than throwing`() {
+        assertEquals(emptyList(), CustomTypes.categoriesFromJson("not json"))
+        assertEquals(emptyList(), CustomTypes.categoriesFromJson(""))
+    }
 }
