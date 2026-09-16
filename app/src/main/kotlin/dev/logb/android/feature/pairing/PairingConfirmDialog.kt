@@ -51,7 +51,7 @@ private fun PairingConfirmDialog(prompt: PairingPrompt, busy: Boolean, onConfirm
     AlertDialog(
         onDismissRequest = { if (!busy) onCancel() },
         title = { Text(if (prompt is PairingPrompt.SignIn) stringResource(R.string.pair_confirm_signin_title, prompt.host) else stringResource(R.string.pair_replace_title)) },
-        text = (prompt as? PairingPrompt.Replace)?.let { { Text(stringResource(R.string.pair_replace_body, it.fromHost, it.toHost)) } },
+        text = (prompt as? PairingPrompt.Replace)?.let { { Text(stringResource(R.string.pair_replace_body, it.fromUsername, it.fromHost, it.toHost)) } },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !busy) {
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.sign_in))

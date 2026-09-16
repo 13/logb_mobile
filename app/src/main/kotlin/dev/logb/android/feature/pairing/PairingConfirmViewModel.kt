@@ -28,8 +28,8 @@ sealed interface PairingPrompt {
     /** Signed out: nothing to lose, but still not silent -- any app can fire this intent. */
     data class SignIn(val host: String) : PairingPrompt
 
-    /** Already signed in: confirming signs out of [fromHost] first, then pairs with [toHost]. */
-    data class Replace(val fromHost: String, val toHost: String) : PairingPrompt
+    /** Already signed in: confirming signs [fromUsername] out of [fromHost] first, then pairs with whatever account the code names on [toHost]. */
+    data class Replace(val fromUsername: String, val fromHost: String, val toHost: String) : PairingPrompt
 }
 
 data class PairingConfirmUiState(val prompt: PairingPrompt? = null, val busy: Boolean = false, val error: PairError? = null)
@@ -146,7 +146,7 @@ class PairingConfirmViewModel @Inject constructor(
 
     private fun promptFor(link: PairingLink, session: Session): PairingPrompt {
         val toHost = hostOf(link.serverUrl)
-        return if (session is Session.SignedIn) PairingPrompt.Replace(hostOf(session.serverUrl), toHost) else PairingPrompt.SignIn(toHost)
+        return if (session is Session.SignedIn) PairingPrompt.Replace(session.user.username, hostOf(session.serverUrl), toHost) else PairingPrompt.SignIn(toHost)
     }
 
     /** The link is dropped; nothing on the server or this phone changes. */

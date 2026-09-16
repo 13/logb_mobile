@@ -150,7 +150,7 @@ class PairingConfirmViewModelTest {
     }
 
     @Test
-    fun `a deep link arriving already signed in produces a replace prompt naming both hosts`() = runTest(dispatcher) {
+    fun `a deep link arriving already signed in produces a replace prompt naming the current account and both hosts`() = runTest(dispatcher) {
         val oldBase = "https://old.example.org/"
         serverStore.write(ServerRecord(oldBase, 1, "ben", 9))
         tokenStore.write("logb_pat_existing")
@@ -160,6 +160,7 @@ class PairingConfirmViewModelTest {
         drain()
 
         val prompt = assertIs<PairingPrompt.Replace>(viewModel.state.value.prompt)
+        assertEquals("ben", prompt.fromUsername)
         assertEquals("old.example.org", prompt.fromHost)
         assertEquals(server.url("/").host + ":" + server.url("/").port, prompt.toHost)
     }
@@ -336,6 +337,7 @@ class PairingConfirmViewModelTest {
         // *that*, current, reality (a replace), not whatever the session was when the second link
         // first arrived.
         val prompt = assertIs<PairingPrompt.Replace>(viewModel.state.value.prompt, "a fresh prompt for the second link is shown once the first settles")
+        assertEquals("ben", prompt.fromUsername, "the account the first redeem just signed in")
         assertEquals(server.url("/").host + ":" + server.url("/").port, prompt.fromHost)
         assertEquals(second.url("/").host + ":" + second.url("/").port, prompt.toHost)
 
@@ -375,6 +377,7 @@ class PairingConfirmViewModelTest {
         assertEquals(0, oldServer.requestCount, "nor signed out, against the stale prompt")
         assertIs<Session.SignedIn>(sessions.session.value, "signOut() must not have run either")
         val prompt = assertIs<PairingPrompt.Replace>(viewModel.state.value.prompt, "the corrected (replace) dialog is shown instead")
+        assertEquals("ben", prompt.fromUsername)
         assertEquals(oldServer.url("/").host + ":" + oldServer.url("/").port, prompt.fromHost)
 
         // Tapping confirm again, now that the dialog matches reality, proceeds normally.
