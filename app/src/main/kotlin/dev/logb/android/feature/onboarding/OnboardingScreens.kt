@@ -127,7 +127,7 @@ fun ServerContent(
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onSubmit, enabled = !state.checking && state.url.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = onSubmit, enabled = !state.checking && !state.pairing && state.url.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
             if (state.checking) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.server_continue))
         }
     }

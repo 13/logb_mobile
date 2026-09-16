@@ -40,7 +40,11 @@ class ServerViewModel @Inject constructor(
 
     fun submit() {
         val url = _state.value.url.trim()
-        if (url.isBlank() || _state.value.checking) return
+        // While a scan is redeeming, checkServer() must not run: its own success path writes a
+        // plain ServerRecord (no user, no token) for whatever address is still sitting in the
+        // text field, and finishing after the scan's redeem would overwrite the account record
+        // signInWithPairing() just stored with that stale, unauthenticated one.
+        if (url.isBlank() || _state.value.checking || _state.value.pairing) return
         _state.update { it.copy(checking = true, error = null) }
         viewModelScope.launch {
             val result = sessions.checkServer(url)

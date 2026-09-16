@@ -184,6 +184,23 @@ class ServerViewModelTest {
     }
 
     @Test
+    fun `submit is ignored while a scan is redeeming, so it cannot overwrite the fresh record`() = runTest(dispatcher) {
+        server.enqueue(json("{}")) // health (scan)
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}""")) // redeem
+        server.enqueue(json("""{"id":1,"username":"ben","is_admin":false,"lang":"en"}""")) // me
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")) // settings
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}""")) // health (version)
+
+        viewModel.onUrlChange(server.url("/").toString())
+        viewModel.onScanned(link())
+        viewModel.submit() // must be a no-op: state.pairing is already true
+        awaitUntil { !viewModel.state.value.pairing }
+
+        assertEquals(false, viewModel.state.value.checking, "submit() must never have started checkServer() while a scan was redeeming")
+        assertEquals(5, server.requestCount, "only the scan's own five requests -- none from submit()'s checkServer health call")
+    }
+
+    @Test
     fun `a second scan while one is already redeeming is ignored`() = runTest(dispatcher) {
         server.enqueue(json("{}")) // health -- a second dispatch here would prove the guard failed
         server.enqueue(json("""{"error":"unauthorized","message":"invalid or expired code"}""", 401))
