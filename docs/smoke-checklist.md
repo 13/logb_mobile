@@ -121,8 +121,9 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 ## Release 0.14.0 (QR sign-in)
 
 - [ ] Scanning a QR code from the web's Account page signs the phone in, with no address or password typed.
-- [ ] Opening a `logb://pair` link from outside the app (a share, a chat message, Recents) always asks first, naming the host, whether signed in or out.
-- [ ] Already signed in: a pairing link asks *Switch account?*, naming both servers; confirming signs out of the first and into the second.
+- [ ] Opening a `logb://pair` link from outside the app (a share, a chat message) always asks first, naming the host, whether signed in or out.
+- [ ] Reopening a pairing link from Recents (the app switcher) shows no dialog — it was already answered or dropped when it first arrived.
+- [ ] Already signed in: a pairing link asks *Switch account?*, naming the current account and both servers; confirming signs out of the first and into the second.
 - [ ] A used or expired code shows an error dialog with an *OK* button, not *Cancel*.
 - [ ] With the app lock on: a pairing link arriving while locked shows no dialog over the lock screen; unlocking shows the confirmation exactly once.
 - [ ] Against a server without the pairing feature: redeeming answers "This server does not support QR sign-in."
