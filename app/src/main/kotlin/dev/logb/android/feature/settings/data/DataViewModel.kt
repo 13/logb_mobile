@@ -195,7 +195,7 @@ class DataViewModel @Inject constructor(
 
     private suspend fun handleFailure(e: Exception) {
         if (e is UnauthorizedException) {
-            sessions.onUnauthorized()
+            sessions.onUnauthorized(e.token)
             _state.update { it.copy(busy = null) }
             return
         }

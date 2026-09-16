@@ -6,6 +6,8 @@ import dev.logb.android.core.db.entity.FileEntity
 import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.sync.Clock
 import dev.logb.android.core.sync.ConnectivityMonitor
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -32,6 +34,9 @@ class BlobDownloader(
         var usage = store.usageBytes()
         val originalsAllowed = !prefs.originalsUnmeteredOnly || connectivity.isUnmetered
         for (f in files) {
+            // The fetches below swallow their own failures, a cancellation included: check here
+            // so a stopped sync (an account switch, say) does not walk every remaining file.
+            currentCoroutineContext().ensureActive()
             if (f.sha256.isBlank() || f.serverId == null) continue
             if (f.mime.startsWith("image/") && !store.hasThumb(f.sha256)) runCatching { fetchThumb(f) }
             if (originalsAllowed && !store.hasOriginal(f.sha256) && usage + f.size <= prefs.budgetBytes) {

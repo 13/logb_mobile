@@ -59,11 +59,14 @@ class SessionRepository @Inject constructor(
     // back on core.auth, so there is no cycle to break; those interfaces exist to keep core.auth from
     // depending on feature-layer, platform-backed implementations, which does not apply here.
     private val capabilities: ServerCapabilities = ServerCapabilities(serverStore),
+    // Shared with SyncManager: a change of account first stops and joins any running sync, and
+    // holds new ones off until the new session is committed. See AccountGate.
+    private val accountGate: AccountGate = AccountGate(),
 ) {
     private val _session = MutableStateFlow<Session>(Session.Loading)
     val session: StateFlow<Session> = _session.asStateFlow()
 
-    // Serialises signIn/signInWithPairing/signOut so two flows -- a password sign-in racing a
+    // Serialises signIn/signInWithPairing/signOut/onUnauthorized so two flows -- a password sign-in racing a
     // scanned code's redeem, say -- can never interleave their token and record writes. Only
     // these three public entry points ever acquire it; each delegates to a private "*Locked"
     // twin that does the actual work, and signInWithPairing()'s own call to sign the old account
@@ -108,7 +111,10 @@ class SessionRepository @Inject constructor(
         val minted = cookieApi.createToken(NewToken("LogB Android · ${Build.MODEL}"))
         runCatching { cookieApi.logout() } // best effort: the token is what matters
         val data = fetchSignInData(base, minted.token)
-        commitSignIn(base, minted.token, minted.id, data)
+        // A password sign-in normally happens signed out (no sync can run then), but
+        // changePassword() re-signs the same account in while a sync may be running: stop it
+        // first, exactly as a switch does.
+        withContext(NonCancellable) { accountGate.whileChanging { commitSignIn(base, minted.token, minted.id, data) } }
     }.recoverCatching { e ->
         // The server's own words for a wrong password; anything else is a connection problem.
         throw if (e is ApiException) IllegalStateException(e.message, e) else e
@@ -166,10 +172,15 @@ class SessionRepository @Inject constructor(
         // From here on nothing may fail partway: either the old account (if any) ends up signed
         // out and the new one stored, or -- if cancelled -- both complete anyway. signOutLocked(),
         // not the public signOut(): this coroutine already holds mutex, and Mutex is not
-        // reentrant -- acquiring it again here would deadlock.
+        // reentrant -- acquiring it again here would deadlock. The swap itself runs inside
+        // accountGate.whileChanging: a sync still running for the old account is cancelled and
+        // joined first, and no new one starts until the new account is committed, so no sync
+        // ever sees half of each account.
         withContext(NonCancellable) {
-            if (_session.value is Session.SignedIn) signOutLocked()
-            commitSignIn(base, redeemed.token, redeemed.tokenId, data)
+            accountGate.whileChanging {
+                if (_session.value is Session.SignedIn) signOutLocked()
+                commitSignIn(base, redeemed.token, redeemed.tokenId, data)
+            }
         }
     }.recoverCatching { e ->
         // The server's own words for anything that isn't PairingUnsupported/PairingInvalid/
@@ -245,8 +256,11 @@ class SessionRepository @Inject constructor(
         _session.value = Session.SignedIn(base, data.me, token, data.currency)
     }
 
-    /** Revokes the token (best effort) and forgets it. The mirror is the caller's business. */
-    suspend fun signOut() = mutex.withLock { signOutLocked() }
+    /**
+     * Revokes the token (best effort) and forgets it. The mirror is the caller's business. A
+     * running sync is stopped and joined first, and none starts again until the sign-out is done.
+     */
+    suspend fun signOut() = mutex.withLock { withContext(NonCancellable) { accountGate.whileChanging { signOutLocked() } } }
 
     private suspend fun signOutLocked() {
         val current = _session.value
@@ -284,8 +298,24 @@ class SessionRepository @Inject constructor(
         signOut()
     }
 
-    /** The server answered 401: the token is gone. Keep the server and the name, drop the token. */
-    suspend fun onUnauthorized() {
+    /**
+     * The token a client built for one account may send: the signed-in token while that account
+     * (server and user) is still the one signed in, else null. A client that outlives its account
+     * -- a sync that started before a switch, say -- can therefore never carry the next account's
+     * token, on the same server or another.
+     */
+    fun tokenFor(serverUrl: String, userId: Long): String? =
+        (_session.value as? Session.SignedIn)?.takeIf { it.serverUrl == serverUrl && it.user.id == userId }?.token
+
+    /**
+     * The server answered 401 to a request that carried [failedToken]: that token is gone. Keep
+     * the server and the name, drop the token -- but only when [failedToken] is still the stored
+     * token. A 401 for a token that has since been replaced (a switch, a password change) or for
+     * no token at all says nothing about the current one, and is ignored. Serialised with sign-in
+     * and sign-out, so it can never land between a switch's writes. Returns whether it signed out.
+     */
+    suspend fun onUnauthorized(failedToken: String?): Boolean = mutex.withLock {
+        if (failedToken == null || failedToken != tokenStore.read()) return@withLock false
         val record = serverStore.read()
         tokenStore.clear()
         if (record != null) serverStore.write(record.copy(tokenId = null))
@@ -293,6 +323,7 @@ class SessionRepository @Inject constructor(
         widgetRefresher.requestImmediateRefresh()
         notifications.clearAll()
         capabilities.clear()
+        true
     }
 
     /** Forget the server too: back to the first-run screen. */

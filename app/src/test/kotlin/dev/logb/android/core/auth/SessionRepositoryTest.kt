@@ -549,7 +549,7 @@ class SessionRepositoryTest {
         serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9))
         tokenStore.write("logb_pat_x")
         repo.restore()
-        repo.onUnauthorized()
+        repo.onUnauthorized("logb_pat_x")
         val s = assertIs<Session.SignedOut>(repo.session.value)
         assertEquals("https://logb.example/", s.serverUrl)
         assertEquals("unauthorized", s.reason)
@@ -564,7 +564,7 @@ class SessionRepositoryTest {
         serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9))
         tokenStore.write("logb_pat_x")
         repo.restore()
-        repo.onUnauthorized()
+        repo.onUnauthorized("logb_pat_x")
         assertIs<Session.SignedOut>(repo.session.value)
         assertEquals(1, refresher.immediate)
         assertEquals(0, refresher.debounced)
@@ -782,7 +782,7 @@ class SessionRepositoryTest {
         tokenStore.write("logb_pat_x")
         repo.restore()
 
-        repo.onUnauthorized()
+        repo.onUnauthorized("logb_pat_x")
 
         assertIs<Session.SignedOut>(repo.session.value)
         assertEquals(1, notifications.cleared)
@@ -819,7 +819,7 @@ class SessionRepositoryTest {
         capabilities.load()
         assertEquals("0.7.1", capabilities.version.value)
 
-        repo.onUnauthorized()
+        repo.onUnauthorized("logb_pat_x")
 
         assertIs<Session.SignedOut>(repo.session.value)
         serverStore.write(ServerRecord("https://logb.example/", 2, "ann", 10, serverVersion = "0.9.0"))

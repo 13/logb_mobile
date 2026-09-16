@@ -53,7 +53,7 @@ class ServerDigestViewModel @Inject constructor(
                 it.copy(loaded = true, offline = false, error = null, url = n.url.orEmpty(), format = n.format, hour = n.hour, instanceWebhook = n.instanceWebhook)
             }
         } catch (e: UnauthorizedException) {
-            sessions.onUnauthorized()
+            sessions.onUnauthorized(e.token)
             _state.update { it.copy(loaded = true, offline = false, error = null) }
         } catch (e: ApiException) {
             _state.update { it.copy(loaded = true, offline = false, error = e.message) }
@@ -89,7 +89,7 @@ class ServerDigestViewModel @Inject constructor(
                 it.copy(busy = false, saved = true, url = n.url.orEmpty(), format = n.format, hour = n.hour, instanceWebhook = n.instanceWebhook)
             }
         } catch (e: UnauthorizedException) {
-            sessions.onUnauthorized()
+            sessions.onUnauthorized(e.token)
             _state.update { it.copy(busy = false) }
         } catch (e: ApiException) {
             _state.update { it.copy(busy = false, error = e.message) }
@@ -111,7 +111,7 @@ class ServerDigestViewModel @Inject constructor(
             val t = accounts.api.testNotifications()
             _state.update { it.copy(busy = false, test = t) }
         } catch (e: UnauthorizedException) {
-            sessions.onUnauthorized()
+            sessions.onUnauthorized(e.token)
             _state.update { it.copy(busy = false) }
         } catch (e: ApiException) {
             _state.update { it.copy(busy = false, error = e.message) }

@@ -4,6 +4,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dev.logb.android.core.auth.AccountGate
 import dev.logb.android.core.auth.ActiveAccount
 import dev.logb.android.core.auth.SessionRepository
 import dev.logb.android.core.blobs.BlobDownloader
@@ -52,27 +53,30 @@ object SyncModule {
         blobPrefs: BlobPrefs,
         capabilities: ServerCapabilities,
         widgetRefresher: WidgetRefresher,
+        gate: AccountGate,
     ): SyncManager =
         SyncManager(
             sessions = sessions,
             connectivity = connectivity,
             runnerFactory = {
-                accounts.signedIn?.let {
+                // One account for the whole pass: its mirror and its client are taken once, here,
+                // and the client's token is bound to that account (see ActiveAccount.refresh).
+                accounts.bound()?.let { (_, db, api) ->
                     SyncRunner {
-                        val db = accounts.db
                         // Refreshes the stored version so the app knows what the server supports; the
                         // bootstrap that brings existing tags and own types into the mirror arrives with
                         // the Room v2 migration in release 0.8.0.
-                        capabilities.refresh { runCatching { accounts.api.healthInfo() }.getOrNull()?.takeIf { it.version.isNotBlank() } }
+                        capabilities.refresh { runCatching { api.healthInfo() }.getOrNull()?.takeIf { it.version.isNotBlank() } }
                         val deviceId = db.syncStateDao().get()?.deviceId ?: UUID.randomUUID().toString()
-                        PushEngine(db, accounts.api, blobs, capabilities.current.value).run()
-                        PullEngine(db, accounts.api, deviceId).run()
-                        BlobDownloader(db, accounts.api, blobs, connectivity) { blobPrefs.current() }.runAfterPull()
+                        PushEngine(db, api, blobs, capabilities.current.value).run()
+                        PullEngine(db, api, deviceId).run()
+                        BlobDownloader(db, api, blobs, connectivity) { blobPrefs.current() }.runAfterPull()
                     }
                 }
             },
             scope = scope,
-            pendingCount = { accounts.signedIn?.let { accounts.db.opDao().pending().size } ?: 0 },
+            pendingCount = { accounts.bound()?.db?.opDao()?.pending()?.size ?: 0 },
             widgetRefresh = { widgetRefresher.requestRefresh() },
+            gate = gate,
         )
 }

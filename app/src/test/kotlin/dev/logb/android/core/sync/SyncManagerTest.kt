@@ -53,10 +53,35 @@ class SyncManagerTest {
 
     @Test fun `a 401 signs the session out`() = runTest {
         sessions.restore()
-        val m = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw UnauthorizedException("gone") } }, backgroundScope)
+        val m = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw UnauthorizedException("gone", token = "t") } }, backgroundScope)
         m.syncNow()
         assertIs<SyncStatus.SignedOut>(m.status.value)
         assertIs<Session.SignedOut>(sessions.session.value)
+    }
+
+    @Test fun `a 401 for a token that is no longer the stored one leaves the session signed in`() = runTest {
+        sessions.restore()
+        val m = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw UnauthorizedException("gone", token = "an older token") } }, backgroundScope)
+        assertTrue(m.syncNow().isFailure)
+        assertIs<Session.SignedIn>(sessions.session.value)
+        assertEquals("t", tokenStore.read())
+        val m2 = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { throw UnauthorizedException("no bearer at all") } }, backgroundScope)
+        assertTrue(m2.syncNow().isFailure)
+        assertIs<Session.SignedIn>(sessions.session.value)
+    }
+
+    @Test fun `a sync stopped by an account change reports SyncInterrupted, which a worker retries`() = runTest {
+        sessions.restore()
+        val gate = dev.logb.android.core.auth.AccountGate()
+        val started = CompletableDeferred<Unit>()
+        val m = SyncManager(sessions, FakeConnectivity(true), { SyncRunner { started.complete(Unit); CompletableDeferred<Unit>().await() } }, backgroundScope, gate = gate)
+        val run = async { m.syncNow() }
+        started.await()
+        gate.whileChanging { }
+        val e = run.await().exceptionOrNull()
+        assertIs<SyncInterrupted>(e)
+        assertIs<IOException>(e)
+        assertEquals(SyncStatus.None, m.status.value)
     }
 
     @Test fun `no connection is offline without calling the runner, and an IOException is offline too`() = runTest {

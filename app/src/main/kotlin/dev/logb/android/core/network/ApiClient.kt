@@ -69,7 +69,7 @@ object ApiClient {
             if (response.isSuccessful) return response
             val (code, message) = response.use { parseError(it) }
             throw when (response.code) {
-                401 -> UnauthorizedException(message)
+                401 -> UnauthorizedException(message, chain.request().header("Authorization")?.removePrefix("Bearer "))
                 410 -> GoneException(message)
                 else -> ApiException(response.code, code, message)
             }

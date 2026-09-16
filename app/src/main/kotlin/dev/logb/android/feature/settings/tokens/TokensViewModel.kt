@@ -97,7 +97,7 @@ class TokensViewModel @Inject constructor(
             val rows = TokenRows.of(accounts.api.listTokens(), serverStore.read()?.tokenId, phonePrefix)
             _state.update { it.copy(rows = rows, loaded = true, offline = false, error = null) }
         } catch (e: UnauthorizedException) {
-            sessions.onUnauthorized()
+            sessions.onUnauthorized(e.token)
             _state.update { it.copy(loaded = true, offline = false, error = null) }
         } catch (e: ApiException) {
             _state.update { it.copy(loaded = true, offline = false, error = e.message) }

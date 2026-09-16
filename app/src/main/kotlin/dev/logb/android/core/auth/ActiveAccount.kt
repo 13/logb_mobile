@@ -49,6 +49,18 @@ class ActiveAccount @Inject constructor(
             cachedHttp
         }
 
+    /**
+     * The mirror, client and session for whoever is signed in, read together in one step -- for
+     * work (a sync pass) that must use one account throughout. Null when signed out.
+     */
+    fun bound(): Bound? = synchronized(this) {
+        val s = signedIn ?: return null
+        refresh(s)
+        Bound(s, cachedDb!!, cachedApi!!)
+    }
+
+    data class Bound(val session: Session.SignedIn, val db: LogbDatabase, val api: LogbApi)
+
     /** `/api/files/{id}` or its thumbnail on the signed-in server; null when signed out. */
     fun fileUrl(serverId: Long, thumb: Boolean): String? =
         signedIn?.let { "${it.serverUrl}api/files/$serverId${if (thumb) "/thumb" else ""}" }
@@ -58,7 +70,11 @@ class ActiveAccount @Inject constructor(
         if (key == cachedKey) return
         cachedDb?.close()
         cachedDb = databases.open(s.serverUrl, s.user.id)
-        val tokenProvider = { (sessions.session.value as? Session.SignedIn)?.token }
+        // Bound to this client's own account: once another account is signed in, this client
+        // (and anything still holding it) gets no token at all, never the new one.
+        val serverUrl = s.serverUrl
+        val userId = s.user.id
+        val tokenProvider = { sessions.tokenFor(serverUrl, userId) }
         cachedApi = apiFactory.create(s.serverUrl, tokenProvider, null)
         cachedHttp = ApiClient.okHttp(tokenProvider)
         cachedKey = key
