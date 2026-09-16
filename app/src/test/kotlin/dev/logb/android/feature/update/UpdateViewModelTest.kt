@@ -204,4 +204,33 @@ class UpdateViewModelTest {
 
         assertNull(InstallResultReceiver.pendingConfirmation.value)
     }
+
+    @Test fun `a failed activity start leaves the confirmation offered, not stuck on installing`() = runTest(dispatcher) {
+        val vm = readyViewModel()
+        vm.install()
+        val confirm = Intent(Intent.ACTION_VIEW)
+        InstallResultReceiver.track(PackageInstaller.STATUS_PENDING_USER_ACTION, confirm)
+        vm.onResumed()
+        assertTrue(vm.state.value is UpdateUiState.NeedsConfirmation)
+
+        openInstallConfirmation(vm) { throw SecurityException("blocked") }
+
+        assertTrue(vm.state.value is UpdateUiState.NeedsConfirmation, "must not be left on Installing with no button")
+        assertEquals(confirm, InstallResultReceiver.pendingConfirmation.value, "still there to offer again")
+    }
+
+    @Test fun `a successful activity start moves on to installing`() = runTest(dispatcher) {
+        val vm = readyViewModel()
+        vm.install()
+        val confirm = Intent(Intent.ACTION_VIEW)
+        InstallResultReceiver.track(PackageInstaller.STATUS_PENDING_USER_ACTION, confirm)
+        vm.onResumed()
+        assertTrue(vm.state.value is UpdateUiState.NeedsConfirmation)
+
+        var started: Intent? = null
+        openInstallConfirmation(vm) { started = it }
+
+        assertEquals(confirm, started)
+        assertEquals(UpdateUiState.Installing, vm.state.value)
+    }
 }

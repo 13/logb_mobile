@@ -64,8 +64,21 @@ fun UpdateSection(modifier: Modifier = Modifier, viewModel: UpdateViewModel = hi
             onRetryInstall = viewModel::retryInstall,
             onOpenReleasePage = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) },
             // A foreground activity may always start this, unlike the receiver's background attempt.
-            onOpenConfirmation = { viewModel.confirmationIntent()?.let { context.startActivity(it) } },
+            onOpenConfirmation = { openInstallConfirmation(viewModel) { context.startActivity(it) } },
         )
+    }
+}
+
+/**
+ * A foreground activity may always start the confirmation Android handed over, unlike the
+ * receiver's background attempt -- but the start can still fail (a security exception on some OEM
+ * skin, say). A failure must leave the row offering the confirm button again, never stranded on
+ * "Installing" with nothing left to press: [UpdateViewModel.onResumed] already knows how to put
+ * `NeedsConfirmation` back once the intent it peeked is still pending.
+ */
+internal fun openInstallConfirmation(viewModel: UpdateViewModel, startActivity: (Intent) -> Unit) {
+    viewModel.confirmationIntent()?.let { intent ->
+        runCatching { startActivity(intent) }.onFailure { viewModel.onResumed() }
     }
 }
 
