@@ -6,12 +6,15 @@ import dev.logb.android.core.db.entity.FileEntity
 import dev.logb.android.core.network.LogbApi
 import dev.logb.android.core.sync.Clock
 import dev.logb.android.core.sync.ConnectivityMonitor
-import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import okhttp3.ResponseBody
 import java.io.File
 import java.io.IOException
@@ -88,22 +91,21 @@ class BlobDownloader(
      * Without this, a blocking body read (OkHttp's read timeout is per read, not per call) would
      * not notice cancellation until it next returns on its own, up to 60 s away.
      *
-     * [Job.invokeOnCompletion]'s public overload only fires once this coroutine has actually
-     * finished running, which never happens while it is stuck in a blocking read -- that is
-     * exactly the problem. The `onCancelling = true` overload fires as soon as cancellation is
-     * requested, which is what closes the body promptly; it is `@InternalCoroutinesApi` because
-     * of that early-firing behaviour, not because it is unstable.
+     * A sibling coroutine just waits for cancellation and then closes the body; closing it from
+     * another thread aborts the blocking socket read that [block] is stuck in. [block] itself
+     * runs on [Dispatchers.IO], off whatever dispatcher the caller happens to be on -- that is
+     * what lets the sibling notice the cancellation promptly even when the caller is on a
+     * single-threaded dispatcher (a `viewModelScope.launch`, say, which runs on the main thread
+     * and would otherwise have nowhere left to run the sibling while the blocking read holds it).
      */
-    @OptIn(InternalCoroutinesApi::class)
-    private suspend fun <T> ResponseBody.readCancellably(block: suspend (ResponseBody) -> T): T {
-        val body = this
-        val handle = currentCoroutineContext().job.invokeOnCompletion(onCancelling = true, invokeImmediately = true) {
-            runCatching { body.close() }
-        }
+    private suspend fun <T> ResponseBody.readCancellably(block: suspend (ResponseBody) -> T): T = coroutineScope {
+        val body = this@readCancellably
+        val closer = launch { try { awaitCancellation() } finally { runCatching { body.close() } } }
         try {
-            return body.use { block(it) }
+            withContext(Dispatchers.IO) { block(body) }
         } finally {
-            handle.dispose() // harmless once the read has already finished on its own
+            closer.cancel()
+            runCatching { body.close() } // harmless once the read has already finished on its own
         }
     }
 
