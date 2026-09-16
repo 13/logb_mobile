@@ -130,5 +130,6 @@ class SessionRepository @Inject constructor(
         tokenStore.clear()
         serverStore.clear()
         _session.value = Session.NeedsServer
+        notifications.clearAll()
     }
 }

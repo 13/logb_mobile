@@ -300,4 +300,18 @@ class SessionRepositoryTest {
         assertIs<Session.SignedOut>(repo.session.value)
         assertEquals(1, notifications.cleared)
     }
+
+    @Test
+    fun `forgetServer clears every posted reminder notification`() = runTest {
+        val notifications = FakeNotificationsClearer()
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, NoopWidgetRefresher, notifications)
+        serverStore.write(ServerRecord("https://logb.example/", 1, "ben", 9))
+        tokenStore.write("logb_pat_x")
+        repo.restore()
+
+        repo.forgetServer()
+
+        assertIs<Session.NeedsServer>(repo.session.value)
+        assertEquals(1, notifications.cleared)
+    }
 }
