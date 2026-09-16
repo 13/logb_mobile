@@ -989,6 +989,7 @@ class SessionRepositoryTest {
         serverStore.write(ServerRecord(oldServer.url("/").toString(), 1, "ben", 9))
         tokenStore.write("logb_pat_existing")
         repo.restore()
+        repo.revokeTimeoutMs = 200 // real time, off the test scheduler: keep this test fast
         oldServer.enqueue(silent()) // the old account's revoke: never answered
 
         server.enqueue(json("{}")) // health
@@ -1002,7 +1003,7 @@ class SessionRepositoryTest {
         val took = elapsedMs(start)
 
         assertTrue(result.isSuccess, result.toString())
-        assertTrue(took < 9_000, "the switch took $took ms; the revoke's budget is ${repo.revokeTimeoutMs} ms")
+        assertTrue(took < 2_000, "the switch took $took ms; the revoke's budget is ${repo.revokeTimeoutMs} ms")
         assertEquals("/api/auth/tokens/9", oldServer.takeRequest().url.encodedPath, "the revoke was sent")
         assertEquals("ann", assertIs<Session.SignedIn>(repo.session.value).user.username)
         assertEquals("logb_pat_paired", tokenStore.read())
@@ -1011,6 +1012,7 @@ class SessionRepositoryTest {
 
     @Test
     fun `a failed pairing whose revoke is never answered returns within the revoke timeout`() = runTest {
+        repo.revokeTimeoutMs = 200 // real time, off the test scheduler: keep this test fast
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
         server.enqueue(json("", code = 500)) // me fails
@@ -1021,7 +1023,7 @@ class SessionRepositoryTest {
         val took = elapsedMs(start)
 
         assertTrue(result.isFailure)
-        assertTrue(took < 9_000, "the failed pairing took $took ms; the revoke's budget is ${repo.revokeTimeoutMs} ms")
+        assertTrue(took < 2_000, "the failed pairing took $took ms; the revoke's budget is ${repo.revokeTimeoutMs} ms")
         repeat(3) { server.takeRequest() }
         assertEquals("/api/auth/tokens/11", server.takeRequest().url.encodedPath, "the revoke was sent")
         assertNull(tokenStore.read())

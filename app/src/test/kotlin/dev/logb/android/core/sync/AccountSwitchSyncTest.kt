@@ -15,13 +15,13 @@ import dev.logb.android.core.network.dto.PushBody
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -32,6 +32,7 @@ import java.util.Collections
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -158,15 +159,16 @@ class AccountSwitchSyncTest {
         val sync = async { manager.syncNow() }
         started.await()
         val switch = async { sessions.signInWithPairing(PairingLink(new.url("/").toString(), "abc123"), "Pixel 8") }
-        gate.changing.first { it } // the switch has fetched the new account and is waiting on the sync
-        // Real time, off the test scheduler: long enough for a switch that did not wait to finish
-        // its revoke and its writes against a local server.
-        withContext(Dispatchers.Default) { delay(500) }
+        gate.changing.first { it } // the switch has cancelled the pass and is waiting on the gate's lock
 
+        // Deterministic, not time-based: whileChanging's lock.withLock cannot have acquired the
+        // lock yet -- the (NonCancellable) pass still holds it, since release has not been
+        // completed -- so the switch cannot have written anything or finished, no matter how long
+        // this test waits.
         try {
+            assertFalse(switch.isCompleted, "the switch cannot finish while the sync still holds the gate")
             assertEquals(OLD_TOKEN, tokens.read(), "nothing is swapped while the old account's sync still runs")
             assertEquals("ben", assertIs<Session.SignedIn>(sessions.session.value).user.username)
-            assertFalse(switch.isCompleted)
         } finally {
             release.complete(Unit) // or a failed assertion leaves the non-cancellable pass hanging
         }
@@ -241,6 +243,108 @@ class AccountSwitchSyncTest {
         assertEquals(new.port, push.url.port)
     }
 
+    @Test
+    fun `a sign-out holding the mutex and waiting for the gate, and a sync's own real 401 for the current token, both finish without deadlock`() = runTest {
+        val old = server()
+        signInOld(old.url("/").toString())
+        val started = CompletableDeferred<Unit>()
+        val manager = SyncManager(sessions, FakeConnectivity(), runnerFactory { push -> started.complete(Unit); CompletableDeferred<Unit>().await(); push() }, backgroundScope, gate = gate)
+
+        val syncA = async { manager.syncNow() }
+        started.await()
+        val signOut = async { sessions.signOut() }
+        gate.changing.first { it } // sign-out has cancelled the paused pass and is waiting on the gate's lock
+
+        // A [different, already-finished] sync's own real 401, for the token that is -- at this
+        // exact moment -- still the stored one. This is exactly what SyncManager.syncNow() calls
+        // after its own gate.runBound returns, entirely outside the gate, so it is legitimate to
+        // call it directly here: it lands while sign-out still holds the session mutex, having
+        // itself already taken and being about to release the gate.
+        val onUnauthorized = async { sessions.onUnauthorized(OLD_TOKEN) }
+
+        // Off the test scheduler: signOut's revoke hops to a real Dispatchers.IO, which the
+        // virtual clock cannot see, so a withTimeout still tied to virtual time would fire the
+        // instant nothing else is virtual-time-tracked -- long before that real work returns.
+        withContext(Dispatchers.Default.limitedParallelism(1)) {
+            withTimeout(5_000) {
+                assertIs<SyncInterrupted>(syncA.await().exceptionOrNull())
+                signOut.await()
+                onUnauthorized.await()
+            }
+        }
+
+        // No deadlock, and the end state agrees with itself, whichever of the two actually cleared
+        // the token: signed out, nothing left to revoke twice, and the interrupted pass reported
+        // through the status the same way any other interruption does.
+        assertIs<Session.SignedOut>(sessions.session.value)
+        assertNull(tokens.read())
+        assertNull(serverStore.read()?.tokenId)
+        assertEquals(SyncStatus.None, manager.status.value)
+    }
+
+    /** Like [server], but also answers the requests a password change and its re-sign-in make. */
+    private fun passwordChangeServer(): MockWebServer = MockWebServer().apply {
+        dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                requests += request
+                val auth = request.headers["Authorization"]
+                val path = request.url.encodedPath
+                return when {
+                    path == "/api/sync/push" -> json("""{"results":[],"server_time":"2026-09-16T10:00:00.000Z"}""")
+                    path == "/api/users/1" && request.method == "PATCH" -> json("{}")
+                    path == "/api/auth/login" ->
+                        MockResponse.Builder().code(200).addHeader("content-type", "application/json")
+                            .addHeader("Set-Cookie", "logb_session=abc; Path=/; HttpOnly")
+                            .body("""{"id":1,"username":"ben","lang":"en"}""").build()
+                    path == "/api/auth/tokens" && request.method == "POST" ->
+                        json("""{"id":30,"name":"LogB Android","prefix":"logb_pat_ch","created_at":"x","last_used_at":null,"token":"$CHANGED_TOKEN"}""", code = 201)
+                    path == "/api/auth/logout" -> json("{}")
+                    path == "/api/auth/me" -> when (auth) {
+                        "Bearer $OLD_TOKEN" -> json("""{"id":1,"username":"ben","lang":"en"}""")
+                        "Bearer $CHANGED_TOKEN" -> json("""{"id":1,"username":"ben","lang":"en"}""")
+                        else -> json("""{"error":"unauthorized","message":"no token"}""", code = 401)
+                    }
+                    path == "/api/settings" -> json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")
+                    path == "/api/health" -> json("""{"status":"ok","version":"0.11.0","features":["pairing"]}""")
+                    else -> json("{}", code = 204) // the paused pass's own revoke, if any
+                }
+            }
+        }
+        start()
+        servers += this
+    }
+
+    @Test
+    fun `changePassword while a sync hits a 401 with the old token ends signed in with the right status`() = runTest {
+        val old = passwordChangeServer()
+        signInOld(old.url("/").toString())
+        val started = CompletableDeferred<Unit>()
+        val manager = SyncManager(sessions, FakeConnectivity(), runnerFactory { push -> started.complete(Unit); CompletableDeferred<Unit>().await(); push() }, backgroundScope, gate = gate)
+
+        val syncA = async { manager.syncNow() }
+        started.await()
+        // changePassword re-signs the same account in, exactly like a switch: it stops and joins
+        // any running sync first (SessionRepository.signInLocked -> accountGate.whileChanging).
+        val changePassword = async { sessions.changePassword("correct horse battery") }
+        gate.changing.first { it } // the re-sign-in has cancelled the paused pass and is waiting on the gate's lock
+
+        // A sync's own real 401 for OLD_TOKEN -- still the current token at this exact moment,
+        // since commitSignIn has not run yet -- lands while changePassword still holds the mutex.
+        val onUnauthorized = async { sessions.onUnauthorized(OLD_TOKEN) }
+
+        withTimeout(5_000) {
+            assertIs<SyncInterrupted>(syncA.await().exceptionOrNull())
+            assertTrue(changePassword.await().isSuccess, "changePassword must not be tripped up by the concurrent 401")
+            assertFalse(onUnauthorized.await(), "the old token is no longer the current one by the time this runs")
+        }
+
+        val signedIn = assertIs<Session.SignedIn>(sessions.session.value)
+        assertEquals("ben", signedIn.user.username)
+        assertNotEquals(OLD_TOKEN, signedIn.token, "the account is signed in with its freshly changed token")
+        assertEquals(CHANGED_TOKEN, tokens.read())
+        assertEquals(SyncStatus.None, manager.status.value)
+    }
+
     @Test fun `sign out stops a running sync before it clears the token`() = runTest {
         val old = server()
         signInOld(old.url("/").toString())
@@ -262,5 +366,6 @@ class AccountSwitchSyncTest {
     private companion object {
         const val OLD_TOKEN = "logb_pat_old"
         const val NEW_TOKEN = "logb_pat_new"
+        const val CHANGED_TOKEN = "logb_pat_changed"
     }
 }
