@@ -76,7 +76,10 @@ class AccountGate @Inject constructor() {
             Attempt.Ran(job.await())
         } catch (e: CancellationException) {
             ensureActive() // the caller itself was cancelled: propagate
-            Attempt.Ran(null)
+            // Only whileChanging's own cancellation means "interrupted by an account change" --
+            // anything else (a future withTimeout in the runner, say) is a real failure and must
+            // be seen as one, not silently turned into null.
+            if (e is AccountChanging) Attempt.Ran(null) else throw e
         } finally {
             synchronized(guard) { running -= job }
         }
