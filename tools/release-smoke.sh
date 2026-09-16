@@ -125,11 +125,15 @@ if dump_screen "$OUT/ui-server.xml"; then
 fi
 
 echo "== typing an unreachable address"
-# The field has to be focused before "input text" reaches it. Compose merges the label into the
-# field's own accessibility node rather than a separate one, so the line that matched the label
-# above is also the field's line, and its bounds are the field's bounds.
-NODE_LINE=$(grep -F -e "$SERVER_URL_EN" -e "$SERVER_URL_DE" "$OUT/ui-server.xml" 2>/dev/null | head -1 || true)
-BOUNDS=$(echo "$NODE_LINE" | grep -oE '\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]' | head -1 || true)
+# The field has to be focused before "input text" reaches it.
+# uiautomator writes the whole hierarchy on ONE line, so split it into one node per line
+# first -- otherwise the "first bounds" found is the root node's, and the tap lands wherever
+# the middle of the screen happens to be (since 0.14.0 that is the Scan QR code button).
+# Tap the address field itself; fall back to the label's own node if there is no EditText.
+NODES=$(sed 's/></>\n</g' "$OUT/ui-server.xml" 2>/dev/null || true)
+NODE_LINE=$(echo "$NODES" | grep -F 'class="android.widget.EditText"' | head -1 || true)
+[ -n "$NODE_LINE" ] || NODE_LINE=$(echo "$NODES" | grep -F -e "$SERVER_URL_EN" -e "$SERVER_URL_DE" | head -1 || true)
+BOUNDS=$(echo "$NODE_LINE" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]' | head -1 || true)
 if [ -n "$BOUNDS" ]; then
     read -r X1 Y1 X2 Y2 <<<"$(echo "$BOUNDS" | grep -oE '[0-9]+' | tr '\n' ' ')"
     "${ADB[@]}" shell input tap $(( (X1 + X2) / 2 )) $(( (Y1 + Y2) / 2 ))
