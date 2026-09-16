@@ -133,14 +133,12 @@ class SessionRepository @Inject constructor(
      * password-based [signIn]'s own token mint.)
      *
      * Unlike [signIn], there is no cookie session here to end, so nothing on the server is ever
-     * told this attempt failed: the token stays live with nothing stored on the phone to show for
-     * it. It cannot be revoked from here either -- `DELETE /api/auth/tokens/{id}` needs an
-     * interactive password session, and logb's `POST /api/auth/logout` only ends the caller's
-     * cookie session, not the bearer token that authenticated the request (see the server's
-     * `logout` handler in `src/api/auth.rs`, which reads the session cookie and never looks at
-     * the `Authorization` header at all). The token is named after the device
-     * ([SessionRepository.signIn]'s `NewToken` naming applies here too), so the user can find and
-     * revoke it from the web's token list if this happens.
+     * told this attempt failed except a best-effort self-revoke of the freshly redeemed token
+     * (see [revokeRedeemedToken]): on a server with self-revoke (`DELETE /api/auth/tokens/{id}`
+     * accepting the calling token's own bearer -- server commit e8ae22f) that actually revokes
+     * it; on an older server the call simply fails and the token stays live, named after the
+     * device ([SessionRepository.signIn]'s `NewToken` naming applies here too), so it can still be
+     * found and removed from the web's API access page.
      */
     suspend fun signInWithPairing(link: PairingLink, deviceName: String): Result<Unit> = mutex.withLock { signInWithPairingLocked(link, deviceName) }
 
@@ -149,15 +147,37 @@ class SessionRepository @Inject constructor(
         val anonApi = apiFactory.create(base, { null }, null)
         anonApi.health()
         val redeemed = redeemPairing(anonApi, link.code, deviceName)
-        // signOutLocked(), not the public signOut(): this coroutine already holds mutex, and
-        // Mutex is not reentrant -- acquiring it again here would deadlock.
-        if (_session.value is Session.SignedIn) signOutLocked()
-        finishSigningIn(base, redeemed.token, redeemed.tokenId)
+        try {
+            // signOutLocked(), not the public signOut(): this coroutine already holds mutex, and
+            // Mutex is not reentrant -- acquiring it again here would deadlock.
+            if (_session.value is Session.SignedIn) signOutLocked()
+            finishSigningIn(base, redeemed.token, redeemed.tokenId)
+        } catch (e: Exception) {
+            revokeRedeemedToken(base, redeemed.token, redeemed.tokenId)
+            throw e
+        }
     }.recoverCatching { e ->
         // The server's own words for anything that isn't PairingUnsupported/PairingInvalid/
         // PairingRejected/PairingRateLimited -- the same mapping signIn() applies to its own
         // post-token failures.
         throw if (e is ApiException) IllegalStateException(e.message, e) else e
+    }
+
+    /**
+     * Best-effort cleanup for a redeem that succeeded but whose follow-up (`me()`/`settings()`/
+     * health, a network error, a 5xx) then failed: the token is already live on the server with
+     * nothing stored on the phone to show for it. Revokes it with its own bearer, exactly the
+     * call [signOutLocked] makes for a token it already knows about -- this is the same
+     * `DELETE /api/auth/tokens/{id}` call, just against the token that never made it into
+     * [finishSigningIn]. `runCatching` so an older server's refusal (still cookie-only) never
+     * surfaces here or changes the error already being reported to the caller; `NonCancellable` so
+     * a cancelled sign-in flow still attempts it. Called from inside [signInWithPairingLocked],
+     * which already holds [mutex] -- this only ever talks to the network, never back into another
+     * guarded function, so there is nothing here that could deadlock on it.
+     */
+    private suspend fun revokeRedeemedToken(base: String, token: String, tokenId: Long) = withContext(NonCancellable) {
+        runCatching { apiFactory.create(base, { token }, null).revokeToken(tokenId) }
+        Unit
     }
 
     /** Only the redeem call maps 404/401/400/429 to [PairingUnsupported]/[PairingInvalid]/[PairingRejected]/[PairingRateLimited]; a 500 here, or any failure past this point, is an ordinary error. */

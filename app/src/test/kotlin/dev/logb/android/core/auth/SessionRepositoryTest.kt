@@ -241,10 +241,11 @@ class SessionRepositoryTest {
     }
 
     @Test
-    fun `me failing after a successful redeem leaves nothing stored and the session unchanged, and does not revoke through logout`() = runTest {
+    fun `me failing after a successful redeem leaves nothing stored and the session unchanged, and best-effort revokes the new token`() = runTest {
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}""")) // redeem
         server.enqueue(json("", code = 500)) // me fails
+        server.enqueue(json("{}", code = 204)) // best-effort self-revoke of the new token
 
         val before = repo.session.value
         val link = PairingLink(server.url("/").toString(), "abc123")
@@ -256,13 +257,93 @@ class SessionRepositoryTest {
         assertNull(tokenStore.read())
         assertNull(serverStore.read())
         assertEquals(before, repo.session.value)
-        // logb's POST /api/auth/logout only ends a cookie session; it never looks at the
-        // Authorization header, so it cannot revoke this redeemed bearer token. Confirm nothing
-        // beyond health/redeem/me was even attempted.
-        assertEquals(3, server.requestCount)
+        assertEquals(4, server.requestCount)
         assertEquals("/api/health", server.takeRequest().url.encodedPath)
         assertEquals("/api/auth/pair/redeem", server.takeRequest().url.encodedPath)
         assertEquals("/api/auth/me", server.takeRequest().url.encodedPath)
+        val revoke = server.takeRequest()
+        assertEquals("/api/auth/tokens/11", revoke.url.encodedPath)
+        assertEquals("DELETE", revoke.method)
+        assertEquals("Bearer logb_pat_paired", revoke.headers["Authorization"])
+    }
+
+    @Test
+    fun `me failing after a successful redeem reports the same ordinary error even when the best-effort revoke is itself refused by an older server`() = runTest {
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":11,"user":{"id":1,"username":"ben","lang":"en"}}""")) // redeem
+        server.enqueue(json("", code = 500)) // me fails
+        server.enqueue(json("""{"error":"unauthorized","message":"authentication required"}""", code = 401)) // an older server: self-revoke still refused
+
+        val before = repo.session.value
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertTrue(result.isFailure)
+        assertNull(result.exceptionOrNull() as? PairingUnsupported)
+        assertNull(result.exceptionOrNull() as? PairingInvalid)
+        assertNull(tokenStore.read())
+        assertNull(serverStore.read())
+        assertEquals(before, repo.session.value)
+        assertEquals(4, server.requestCount)
+        repeat(3) { server.takeRequest() } // health, redeem, me
+        val revoke = server.takeRequest()
+        assertEquals("/api/auth/tokens/11", revoke.url.encodedPath)
+        assertEquals("DELETE", revoke.method)
+    }
+
+    @Test
+    fun `a failure after a successful redeem while replacing an old account best-effort revokes only the new token, leaving the old account's already-completed sign-out alone`() = runTest {
+        val refresher = FakeWidgetRefresher()
+        val notifications = FakeNotificationsClearer()
+        val capabilities = ServerCapabilities(serverStore)
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, refresher, notifications, capabilities)
+        val oldServer = MockWebServer()
+        oldServer.start()
+        val oldRecord = ServerRecord(oldServer.url("/").toString(), 1, "ben", 9, serverVersion = "0.7.1")
+        serverStore.write(oldRecord)
+        tokenStore.write("logb_pat_existing")
+        repo.restore()
+        oldServer.enqueue(json("{}", code = 204)) // the old account's own revoke-by-id, from signOutLocked()
+
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":22,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
+        server.enqueue(json("", code = 500)) // me fails
+        server.enqueue(json("{}", code = 204)) // best-effort self-revoke of the new token
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertTrue(result.isFailure)
+        assertNull(result.exceptionOrNull() as? PairingUnsupported)
+        assertNull(result.exceptionOrNull() as? PairingInvalid)
+
+        // The old account's own sign-out (revoke, widget refresh, notifications, capabilities)
+        // already ran -- once, for its own token id -- before the redeemed token was ever tried,
+        // and this failure does not run it again or touch it a second time.
+        assertEquals("/api/auth/tokens/9", oldServer.takeRequest().url.encodedPath)
+        assertEquals(1, oldServer.requestCount)
+        assertEquals(1, refresher.immediate)
+        assertEquals(1, notifications.cleared)
+
+        // The new token, minted by this same failed attempt, gets its own best-effort revoke --
+        // with its own bearer, never the old account's.
+        server.takeRequest() // health
+        server.takeRequest() // redeem
+        server.takeRequest() // me
+        val revoke = server.takeRequest()
+        assertEquals("/api/auth/tokens/22", revoke.url.encodedPath)
+        assertEquals("DELETE", revoke.method)
+        assertEquals("Bearer logb_pat_paired", revoke.headers["Authorization"])
+
+        // signOutLocked() already ran, so the old account is genuinely signed out (its token
+        // cleared, its record's tokenId nulled) -- the same place a network drop right after a
+        // successful password sign-in's own token mint would leave things; there is no account
+        // left signed in on this phone for finishSigningIn to have failed to replace.
+        assertNull(tokenStore.read())
+        assertEquals(oldRecord.copy(tokenId = null), serverStore.read())
+        assertIs<Session.SignedOut>(repo.session.value)
+
+        oldServer.close()
     }
 
     @Test
