@@ -94,11 +94,22 @@ class SessionRepository @Inject constructor(
      * and signs in with it -- leaving exactly the state [signIn] leaves. No password or session
      * cookie is involved: the code itself, freshly minted by a signed-in browser, is the proof.
      *
-     * The 404/401 -> unsupported/invalid mapping below applies only to the redeem call itself.
-     * If [finishSigningIn] then fails -- say `me()` hits a 401, or a 5xx -- that is an ordinary
+     * Health and redeem run first, with no local change at all. Only once redemption has actually
+     * succeeded -- a fresh token already minted on the server -- is it safe to touch anything on
+     * this phone: if an account was already signed in, it is signed out first (exactly
+     * [signOut]'s own cleanup: revoke attempt, widget refresh, notifications cleared, capabilities
+     * cleared), then the new account is stored via [finishSigningIn]. A failed redeem therefore
+     * leaves whatever was signed in before -- its session, its token, its stored record --
+     * completely untouched; there is nothing to undo.
+     *
+     * The 404/401 -> unsupported/invalid mapping below applies only to the redeem call itself. If
+     * [finishSigningIn] then fails -- say `me()` hits a 401, or a 5xx -- that is an ordinary
      * error, reported the same way [signIn]'s own post-token failures are: this phone's redeemed
      * token is already live on the server at that point, exactly as a freshly minted password
-     * token would be if the same call failed there.
+     * token would be if the same call failed there. (When this happens while replacing an
+     * existing account, that account has already been signed out by this point, same as it would
+     * be if the network simply dropped right after a successful password-based [signIn]'s own
+     * token mint.)
      *
      * Unlike [signIn], there is no cookie session here to end, so nothing on the server is ever
      * told this attempt failed: the token stays live with nothing stored on the phone to show for
@@ -115,6 +126,7 @@ class SessionRepository @Inject constructor(
         val anonApi = apiFactory.create(base, { null }, null)
         anonApi.health()
         val redeemed = redeemPairing(anonApi, link.code, deviceName)
+        if (_session.value is Session.SignedIn) signOut()
         finishSigningIn(base, redeemed.token, redeemed.tokenId)
     }.recoverCatching { e ->
         // The server's own words for anything that isn't PairingUnsupported/PairingInvalid --

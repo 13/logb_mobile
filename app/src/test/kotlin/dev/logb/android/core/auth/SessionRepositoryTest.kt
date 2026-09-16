@@ -304,6 +304,46 @@ class SessionRepositoryTest {
     }
 
     @Test
+    fun `signInWithPairing while already signed in signs the old account out, running its cleanup hooks, only once the redeem succeeds`() = runTest {
+        val refresher = FakeWidgetRefresher()
+        val notifications = FakeNotificationsClearer()
+        val capabilities = ServerCapabilities(serverStore)
+        val repo = SessionRepository(serverStore, tokenStore, ApiFactory { base, token, jar -> ApiClient.create(base, token, jar) }, refresher, notifications, capabilities)
+        val oldServer = MockWebServer()
+        oldServer.start()
+        serverStore.write(ServerRecord(oldServer.url("/").toString(), 1, "ben", 9, serverVersion = "0.7.1"))
+        tokenStore.write("logb_pat_existing")
+        repo.restore()
+        capabilities.load()
+        assertEquals("0.7.1", capabilities.version.value)
+        oldServer.enqueue(json("{}", code = 204)) // the old account's revoke-by-id
+
+        server.enqueue(json("{}")) // health
+        server.enqueue(json("""{"token":"logb_pat_paired","token_id":22,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
+        server.enqueue(json("""{"id":2,"username":"ann","is_admin":false,"lang":"en"}""")) // me
+        server.enqueue(json("""{"currency":"CHF","timezone":"Europe/Zurich"}""")) // settings
+        server.enqueue(json("""{"status":"ok","version":"0.11.0","features":["pairing"]}""")) // health (version)
+
+        val link = PairingLink(server.url("/").toString(), "abc123")
+        val result = repo.signInWithPairing(link, "Pixel 8")
+
+        assertTrue(result.isSuccess, result.toString())
+        assertEquals("/api/auth/tokens/9", oldServer.takeRequest().url.encodedPath, "the old account's token was revoked")
+        val s = assertIs<Session.SignedIn>(repo.session.value)
+        assertEquals("ann", s.user.username)
+        assertEquals("logb_pat_paired", tokenStore.read())
+        assertEquals(1, refresher.immediate, "the old account's widget refresh ran")
+        assertEquals(1, notifications.cleared, "the old account's notifications were cleared")
+        // The old account's capabilities guard was cleared, or a caller's own capabilities.load()
+        // right after this call (as PairingConfirmViewModel/ServerViewModel both do) would still
+        // skip the read and keep the old account's cached version.
+        capabilities.load()
+        assertEquals("0.11.0", capabilities.version.value)
+
+        oldServer.close()
+    }
+
+    @Test
     fun `signInWithPairing on a network failure stores nothing`() = runTest {
         val deadServer = MockWebServer()
         deadServer.start()

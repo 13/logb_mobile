@@ -165,13 +165,13 @@ class PairingConfirmViewModelTest {
     }
 
     @Test
-    fun `confirming while signed in signs out first, then pairs`() = runTest(dispatcher) {
+    fun `confirming while signed in redeems first, then signs out the old account`() = runTest(dispatcher) {
         val oldServer = MockWebServer()
         oldServer.start()
         serverStore.write(ServerRecord(oldServer.url("/").toString(), 1, "ben", 9))
         tokenStore.write("logb_pat_existing")
         sessions.restore()
-        oldServer.enqueue(json("", code = 204)) // signOut()'s revoke-by-id, against the OLD server
+        oldServer.enqueue(json("", code = 204)) // signOut()'s revoke-by-id, against the OLD server -- only reached once the redeem below has already succeeded
 
         server.enqueue(json("{}")) // health
         server.enqueue(json("""{"token":"logb_pat_paired","token_id":22,"user":{"id":2,"username":"ann","lang":"en"}}""")) // redeem
@@ -184,13 +184,71 @@ class PairingConfirmViewModelTest {
         viewModel.confirm()
         awaitUntil { !viewModel.state.value.busy }
 
-        assertEquals("/api/auth/tokens/9", oldServer.takeRequest().url.encodedPath, "signOut() revoked the old token before the new sign-in")
+        assertEquals("/api/auth/tokens/9", oldServer.takeRequest().url.encodedPath, "signOut() revoked the old token, once the new redeem had already gone through")
         assertEquals(5, server.requestCount, "the new sign-in's own five requests, none of them the old server's revoke")
         val signedIn = assertIs<Session.SignedIn>(sessions.session.value)
         assertEquals("ann", signedIn.user.username)
         assertEquals(server.url("/").toString(), signedIn.serverUrl)
 
         oldServer.close()
+    }
+
+    @Test
+    fun `confirming Switch account with a failing redeem leaves the original account signed in, with its token and record`() = runTest(dispatcher) {
+        // The old account's server is never contacted when the redeem against the new one fails
+        // (signOut() must not run), so a plain address with no listener behind it is enough here.
+        val oldBase = "https://old.example.org/"
+        val oldToken = "logb_pat_existing"
+        val oldRecord = ServerRecord(oldBase, 1, "ben", 9, "EUR")
+        serverStore.write(oldRecord)
+        tokenStore.write(oldToken)
+        sessions.restore()
+        assertIs<Session.SignedIn>(sessions.session.value)
+
+        val failures = listOf<() -> Unit>(
+            { server.enqueue(json("{}")); server.enqueue(json("""{"error":"unauthorized","message":"invalid or expired code"}""", 401)) },
+            { server.enqueue(json("{}")); server.enqueue(json("""{"error":"not_found","message":"no such route"}""", 404)) },
+            { server.enqueue(json("{}")); server.enqueue(json("""{"error":"too_many_requests","message":"too many requests"}""", 429)) },
+        )
+        failures.forEach { enqueueFailure ->
+            enqueueFailure()
+            shareInbox.offer(pairIntent())
+            drain()
+            viewModel.confirm()
+            awaitUntil { viewModel.state.value.error != null }
+
+            val signedIn = assertIs<Session.SignedIn>(sessions.session.value, "a failed redeem must leave the original account signed in")
+            assertEquals(oldBase, signedIn.serverUrl)
+            assertEquals("ben", signedIn.user.username)
+            assertEquals(oldToken, tokenStore.read())
+            assertEquals(oldRecord, serverStore.read())
+        }
+    }
+
+    @Test
+    fun `confirming Switch account with a network error from redeem leaves the original account signed in, with its token and record`() = runTest(dispatcher) {
+        val oldBase = "https://old.example.org/"
+        val oldToken = "logb_pat_existing"
+        val oldRecord = ServerRecord(oldBase, 1, "ben", 9, "EUR")
+        serverStore.write(oldRecord)
+        tokenStore.write(oldToken)
+        sessions.restore()
+
+        val deadServer = MockWebServer()
+        deadServer.start()
+        val deadUrl = deadServer.url("/").toString()
+        deadServer.close() // nothing is listening on this port any more
+
+        shareInbox.offer(pairIntent(server = deadUrl))
+        drain()
+        viewModel.confirm()
+        awaitUntil { viewModel.state.value.error != null }
+
+        val signedIn = assertIs<Session.SignedIn>(sessions.session.value, "a network failure redeeming must leave the original account signed in")
+        assertEquals(oldBase, signedIn.serverUrl)
+        assertEquals("ben", signedIn.user.username)
+        assertEquals(oldToken, tokenStore.read())
+        assertEquals(oldRecord, serverStore.read())
     }
 
     @Test
