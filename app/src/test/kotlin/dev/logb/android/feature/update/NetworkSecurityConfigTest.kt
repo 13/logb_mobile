@@ -79,4 +79,20 @@ class NetworkSecurityConfigTest {
         assertTrue("expected system to be a trusted source", sources.contains("system"))
         assertFalse("a user-installed CA must not be trusted for GitHub", sources.contains("user"))
     }
+
+    /**
+     * `base-config` still permits cleartext (self-hosted LAN servers need it), but GitHub must
+     * never be reached over plain http even though it inherits everything else from base-config.
+     */
+    @Test fun `domain-config forbids cleartext traffic to GitHub`() {
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(configFile())
+        val domainConfig = singleElement(doc.documentElement, "domain-config")
+        assertEquals("false", domainConfig.getAttribute("cleartextTrafficPermitted"))
+    }
+
+    @Test fun `base-config still permits cleartext for self-hosted LAN servers`() {
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(configFile())
+        val baseConfig = singleElement(doc.documentElement, "base-config")
+        assertEquals("true", baseConfig.getAttribute("cleartextTrafficPermitted"))
+    }
 }

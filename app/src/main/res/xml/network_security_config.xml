@@ -20,7 +20,7 @@
       system store alone. The signing-certificate check would still refuse a forged APK; this keeps the
       version, the checksum and the file name honest too.
     -->
-    <domain-config>
+    <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="false">api.github.com</domain>
         <domain includeSubdomains="false">github.com</domain>
         <domain includeSubdomains="false">objects.githubusercontent.com</domain>
