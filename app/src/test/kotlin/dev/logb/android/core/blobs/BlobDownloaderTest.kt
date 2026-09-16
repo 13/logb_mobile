@@ -8,8 +8,14 @@ import dev.logb.android.core.db.entity.FileEntity
 import dev.logb.android.core.db.obj
 import dev.logb.android.core.network.ApiClient
 import dev.logb.android.core.sync.ConnectivityMonitor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okio.Buffer
@@ -19,6 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -73,6 +80,33 @@ class BlobDownloaderTest {
         server.enqueue(bytes("not the same bytes".toByteArray(), "image/jpeg"))
         downloader(unmetered = false).runAfterPull()
         assertFalse(store.hasOriginal(sha), "a mismatching download is thrown away")
+    }
+
+    @Test
+    fun `a cancelled download stops promptly and leaves no partial file behind`() = runTest {
+        seed()
+        // Trickled well below the transfer's own size (14 bytes): still mid-download when cancelled.
+        server.enqueue(
+            MockResponse.Builder().code(200).addHeader("content-type", "image/jpeg")
+                .body(Buffer().write(original))
+                .throttleBody(1, 100, TimeUnit.MILLISECONDS)
+                .build(),
+        )
+        val d = downloader(unmetered = true)
+        val scope = CoroutineScope(Dispatchers.Default)
+        val job = scope.launch { d.runAfterPull() }
+        // Real time, off the test scheduler: long enough for the read to have actually started.
+        withContext(Dispatchers.Default) { delay(300) }
+
+        val start = System.nanoTime()
+        job.cancelAndJoin()
+        val tookMs = (System.nanoTime() - start) / 1_000_000
+        assertTrue(tookMs < 5_000, "cancellation took $tookMs ms; should be well under OkHttp's 60 s read timeout")
+
+        assertFalse(store.hasOriginal(sha), "no completed original from a cancelled download")
+        val filesDir = ApplicationProvider.getApplicationContext<android.content.Context>().filesDir
+        val partials = filesDir.listFiles { f -> f.name.endsWith(".part") }?.toList() ?: emptyList()
+        assertTrue(partials.isEmpty(), "no partial file left behind: $partials")
     }
 
     @Test
