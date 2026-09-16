@@ -71,6 +71,12 @@ class ServerViewModel @Inject constructor(
             }
         }
     }
+
+    /** The scanner never opened because the camera permission was refused -- ZXing's own `CaptureActivity` asks for it, this app never does. Nothing was scanned, so [PairError.NotACode]/[classifyPairingError] don't apply. */
+    fun onCameraPermissionDenied() {
+        if (_state.value.pairing) return
+        _state.update { it.copy(pairError = PairError.CameraPermissionDenied) }
+    }
 }
 
 data class SignInUiState(

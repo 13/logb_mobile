@@ -150,6 +150,16 @@ class ServerViewModelTest {
     }
 
     @Test
+    fun `a denied camera permission reports pair_camera_permission_denied and touches no server`() = runTest(dispatcher) {
+        viewModel.onCameraPermissionDenied()
+        drain()
+
+        assertEquals(PairError.CameraPermissionDenied, viewModel.state.value.pairError)
+        assertEquals(false, viewModel.state.value.pairing)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
     fun `a second scan while one is already redeeming is ignored`() = runTest(dispatcher) {
         server.enqueue(json("{}")) // health -- a second dispatch here would prove the guard failed
         server.enqueue(json("""{"error":"unauthorized","message":"invalid or expired code"}""", 401))
