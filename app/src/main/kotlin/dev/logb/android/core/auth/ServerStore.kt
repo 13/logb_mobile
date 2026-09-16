@@ -32,7 +32,7 @@ interface ServerStore {
     suspend fun clear()
 
     /** Writes only the version and features, and only while the stored server is still [serverUrl]. */
-    suspend fun setVersion(serverUrl: String, version: String?, features: List<String> = emptyList())
+    suspend fun setVersion(serverUrl: String, version: String?, features: List<String>)
 }
 
 private val Context.serverDataStore: DataStore<Preferences> by preferencesDataStore(name = "server")

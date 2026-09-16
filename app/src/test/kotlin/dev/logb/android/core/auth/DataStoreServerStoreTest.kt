@@ -16,7 +16,7 @@ class DataStoreServerStoreTest {
     fun `setVersion writes the version for the matching url and leaves the rest of the record intact`() = runTest {
         store.write(ServerRecord("https://logb.example/", userId = 1, username = "ben", tokenId = 9, currency = "CHF", serverVersion = "0.7.1"))
 
-        store.setVersion("https://logb.example/", "0.8.0")
+        store.setVersion("https://logb.example/", "0.8.0", emptyList())
 
         val record = store.read()!!
         assertEquals("0.8.0", record.serverVersion)
@@ -30,7 +30,7 @@ class DataStoreServerStoreTest {
     fun `setVersion for a url that is no longer the stored server is ignored`() = runTest {
         store.write(ServerRecord("https://logb.example/", serverVersion = "0.7.1"))
 
-        store.setVersion("https://other.example/", "0.8.0")
+        store.setVersion("https://other.example/", "0.8.0", emptyList())
 
         assertEquals("0.7.1", store.read()!!.serverVersion)
     }
@@ -39,7 +39,7 @@ class DataStoreServerStoreTest {
     fun `setVersion with a null version clears it for the matching url`() = runTest {
         store.write(ServerRecord("https://logb.example/", serverVersion = "0.7.1"))
 
-        store.setVersion("https://logb.example/", null)
+        store.setVersion("https://logb.example/", null, emptyList())
 
         assertNull(store.read()!!.serverVersion)
     }
