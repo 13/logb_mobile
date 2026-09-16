@@ -139,6 +139,9 @@ Update traffic to `api.github.com`, `github.com`, `objects.githubusercontent.com
 privately installed CA cannot rewrite what an update is; a self-hosted LogB server may still
 use one, as every other host keeps system + user CAs. The updater installs only the asset
 named `LogB-<version>.apk` for the release's own version, never just the first `.apk` it finds.
+One consequence: a device behind a proxy that intercepts all TLS with a user-installed CA will
+no longer get in-app updates, since that CA is no longer trusted for GitHub's hosts — the
+release page on GitHub still works normally for a manual download.
 
 ## Performance and release checks
 

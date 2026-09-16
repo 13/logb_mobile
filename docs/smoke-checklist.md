@@ -116,3 +116,4 @@ On a real phone against a phase-0 server. `adb reverse tcp:8090 tcp:8090` and `h
 - [ ] Leave the app during an install and return to it: the Updates row offers *Open the install confirmation*.
 - [ ] Settings › About: the links line up with the section text, and the build date is hidden when unknown.
 - [ ] Tag filters still work from both the Objects list and a timeline.
+- [ ] Editing a type that was deleted elsewhere says it no longer exists.
