@@ -80,7 +80,7 @@ class PairingConfirmDialogTest {
         shareInbox.offer(link)
         drain()
 
-        compose.setContent { PairingConfirmHost(PairingConfirmViewModel(shareInbox, sessions, capabilities)) }
+        compose.setContent { PairingConfirmHost(androidx.compose.runtime.remember { PairingConfirmViewModel(shareInbox, sessions, capabilities) }) }
         drain()
 
         val fromHost = oldServer.url("/").host + ":" + oldServer.url("/").port
