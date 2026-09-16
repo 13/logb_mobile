@@ -91,7 +91,7 @@ class SettingsViewModel @Inject constructor(
             commit = BuildConfig.GIT_HASH, debug = BuildConfig.DEBUG, releaseKey = withContext(kotlinx.coroutines.Dispatchers.IO) { releaseKey.isRelease },
             serverUrl = (s.session as? Session.SignedIn)?.serverUrl, serverVersion = version, capabilities = caps,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AboutInfo(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_DATE, BuildConfig.GIT_HASH, BuildConfig.DEBUG, releaseKey = false, null, null, Capabilities.NONE))
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AboutInfo(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_DATE, BuildConfig.GIT_HASH, BuildConfig.DEBUG, releaseKey = null, null, null, Capabilities.NONE))
 
     /** A newer release the last check found, as a version name; null when none or already installed. */
     val updateAvailable: StateFlow<String?> = updatePrefs.settings

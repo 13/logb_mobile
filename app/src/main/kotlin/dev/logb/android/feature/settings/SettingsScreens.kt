@@ -419,16 +419,17 @@ fun AboutContent(info: AboutInfo, onBack: () -> Unit, onOpenUrl: (String) -> Uni
             } else {
                 Text(commit, style = MaterialTheme.typography.bodyMedium)
             }
-            Text(
-                stringResource(
-                    when {
-                        info.debug -> R.string.about_debug
-                        info.releaseKey -> R.string.about_release
-                        else -> R.string.about_release_debug_key
-                    },
-                ),
-                style = MaterialTheme.typography.bodyMedium, color = muted,
-            )
+            // debug is known synchronously; releaseKey comes from a suspend signing check, so it
+            // starts out null -- nothing is shown for that one frame rather than the wrong claim.
+            val signing = when {
+                info.debug -> R.string.about_debug
+                info.releaseKey == true -> R.string.about_release
+                info.releaseKey == false -> R.string.about_release_debug_key
+                else -> null
+            }
+            if (signing != null) {
+                Text(stringResource(signing), style = MaterialTheme.typography.bodyMedium, color = muted)
+            }
         }
         AboutSection(stringResource(R.string.about_server)) {
             if (info.serverUrl == null) {

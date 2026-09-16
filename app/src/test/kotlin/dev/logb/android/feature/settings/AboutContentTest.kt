@@ -31,4 +31,25 @@ class AboutContentTest {
         val built = compose.activity.getString(R.string.about_build_date, "unknown")
         compose.onNodeWithText(built).assertDoesNotExist()
     }
+
+    /**
+     * releaseKey is null only until the signing check (a suspend call) answers. A release build
+     * must never show "debug key" for that window -- the line is hidden instead, not wrong.
+     */
+    @Test fun `the signing line is hidden on a release build until the key is known`() {
+        compose.setContent { LogbTheme { AboutContent(base.copy(releaseKey = null), onBack = {}, onOpenUrl = {}, onCopy = {}) } }
+        compose.onNodeWithText(compose.activity.getString(R.string.about_release)).assertDoesNotExist()
+        compose.onNodeWithText(compose.activity.getString(R.string.about_release_debug_key)).assertDoesNotExist()
+    }
+
+    @Test fun `the signing line appears once the release key check answers`() {
+        compose.setContent { LogbTheme { AboutContent(base.copy(releaseKey = true), onBack = {}, onOpenUrl = {}, onCopy = {}) } }
+        compose.onNodeWithText(compose.activity.getString(R.string.about_release)).assertExists()
+    }
+
+    /** A debug build's line never depends on the signing check -- BuildConfig.DEBUG is known synchronously. */
+    @Test fun `the debug line shows regardless of whether the release key is known`() {
+        compose.setContent { LogbTheme { AboutContent(base.copy(debug = true, releaseKey = null), onBack = {}, onOpenUrl = {}, onCopy = {}) } }
+        compose.onNodeWithText(compose.activity.getString(R.string.about_debug)).assertExists()
+    }
 }

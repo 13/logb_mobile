@@ -28,6 +28,13 @@ class AboutInfoTest {
         assertEquals("LogB 0.7.0 (700)\nBuilt 2026-09-14 from 1dc9ad7, debug, debug key\nNo server", text)
     }
 
+    /** [AboutInfo.releaseKey] is null only until the signing check answers; copy text must never
+     * guess "debug key" for that window, which would be a wrong claim about a release build. */
+    @Test fun `copy text says the signing key is unknown rather than guessing`() {
+        val text = info.copy(releaseKey = null).copyText()
+        assertEquals("LogB 0.7.0 (700)\nBuilt 2026-09-14 from 1dc9ad7, release, signing key unknown\nServer https://logb.muh 0.7.1\nTags: no, own types: no, QR sign-in: no", text)
+    }
+
     @Test fun `commit link only for a real hash`() {
         assertEquals("https://github.com/13/logb_mobile/commit/1dc9ad7", info.commitUrl)
         assertNull(info.copy(commit = "unknown").commitUrl)

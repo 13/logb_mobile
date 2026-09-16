@@ -2,14 +2,19 @@ package dev.logb.android.feature.settings
 
 import dev.logb.android.core.server.Capabilities
 
-/** Everything the About page shows, and the plain text "Copy details" puts on the clipboard. */
+/**
+ * Everything the About page shows, and the plain text "Copy details" puts on the clipboard.
+ * [releaseKey] is null only until the signing check (a suspend call) has answered -- never a
+ * stand-in for "debug key", which is a specific, wrong claim about a release build for however
+ * briefly it takes to resolve.
+ */
 data class AboutInfo(
     val versionName: String,
     val versionCode: Int,
     val buildDate: String,
     val commit: String,
     val debug: Boolean,
-    val releaseKey: Boolean,
+    val releaseKey: Boolean?,
     val serverUrl: String?,
     val serverVersion: String?,
     val capabilities: Capabilities,
@@ -19,7 +24,8 @@ data class AboutInfo(
     /** English on purpose: this text goes into bug reports. */
     fun copyText(): String = buildList {
         add("LogB $versionName ($versionCode)")
-        add("Built $buildDate from $commit, ${if (debug) "debug" else "release"}, ${if (releaseKey) "release key" else "debug key"}")
+        val key = when (releaseKey) { true -> "release key"; false -> "debug key"; null -> "signing key unknown" }
+        add("Built $buildDate from $commit, ${if (debug) "debug" else "release"}, $key")
         if (serverUrl == null) {
             add("No server")
         } else {
