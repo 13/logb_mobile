@@ -3,6 +3,8 @@ package dev.logb.android.contract
 import dev.logb.android.core.auth.ApiFactory
 import dev.logb.android.core.auth.FakeServerStore
 import dev.logb.android.core.auth.FakeTokenStore
+import dev.logb.android.core.auth.PairingInvalid
+import dev.logb.android.core.auth.PairingLinks
 import dev.logb.android.core.auth.PasswordSession
 import dev.logb.android.core.auth.Session
 import dev.logb.android.core.auth.SessionRepository
@@ -384,5 +386,58 @@ class SyncContractTest {
         assertEquals("json", saved.format)
         assertNotNull(api.testNotifications().webhook)
         Unit
+    }
+
+    private fun uriOf(pairJson: String): String =
+        Regex("\"uri\":\"([^\"]+)\"").find(pairJson)!!.groupValues[1]
+
+    /**
+     * `POST /api/auth/pair` and `PairingLinks.parse`/`SessionRepository.signInWithPairing`
+     * against the real server. Skipped unless the binary named by `-PlogbBin` already announces
+     * the `pairing` feature on `/api/health`: CI's contract job builds `logb` from `13/logb`
+     * main, which has no pairing endpoints yet, and must stay green until the server ships it.
+     */
+    @Test
+    fun pairingSignsThePhoneIn() = runBlocking {
+        val health = call("GET", "/health")
+        assumeTrue(
+            "this logb binary predates pairing (no \"pairing\" in /api/health's features; " +
+                "CI's contract job builds server main, which doesn't have it yet): $health",
+            health.contains("\"pairing\""),
+        )
+
+        // Set up the account and log in over REST -- /auth/setup itself leaves a session cookie
+        // in the shared cookie jar, exactly as a browser's would, so POST /auth/pair below rides it.
+        call("POST", "/auth/setup", """{"username":"ben","password":"correct horse","timezone":"Europe/Berlin"}""")
+        val house = id(call("POST", "/objects", """{"name":"House","type":"home"}"""))
+
+        val paired = call("POST", "/auth/pair", "{}")
+        val link = PairingLinks.parse(uriOf(paired)) ?: error("could not parse pairing uri from: $paired")
+
+        val serverStore = FakeServerStore()
+        val sessions = SessionRepository(serverStore, FakeTokenStore(), ApiFactory { b, t, j -> ApiClient.create(b, t, j) })
+        check(sessions.signInWithPairing(link, "contract phone").isSuccess)
+        val signedIn = assertIs<Session.SignedIn>(sessions.session.value)
+        val stored = assertNotNull(serverStore.read())
+        check(stored.features.contains("pairing")) { "stored record should carry the pairing feature: ${stored.features}" }
+
+        // Redeeming the same code again is refused -- it was spent by the sign-in above.
+        val replay = sessions.signInWithPairing(link, "contract phone replay")
+        assertIs<PairingInvalid>(replay.exceptionOrNull())
+
+        // A pull succeeds with the freshly minted token.
+        val api = ApiClient.create(base, { signedIn.token })
+        val db = TestDatabase.inMemory()
+        PullEngine(db, api, deviceId = "contract-phone-pairing").run()
+        assertNotNull(db.objectDao().uuidForServerId(house))
+        db.close()
+
+        // Bonus: a new code invalidates the previous, still-unredeemed one.
+        val first = PairingLinks.parse(uriOf(call("POST", "/auth/pair", "{}"))) ?: error("could not parse first pairing uri")
+        val second = PairingLinks.parse(uriOf(call("POST", "/auth/pair", "{}"))) ?: error("could not parse second pairing uri")
+        val victim = SessionRepository(FakeServerStore(), FakeTokenStore(), ApiFactory { b, t, j -> ApiClient.create(b, t, j) })
+        val firstAttempt = victim.signInWithPairing(first, "superseded device")
+        assertIs<PairingInvalid>(firstAttempt.exceptionOrNull())
+        check(victim.signInWithPairing(second, "surviving device").isSuccess)
     }
 }
